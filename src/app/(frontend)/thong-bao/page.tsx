@@ -76,8 +76,7 @@ export default async function Page() {
     <>
       <SiteHeader />
       <PageHero
-        eyebrow="THÔNG BÁO BỆNH VIỆN"
-        title="Thông báo & Tin tức điều hành"
+        title="Thông báo mới"
         description="Cập nhật nhanh các thông báo khẩn, lịch khám bệnh, thời gian tiếp nhận và thông tin quan trọng từ Bệnh viện Đa khoa Khu vực Thới Lai."
       />
       <main className="section" style={{ background: '#f8fafc', minHeight: '80vh', padding: '36px 0 64px' }}>

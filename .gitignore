@@ -34,9 +34,15 @@ scripts/seed-inpatient-settings.mjs
 scripts/seed-patient-portal.mjs
 scripts/seed-quality-settings.mjs
 
+# backups & database dumps
+backups/
+scripts/backup-*.mjs
+scripts/backup-*.js
+
 # archives
 *.zip
 
 # OS
 .DS_Store
 Thumbs.db
+

@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 
-export type ProtectedDocumentCollection = 'documents' | 'clinical-protocols'
+export type ProtectedDocumentCollection = 'documents' | 'clinical-protocols' | 'work-schedules'
 
 type DocumentToken = {
   collection: ProtectedDocumentCollection
@@ -51,7 +51,7 @@ export const verifyDocumentToken = (value: string): DocumentToken | null => {
 
   try {
     const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as DocumentToken
-    if (!['documents', 'clinical-protocols'].includes(parsed.collection)) return null
+    if (!['documents', 'clinical-protocols', 'work-schedules'].includes(parsed.collection)) return null
     if (!parsed.documentId || !parsed.mediaId || parsed.exp < Math.floor(Date.now() / 1000)) return null
     return parsed
   } catch {

@@ -107,6 +107,78 @@
   background: #0369a1;
 }
 
+.actionBtnWord {
+  background: #2563eb;
+  border: 1px solid #1d4ed8;
+  color: #ffffff;
+}
+
+.actionBtnWord:hover {
+  background: #1d4ed8;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.actionBtnPdf {
+  background: #dc2626;
+  border: 1px solid #b91c1c;
+  color: #ffffff;
+}
+
+.actionBtnPdf:hover {
+  background: #b91c1c;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+
+.scheduleDropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.scheduleDropdownMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  min-width: 220px;
+  padding: 6px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scheduleDropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.scheduleDropdownItem:hover {
+  background: #f1f5f9;
+  color: #0284c7;
+}
+
+.scheduleDropdownDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
 /* Khung hiển thị công văn A4 */
 .officialDocumentCard {
   background: #ffffff;
@@ -444,16 +516,54 @@
 
 /* In ấn A4 sạch sẽ */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 1.2cm 1.5cm 1.5cm 2.0cm;
+  }
+
+  /* Ẩn tất cả mọi thứ trên trang ngoại trừ khung công văn chính */
+  body > * {
+    display: none !important;
+  }
+
+  /* Chỉ hiển thị duy nhất container chứa lịch làm việc */
+  body > main.workScheduleContainer,
+  body > div:has(#printOfficialDocumentCard) {
+    display: block !important;
+  }
+
+  /* Ẩn triệt để thanh công cụ, header, footer, widget chat, thanh mobile */
   .scheduleNavToolbar,
+  .viewerToolbar,
   header,
   footer,
   .siteHeader,
-  .siteFooter {
+  .siteFooter,
+  .pageHeroSection,
+  .websiteAssistant,
+  .mobileBottomNav,
+  .siteVisitStatsRibbon,
+  aside,
+  nav,
+  [class*="assistant"],
+  [class*="MobileBottomNav"],
+  [class*="SiteVisitStats"] {
     display: none !important;
+    visibility: hidden !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Times New Roman', serif !important;
+    font-size: 13pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .workScheduleContainer {
     max-width: 100% !important;
+    width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
   }
@@ -462,6 +572,141 @@
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  .docHeaderGrid {
+    margin-bottom: 20px !important;
+  }
+
+  .agencySuper {
+    color: #000000 !important;
+    font-size: 11pt !important;
+  }
+
+  .agencyMain {
+    color: #000000 !important;
+    font-size: 12.5pt !important;
+  }
+
+  .agencyDivider,
+  .mottoDivider {
+    background-color: #000000 !important;
+  }
+
+  .docNumber {
+    color: #000000 !important;
+    font-size: 11.5pt !important;
+  }
+
+  .republicTitle {
+    color: #000000 !important;
+    font-size: 11pt !important;
+  }
+
+  .mottoText {
+    color: #000000 !important;
+    font-size: 12pt !important;
+  }
+
+  .docDateLocation {
+    color: #000000 !important;
+    font-size: 11.5pt !important;
+  }
+
+  .docTitleSection {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 16px auto 14px auto !important;
+  }
+
+  .docMainTitle {
+    color: #0284c7 !important;
+    font-size: 16pt !important;
+  }
+
+  .docWeekSub {
+    color: #0284c7 !important;
+    font-size: 12.5pt !important;
+  }
+
+  .workScheduleTableWrapper {
+    border: 1.5pt solid #0284c7 !important;
+    box-shadow: none !important;
+    margin-bottom: 16px !important;
+  }
+
+  .workScheduleTable {
+    color: #000000 !important;
+    font-size: 11.5pt !important;
+  }
+
+  .workScheduleTable th {
+    background: #0284c7 !important;
+    background-color: #0284c7 !important;
+    color: #ffffff !important;
+    border: 1pt solid #cbd5e1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-size: 12pt !important;
+    padding: 8px !important;
+  }
+
+  .workScheduleTable td {
+    border: 1pt solid #cbd5e1 !important;
+    padding: 8px 10px !important;
+  }
+
+  .workScheduleTable tbody tr:nth-child(even) {
+    background-color: transparent !important;
+  }
+
+  .tdDayCell {
+    background-color: #f8fafc !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .dayNameText {
+    color: #0369a1 !important;
+    font-size: 12pt !important;
+  }
+
+  .dateFormattedText {
+    color: #64748b !important;
+    font-size: 10.5pt !important;
+  }
+
+  .sessionContentText {
+    color: #000000 !important;
+    font-size: 11.5pt !important;
+    line-height: 1.4 !important;
+  }
+
+  .docFooterSection {
+    margin-top: 16px !important;
+  }
+
+  .docGeneralNote {
+    color: #000000 !important;
+    font-size: 11.5pt !important;
+    margin-bottom: 20px !important;
+  }
+
+  .docSignerRole,
+  .docSignerName {
+    color: #000000 !important;
+    font-size: 12pt !important;
+  }
+
+  .docSignedText {
+    color: #475569 !important;
+    margin: 14px 0 18px 0 !important;
+  }
+
+  .docRevisionBadge {
+    display: none !important;
   }
 }
 

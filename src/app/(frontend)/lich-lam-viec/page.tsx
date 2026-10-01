@@ -126,6 +126,9 @@ export default async function WorkSchedulePage({ searchParams }: PageProps) {
   const attachedFileUrl = mediaUrl(doc.attachedFile)
   const scannedImageUrl = mediaUrl(doc.scannedImage)
   const isPdf = attachedFileUrl?.toLowerCase().endsWith('.pdf')
+  const streamFileUrl = doc.id && doc.attachedFile
+    ? `/api/document-file?collection=work-schedules&id=${encodeURIComponent(String(doc.id))}`
+    : attachedFileUrl
   const isViewerMode = doc.displayMode === 'viewer' && (attachedFileUrl || scannedImageUrl)
 
   return (
@@ -133,7 +136,6 @@ export default async function WorkSchedulePage({ searchParams }: PageProps) {
       <SiteHeader />
 
       <PageHero
-        eyebrow="CỔNG THÔNG TIN CÔNG VỤ & HOẠT ĐỘNG"
         title="Lịch làm việc cơ quan"
         description="Lịch công tác tuần của Ban Giám đốc và các Khoa/Phòng Bệnh viện Đa khoa Khu vực Thới Lai theo chuẩn mẫu cổng Cần Thơ."
         breadcrumbParent="Giới thiệu"
@@ -150,7 +152,8 @@ export default async function WorkSchedulePage({ searchParams }: PageProps) {
           nextWeek={nextWeekNum}
           nextYear={nextYearNum}
           allWeeks={allWeeks}
-          attachedFileUrl={attachedFileUrl}
+          attachedFileUrl={streamFileUrl ? `${streamFileUrl}${streamFileUrl.includes('?') ? '&' : '?'}download=1` : attachedFileUrl}
+          scheduleDoc={doc}
         />
 
         {/* 2. NỘI DUNG CHÍNH (THEO 2 CHẾ ĐỘ HIỂN THỊ ADMIN ĐÃ CHỌN) */}
@@ -159,8 +162,8 @@ export default async function WorkSchedulePage({ searchParams }: PageProps) {
           <div className="viewerContainer">
             <div className="viewerToolbar">
               <span>📄 Đang xem trực tiếp tệp văn bản lịch công tác</span>
-              {attachedFileUrl && (
-                <a href={attachedFileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0284c7', textDecoration: 'underline' }}>
+              {(streamFileUrl || attachedFileUrl) && (
+                <a href={streamFileUrl || attachedFileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0284c7', textDecoration: 'underline' }}>
                   Mở tệp trong tab mới ↗
                 </a>
               )}
@@ -169,7 +172,7 @@ export default async function WorkSchedulePage({ searchParams }: PageProps) {
             {attachedFileUrl ? (
               isPdf ? (
                 <iframe
-                  src={`${attachedFileUrl}#toolbar=1&navpanes=0`}
+                  src={`${streamFileUrl || attachedFileUrl}#toolbar=1&navpanes=0`}
                   className="viewerIframe"
                   title={doc.title}
                 />
@@ -188,7 +191,7 @@ export default async function WorkSchedulePage({ searchParams }: PageProps) {
           </div>
         ) : (
           /* ── TÙY CHỌN 1: BẢNG LỊCH BIỂU CÔNG VỤ CHUẨN MẪU BỆNH VIỆN ── */
-          <article className="officialDocumentCard">
+          <article className="officialDocumentCard" id="printOfficialDocumentCard">
             {/* Nhãn phiên bản / chỉnh sửa ở góc trái */}
             {doc.revision && (
               <div className="docRevisionBadge">

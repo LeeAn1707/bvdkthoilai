@@ -45,7 +45,6 @@ export function PageHero({
             <span>{breadcrumbText}</span>
           )}
         </nav>
-        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
         <h1>{title}</h1>
         {description && <p>{description}</p>}
       </div>

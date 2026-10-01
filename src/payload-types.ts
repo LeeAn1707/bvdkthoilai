@@ -1868,7 +1868,7 @@ export interface WorkSchedule {
   startDate?: string | null;
   endDate?: string | null;
   /**
-   * Nhập nội dung công tác Sáng / Chiều cho từng ngày. Sử dụng công cụ Quét ảnh AI hoặc Tải mẫu Excel/Word ở tab 1 để điền nhanh.
+   * Nhập nội dung công tác Sáng / Chiều cho từng ngày. Bạn có thể bấm nút "⚡ Điền sẵn Thứ 2 → Thứ 6" ở trên để tự động điền ngày tháng theo tuần.
    */
   days?:
     | {

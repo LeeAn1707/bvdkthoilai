@@ -1,6 +1,12 @@
 # CHANGELOG
 
-## 2026-09-25 — Bổ Sung Công Tắc Bật/Tắt Lấy Tin Ngoài & Tối Ưu An Toàn Hệ Thống
+## 2026-10-01 — Xuất Lịch Word/PDF, Tự Động Điền Lịch Tuần & Nhật Ký Sửa Đổi Lịch Làm Việc
+
+- Bổ sung tính năng xuất Lịch làm việc cơ quan ra 2 định dạng Word (`.doc`) và PDF (`.pdf`) chuẩn thể thức hành chính theo mẫu Cần Thơ (`src/lib/workScheduleExport.ts`), tích hợp iframe ẩn giúp in trực tiếp và tải về mà không mở tab `about:blank`.
+- Bổ sung tiện ích tự động tính ngày và điền sẵn Thứ 2 → Thứ 6 / Thứ 7 theo tuần hiện tại trong trang quản trị (`src/components/admin/WorkScheduleDaysHelper.tsx`).
+- Bổ sung Tab Nhật ký chỉnh sửa nội bộ (Audit Log) chỉ dành cho Admin (`src/components/admin/WorkScheduleAuditView.tsx` và `/api/work-schedule-history`).
+- Chuẩn hóa giao diện PageHero toàn website: loại bỏ dòng tiêu đề phụ in hoa (`eyebrow`), đổi tiêu đề mục Thông báo thành "Thông báo mới".
+
 
 - Bổ sung trường checkbox `enableExternalFetch` (mặc định: `false` / TẮT) trong cấu hình mục Cổng thông tin Sở Y tế Cần Thơ & Đơn vị liên kết (`src/globals/Homepage.ts`), cho phép quản trị viên chủ động quyết định khi nào mới cho phép hệ thống kết nối ra mạng ngoài.
 - Bổ sung công tắc `autoFetchEnabled` riêng cho từng Tab liên kết (Sở Y tế, Website tự động, RSS Feed), hỗ trợ kiểm soát kết nối chi tiết tới từng nguồn cấp tin.

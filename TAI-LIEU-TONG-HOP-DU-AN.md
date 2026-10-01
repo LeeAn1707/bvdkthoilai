@@ -68,6 +68,8 @@ Bản này được sửa trực tiếp từ ZIP
     -   Mở tab mới
 
 ## Cập nhật
+## sao luu csdl raiway
+Tôi đã tích hợp sẵn lệnh backup trực tiếp vào dự án. Mỗi khi muốn tạo một bản sao lưu mới từ Railway, bạn chỉ cần mở terminal tại thư mục dự án và gõ: npm run backup:railway
 
 Copy `.env` hiện tại sang project rồi chạy:
 

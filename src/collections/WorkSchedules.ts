@@ -130,12 +130,21 @@ export const WorkSchedules: CollectionConfig = {
           },
           fields: [
             {
+              name: 'daysHelper',
+              type: 'ui',
+              admin: {
+                components: {
+                  Field: '/src/components/admin/WorkScheduleDaysHelper#default',
+                },
+              },
+            },
+            {
               name: 'days',
               label: 'Lịch công tác từng ngày trong tuần (Thứ 2 đến Thứ 6 / CN)',
               type: 'array',
               admin: {
                 initCollapsed: false,
-                description: 'Nhập nội dung công tác Sáng / Chiều cho từng ngày. Sử dụng công cụ Quét ảnh AI hoặc Tải mẫu Excel/Word ở tab 1 để điền nhanh.',
+                description: 'Nhập nội dung công tác Sáng / Chiều cho từng ngày. Bạn có thể bấm nút "⚡ Điền sẵn Thứ 2 → Thứ 6" ở trên để tự động điền ngày tháng theo tuần.',
               },
               fields: [
                 {
@@ -229,6 +238,20 @@ export const WorkSchedules: CollectionConfig = {
                   admin: { width: '50%', placeholder: 'VD: DSCKI. Dương Văn Bé' },
                 },
               ],
+            },
+          ],
+        },
+        {
+          label: '📜 Nhật ký chỉnh sửa (Admin)',
+          fields: [
+            {
+              name: 'auditHistoryView',
+              type: 'ui',
+              admin: {
+                components: {
+                  Field: '/src/components/admin/WorkScheduleAuditView#default',
+                },
+              },
             },
           ],
         },

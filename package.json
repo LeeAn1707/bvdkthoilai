@@ -57,7 +57,8 @@
     "audit:header-settings": "node scripts/upgrade-header-settings.mjs",
     "upgrade:header-settings": "node scripts/upgrade-header-settings.mjs",
     "audit:users-schema": "node scripts/repair-users-schema.mjs",
-    "repair:users-schema": "node scripts/repair-users-schema.mjs"
+    "repair:users-schema": "node scripts/repair-users-schema.mjs",
+    "backup:railway": "node scripts/backup-railway.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1128.0",

@@ -29,6 +29,8 @@ import { default as default_2683d9f76368fa0ddc7d8eddff9f52a3 } from '../../../..
 import { default as default_f83aabc67af93016a8d58661d9f5c808 } from '../../../../src/components/admin/NurseTemplateDownload'
 import { default as default_2c45d41a3f6b5a09cbd80db681fe5217 } from '../../../../src/components/admin/EmergencyTemplateDownload'
 import { default as default_02b4dadea33761cf22ef8d1215a1e6a4 } from '../../../../src/components/admin/WorkScheduleAdminHelper'
+import { default as default_8970e845ec9e52332a31d8274268bb6c } from '../../../../src/components/admin/WorkScheduleDaysHelper'
+import { default as default_331c094cd2a405377506af9d554c7d3f } from '../../../../src/components/admin/WorkScheduleAuditView'
 import { default as default_9637cefafeb6600a998c5ef49603565b } from '../../../../src/components/admin/AppointmentsDashboard'
 import { default as default_5c576dfdc8a9a6c3d967695062ab8dcd } from '../../../../src/components/admin/ServicesExcelImport'
 import { default as default_688d79dcd6a2511ec4d98b30dde78fc0 } from '../../../../src/components/admin/FAQExcelImport'
@@ -77,6 +79,8 @@ export const importMap = {
   "/src/components/admin/NurseTemplateDownload#default": default_f83aabc67af93016a8d58661d9f5c808,
   "/src/components/admin/EmergencyTemplateDownload#default": default_2c45d41a3f6b5a09cbd80db681fe5217,
   "/src/components/admin/WorkScheduleAdminHelper#default": default_02b4dadea33761cf22ef8d1215a1e6a4,
+  "/src/components/admin/WorkScheduleDaysHelper#default": default_8970e845ec9e52332a31d8274268bb6c,
+  "/src/components/admin/WorkScheduleAuditView#default": default_331c094cd2a405377506af9d554c7d3f,
   "/src/components/admin/AppointmentsDashboard#default": default_9637cefafeb6600a998c5ef49603565b,
   "/src/components/admin/ServicesExcelImport#default": default_5c576dfdc8a9a6c3d967695062ab8dcd,
   "/src/components/admin/FAQExcelImport#default": default_688d79dcd6a2511ec4d98b30dde78fc0,

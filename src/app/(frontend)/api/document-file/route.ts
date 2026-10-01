@@ -12,7 +12,7 @@ import {
 export const runtime = 'nodejs'
 
 const isCollection = (value: string | null): value is ProtectedDocumentCollection =>
-  value === 'documents' || value === 'clinical-protocols'
+  value === 'documents' || value === 'clinical-protocols' || value === 'work-schedules'
 
 const safeName = (value: string) => value.replace(/[\r\n"\\]/g, '_')
 
@@ -55,7 +55,8 @@ export async function GET(request: Request) {
     const mode = String(document.accessMode || 'public')
     if (mode === 'locked') return NextResponse.json({ error: 'Tài liệu hiện đang bị khóa.' }, { status: 403 })
 
-    const mediaId = relationID(document.file)
+    const fileField = document.attachedFile || document.file
+    const mediaId = relationID(fileField)
     const token = tokenValue ? verifyDocumentToken(tokenValue) : null
     const needsToken = mode === 'pin' || mode === 'internal'
     if (needsToken && (
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Quyền truy cập không hợp lệ hoặc đã hết hạn.' }, { status: 403 })
     }
 
-    const media = typeof document.file === 'object' ? document.file : await payload.findByID({
+    const media = typeof fileField === 'object' && fileField !== null ? fileField : await payload.findByID({
       collection: 'media',
       id: mediaId,
       depth: 0,
