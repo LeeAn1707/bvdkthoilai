@@ -323,8 +323,10 @@ export default buildConfig({
     pool: {
       connectionString: effectiveDatabaseURL,
       connectionTimeoutMillis: 30000,
-      max: 20,
+      max: Number(process.env.DB_POOL_MAX || (isProduction ? 10 : 20)),
       idleTimeoutMillis: 30000,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
     }
   }),
   sharp,
