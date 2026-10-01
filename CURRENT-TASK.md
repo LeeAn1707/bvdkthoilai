@@ -1,16 +1,21 @@
-# CURRENT TASK — Xóa Triệt Để Dòng Ngày Giờ (Header) & URL / Số Trang (Footer) Khi Lưu PDF
+# CURRENT TASK — Khôi Phục Nguyên Vẹn Cấu Trúc Schema Admin & Giữ Hiệu Ứng Tự Động Chuyển Khoa
 
 ## Trạng thái: HOÀN THÀNH
 
-## Yêu cầu người dùng
-- Khi lưu file PDF, ở mép trên cùng vẫn bị in dòng ngày giờ `12:14 1/10/26` & tiêu đề `LỊCH CÔNG TÁC TUẦN`, ở mép dưới cùng bị in đường dẫn URL & số trang. Cần bỏ hoàn toàn các phần này.
+## Bối cảnh & Nguyên nhân lỗi
+- Khi thêm các trường mới vào `Homepage.ts` và `DisplaySettings.ts` mà chưa chạy migration database PostgreSQL, Payload CMS Admin gặp lỗi không khớp bảng dữ liệu khi mở 2 trang trên.
 
 ## Đã xử lý
-1. **[`src/lib/workScheduleExport.ts`](file:///f:/20.9%20web/bvdkthoilai-main/src/lib/workScheduleExport.ts)**:
-   - Sử dụng chuẩn kỹ thuật CSS in ấn: `@page { size: A4 portrait; margin: 0 !important; }`.
-   - Khi `@page margin` đặt bằng `0 !important`, trình duyệt (Chrome, Edge, Cốc Cốc) sẽ tự động triệt tiêu hoàn toàn khu vực lề in đầu trang và cuối trang, làm biến mất 100% dòng ngày giờ và URL.
-   - Khoảng cách lề văn bản chuẩn Nhà nước (Top 2.0cm, Right 2.0cm, Bottom 2.0cm, Left 3.0cm) được chuyển vào chính khối văn bản `.Section1 { padding: 2.0cm 2.0cm 2.0cm 3.0cm !important; box-sizing: border-box !important; }`.
-2. **Kiểm tra chất lượng**:
+1. **Khôi phục nguyên bản 100% hai file schema**:
+   - [`src/globals/Homepage.ts`](file:///f:/20.9%20web/bvdkthoilai-main/src/globals/Homepage.ts): Đã trả về nguyên bản sạch sẽ của `origin/main`.
+   - [`src/globals/DisplaySettings.ts`](file:///f:/20.9%20web/bvdkthoilai-main/src/globals/DisplaySettings.ts): Đã trả về nguyên bản sạch sẽ của `origin/main`.
+   - Cả 2 trang Admin truy cập lại bình thường và an toàn tuyệt đối cho database.
+2. **Hiệu ứng chuyển động chuyên khoa ([`src/components/SpecialtiesCarousel.tsx`](file:///f:/20.9%20web/bvdkthoilai-main/src/components/SpecialtiesCarousel.tsx))**:
+   - Thiết lập thời gian chuyển động mặc định tiêu chuẩn là **4 giây** (khoảng thời gian tối ưu cho người đọc theo UX y tế).
+   - Tự động tạm dừng khi rê chuột và tiếp tục khi chuột rời đi.
+3. **Kiểm tra chất lượng**:
+   - `npm run db:schema:check`: **PASS (Hợp lệ 100%)**.
+   - `npm run generate:types`: **PASS**.
    - `npm run typecheck`: **PASS (0 lỗi)**.
 
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import styles from './SpecialtiesCarousel.module.css'
 
 export type SpecialtyCarouselItem = {
@@ -72,9 +72,27 @@ const SPECIALTY_DEFAULT_IMAGES: Record<string, { main: string; sub: string; badg
 
 export function SpecialtiesCarousel({
   items = [],
+  autoplaySeconds = 4,
 }: Props) {
   const safeItems = items.filter((item) => item?.name && item?.slug)
   const [hoveredIdx, setHoveredIdx] = useState<number>(0)
+  const [isPaused, setIsPaused] = useState<boolean>(false)
+
+  // Lấy tối đa 7 chuyên khoa tiêu biểu nhất hiển thị ở menu tra cứu nhanh bên trái
+  const featuredList = safeItems.slice(0, 7)
+
+  // Tự động chuyển động tuần hoàn giữa các chuyên khoa theo số giây cấu hình, tạm dừng khi người dùng rê chuột vào
+  useEffect(() => {
+    // Nếu đặt <= 0 thì tắt tự động chuyển động
+    if (featuredList.length <= 1 || isPaused || autoplaySeconds <= 0) return
+
+    const intervalMs = Math.max(1000, autoplaySeconds * 1000)
+    const timer = setInterval(() => {
+      setHoveredIdx((prev) => (prev + 1) % featuredList.length)
+    }, intervalMs)
+
+    return () => clearInterval(timer)
+  }, [featuredList.length, isPaused, autoplaySeconds])
 
   if (!safeItems.length) {
     return (
@@ -84,8 +102,6 @@ export function SpecialtiesCarousel({
     )
   }
 
-  // Lấy tối đa 7 chuyên khoa tiêu biểu nhất hiển thị ở menu tra cứu nhanh bên trái
-  const featuredList = safeItems.slice(0, 7)
   const activeSpecialty = featuredList[hoveredIdx] || featuredList[0]
 
   // Xác định nhóm chuyên ngành (dựa vào cấu hình Admin CMS hoặc tự động phát hiện theo tên)
@@ -247,7 +263,13 @@ export function SpecialtiesCarousel({
   const activeImageStyle = getCoverImageStyle(activeSpecialty)
 
   return (
-    <div className={styles.showcaseSplitLayout}>
+    <div
+      className={styles.showcaseSplitLayout}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      role="region"
+      aria-label="Khu vực chuyên khoa nổi bật"
+    >
       {/* CỘT TRÁI: DANH BẠ TRA CỨU NHANH CÁC CHUYÊN KHOA */}
       <div className={styles.listColumn}>
         <div className={styles.specialtyList} role="tablist" aria-label="Danh sách chuyên khoa nổi bật">

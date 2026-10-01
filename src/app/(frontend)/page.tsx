@@ -142,22 +142,25 @@ export default async function HomePage() {
   let healthWarnings: any[] = []
   let canthoHealthNews: any[] = []
   let siteSettings: any = {}
+  let displaySettings: any = {}
   let quickLinksSettings: any = {}
   let medproSettings: any = {}
   let defaultMedia: any = { news: '/default-content/news.svg', notices: '/default-content/notices.svg', procurement: '/default-content/procurement.svg' }
   let totals = { news: 0, notices: 0, doctors: 0, departments: 0, services: 0 }
 
   try {
-    const [payload, homepage, settings, contentDefaults, quickSettings, bookingSettings] = await Promise.all([
+    const [payload, homepage, settings, display, contentDefaults, quickSettings, bookingSettings] = await Promise.all([
       getCMS(),
       getHomepage().catch((error: unknown) => { console.error('[HomePage] getHomepage error:', databaseErrorDetails(error)); return {} }),
       getGlobal('site-settings').catch((error: unknown) => { console.error('[HomePage] site-settings error:', databaseErrorDetails(error)); return {} }),
+      getGlobal('display-settings').catch(() => ({})),
       getDefaultContentMedia().catch(() => ({ news: '/default-content/news.svg', notices: '/default-content/notices.svg', procurement: '/default-content/procurement.svg' })),
       getGlobal('quick-links-settings').catch(() => ({})),
       getGlobal('medpro-settings').catch(() => ({})),
     ])
     home = homepage || {}
     siteSettings = settings || {}
+    displaySettings = display || {}
     defaultMedia = contentDefaults
     quickLinksSettings = quickSettings || {}
     medproSettings = bookingSettings || {}
@@ -1069,7 +1072,7 @@ export default async function HomePage() {
 
                   <SpecialtiesCarousel
                     items={carouselSpecialties}
-                    autoplaySeconds={5}
+                    autoplaySeconds={4}
                   />
                 </div>
               </section>
