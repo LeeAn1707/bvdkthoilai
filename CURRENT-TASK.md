@@ -1,23 +1,16 @@
-# CURRENT TASK — Thiết Kế & Tối Ưu Kích Thước Banner Chuẩn Màn Hình Điện Thoại
+# CURRENT TASK — Xóa Triệt Để Dòng Ngày Giờ (Header) & URL / Số Trang (Footer) Khi Lưu PDF
 
 ## Trạng thái: HOÀN THÀNH
 
-## Bối cảnh & Yêu cầu
-- Thiết kế banner vừa vặn kích thước màn hình điện thoại cho Bệnh viện Đa khoa Khu vực Thới Lai.
+## Yêu cầu người dùng
+- Khi lưu file PDF, ở mép trên cùng vẫn bị in dòng ngày giờ `12:14 1/10/26` & tiêu đề `LỊCH CÔNG TÁC TUẦN`, ở mép dưới cùng bị in đường dẫn URL & số trang. Cần bỏ hoàn toàn các phần này.
 
-## Đã triển khai
-1. **Thiết kế ảnh Banner Mobile chuyên dụng**:
-   - Tạo file [`public/banners/banner-bvdk-thoi-lai-mobile.png`](file:///f:/20.9%20web/bvdkthoilai-main/public/banners/banner-bvdk-thoi-lai-mobile.png) với kích thước **1080 × 540 px** (tỉ lệ 2:1 chuẩn màn hình smartphone hiện đại).
-   - Nội dung thiết kế: Logo bệnh viện viền tròn nổi bật, tên đơn vị đầy đủ "SỞ Y TẾ THÀNH PHỐ CẦN THƠ / BỆNH VIỆN ĐA KHOA KHU VỰC THỚI LAI", slogan "Điều trị bằng trái tim – Chăm sóc bằng tấm lòng", badge Cấp cứu 24/7 (0292 368 9115) và địa chỉ viện.
-2. **Cấu hình tự động chuyển đổi ảnh Mobile ([`src/app/(frontend)/page.tsx`](file:///f:/20.9%20web/bvdkthoilai-main/src/app/(frontend)/page.tsx) & [`src/components/HeroBannerCarousel.tsx`](file:///f:/20.9%20web/bvdkthoilai-main/src/components/HeroBannerCarousel.tsx))**:
-   - Khi truy cập trên điện thoại (màn hình <= 820px), thẻ `<picture>` tự động nạp ảnh banner mobile chuyên dụng thay cho banner ngang dài của máy tính.
-3. **CSS Responsive mượt mà ([`src/app/globals.css`](file:///f:/20.9%20web/bvdkthoilai-main/src/app/globals.css))**:
-   - Tự động co giãn theo tỉ lệ `aspect-ratio: 2 / 1`, phủ kín 100% bề ngang điện thoại mà không bị méo, không bị tràn viền hay mất chữ.
-
-## Kiểm tra chất lượng (Verification)
-- `npm run typecheck`: **PASS (0 lỗi)**.
-- Ảnh hiển thị sắc nét, vừa vặn toàn màn hình điện thoại.
-
-
+## Đã xử lý
+1. **[`src/lib/workScheduleExport.ts`](file:///f:/20.9%20web/bvdkthoilai-main/src/lib/workScheduleExport.ts)**:
+   - Sử dụng chuẩn kỹ thuật CSS in ấn: `@page { size: A4 portrait; margin: 0 !important; }`.
+   - Khi `@page margin` đặt bằng `0 !important`, trình duyệt (Chrome, Edge, Cốc Cốc) sẽ tự động triệt tiêu hoàn toàn khu vực lề in đầu trang và cuối trang, làm biến mất 100% dòng ngày giờ và URL.
+   - Khoảng cách lề văn bản chuẩn Nhà nước (Top 2.0cm, Right 2.0cm, Bottom 2.0cm, Left 3.0cm) được chuyển vào chính khối văn bản `.Section1 { padding: 2.0cm 2.0cm 2.0cm 3.0cm !important; box-sizing: border-box !important; }`.
+2. **Kiểm tra chất lượng**:
+   - `npm run typecheck`: **PASS (0 lỗi)**.
 
 

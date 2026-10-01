@@ -241,14 +241,39 @@ export default async function HomePage() {
   const medpro = booking.url
   const builtInHeroImage = '/banners/banner-bvdk-thoi-lai-1920x600.png'
   const builtInHeroMobileImage = '/banners/banner-bvdk-thoi-lai-mobile.png'
+  const parseBannerDirectives = (descText?: string) => {
+    const raw = String(descText || '')
+    const ratioMatch = raw.match(/\[ratio:([0-9/.:]+)\]/i)
+    const heightMatch = raw.match(/\[height:([0-9]+(?:px|vh)?)\]/i)
+    const fitMatch = raw.match(/\[fit:(cover|contain|fill)\]/i)
+    const cleaned = raw
+      .replace(/\[ratio:[0-9/.:]+\]/gi, '')
+      .replace(/\[height:[0-9]+(?:px|vh)?\]/gi, '')
+      .replace(/\[fit:(?:cover|contain|fill)\]/gi, '')
+      .trim()
+    return {
+      ratio: ratioMatch ? ratioMatch[1].replace(':', ' / ') : undefined,
+      height: heightMatch ? (heightMatch[1].endsWith('px') || heightMatch[1].endsWith('vh') ? heightMatch[1] : `${heightMatch[1]}px`) : undefined,
+      fit: fitMatch ? fitMatch[1].toLowerCase() as 'cover' | 'contain' | 'fill' : undefined,
+      cleanDescription: cleaned,
+    }
+  }
+
   const configuredHeroSlides = (Array.isArray(home?.banners) ? home.banners : [])
     .filter((item: any) => item.visible !== false && mediaUrl(item.desktopImage))
-    .map((item: any, index: number) => ({
-      id: String(item.id || index),
-      desktopUrl: mediaUrl(item.desktopImage),
-      mobileUrl: mediaUrl(item.mobileImage) || builtInHeroMobileImage,
-      title: item.title,
-    }))
+    .map((item: any, index: number) => {
+      const directives = parseBannerDirectives(item.description)
+      return {
+        id: String(item.id || index),
+        desktopUrl: mediaUrl(item.desktopImage),
+        mobileUrl: mediaUrl(item.mobileImage) || builtInHeroMobileImage,
+        title: item.title,
+        description: directives.cleanDescription,
+        customRatio: directives.ratio,
+        customHeight: directives.height,
+        customFit: directives.fit,
+      }
+    })
   const fallbackHeroImage = mediaUrl(home?.hero?.desktopImage) || builtInHeroImage
   const fallbackHeroMobile = mediaUrl(home?.hero?.mobileImage) || builtInHeroMobileImage
   const heroSlides = configuredHeroSlides.length

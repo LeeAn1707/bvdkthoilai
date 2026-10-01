@@ -8,6 +8,10 @@ type HeroSlide = {
   desktopUrl: string
   mobileUrl?: string
   title?: string
+  description?: string
+  customRatio?: string
+  customHeight?: string
+  customFit?: 'cover' | 'contain' | 'fill'
 }
 
 export function HeroBannerCarousel({ slides, intervalSeconds = 6, bannerWidth = 1300 }: { slides: HeroSlide[]; intervalSeconds?: number; bannerWidth?: number }) {
@@ -28,16 +32,28 @@ export function HeroBannerCarousel({ slides, intervalSeconds = 6, bannerWidth = 
 
   const move = (direction: number) => setActive((current) => (current + direction + slides.length) % slides.length)
 
+  const activeSlide = slides[active] || slides[0]
   const safeWidth = Math.max(600, Math.min(bannerWidth || 1300, 3000))
+  const defaultHeight = Math.round(safeWidth * 600 / 1920)
+  const customHeight = activeSlide?.customHeight || `${defaultHeight}px`
+  const customRatio = activeSlide?.customRatio || '16 / 9'
+  const customFit = activeSlide?.customFit || 'cover'
+
   const bannerStyle = {
     '--hero-banner-width': `${safeWidth}px`,
-    '--hero-banner-height': `${Math.round(safeWidth * 600 / 1920)}px`,
+    '--hero-banner-height': customHeight,
+    '--hero-banner-ratio': customRatio,
+    '--hero-banner-fit': customFit,
   } as CSSProperties
 
   return <section className="hospitalHero heroBannerCarousel" aria-label="Banner Bệnh viện Đa khoa khu vực Thới Lai" style={bannerStyle}>
     {slides.map((slide, index) => <picture className={`heroBannerSlide ${index === active ? 'active' : ''}`} key={slide.id} aria-hidden={index !== active}>
       {slide.mobileUrl && <source media="(max-width: 820px)" srcSet={slide.mobileUrl} />}
-      <img src={slide.desktopUrl} alt={slide.title || 'Bệnh viện Đa khoa khu vực Thới Lai'} />
+      <img
+        src={slide.desktopUrl}
+        alt={slide.title || 'Bệnh viện Đa khoa khu vực Thới Lai'}
+        style={{ objectFit: (index === active ? customFit : slide.customFit) || 'cover' }}
+      />
     </picture>)}
 
     {slides.length > 1 && <>

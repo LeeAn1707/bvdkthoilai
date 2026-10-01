@@ -2675,15 +2675,15 @@ body { background: #fff; color: var(--ink); overflow-x: hidden; }
     left: 0 !important;
     transform: none !important;
     height: auto !important;
-    aspect-ratio: 2 / 1 !important;
+    aspect-ratio: var(--hero-banner-ratio, 16 / 9) !important;
   }
   .heroBannerSlide img {
-    object-fit: cover !important;
+    object-fit: var(--hero-banner-fit, cover) !important;
   }
 }
 @media (max-width: 480px) {
   .heroBannerCarousel {
-    aspect-ratio: 2 / 1 !important;
+    aspect-ratio: var(--hero-banner-ratio, 16 / 9) !important;
   }
 }
 @media(max-width:680px){.heroBannerArrow{width:34px;height:34px;opacity:.85}.heroBannerArrow.previous{left:8px}.heroBannerArrow.next{right:8px}.heroBannerDots{bottom:8px}}

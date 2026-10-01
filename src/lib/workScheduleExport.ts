@@ -96,22 +96,39 @@ export function buildWorkScheduleDocHtml(doc: WorkScheduleExportDoc): string {
           <w:View>Print</w:View>
           <w:Zoom>100</w:Zoom>
           <w:DoNotOptimizeForBrowser/>
+          <w:Compatibility>
+            <w:UseWord2002TableStyleRules/>
+          </w:Compatibility>
         </w:WordDocument>
       </xml>
       <![endif]-->
       <style>
+        /* Định nghĩa khổ A4 chuẩn cho Microsoft Word (595.3pt x 841.9pt hay 210mm x 297mm) */
+        /* Lề: Top 2.0cm (56.7pt / 1134dxa), Left 3.0cm (85.05pt / 1701dxa), Right 2.0cm, Bottom 2.0cm */
+        @page Section1 {
+          size: 595.3pt 841.9pt;
+          mso-page-orientation: portrait;
+          margin: 2.0cm 2.0cm 2.0cm 3.0cm;
+          mso-header-margin: 36.0pt;
+          mso-footer-margin: 36.0pt;
+          mso-paper-source: 0;
+        }
+        div.Section1 {
+          page: Section1;
+        }
         @page {
           size: A4 portrait;
-          margin: 1.5cm 1.5cm 1.5cm 2.0cm;
-          mso-page-orientation: portrait;
+          margin: 2.0cm 2.0cm 2.0cm 3.0cm;
         }
         * {
           box-sizing: border-box;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         body {
           font-family: 'Times New Roman', 'Liberation Serif', serif;
-          font-size: 13pt;
-          line-height: 1.3;
+          font-size: 11pt;
+          line-height: 1.25;
           color: #000000;
           margin: 0;
           padding: 0;
@@ -128,7 +145,7 @@ export function buildWorkScheduleDocHtml(doc: WorkScheduleExportDoc): string {
         }
         .work-table {
           width: 100%;
-          margin-top: 12px;
+          margin-top: 8px;
           border: 1.5pt solid #0284c7;
         }
         .work-table th, .work-table td {
@@ -139,16 +156,21 @@ export function buildWorkScheduleDocHtml(doc: WorkScheduleExportDoc): string {
           color: #ffffff;
           font-weight: bold;
           text-align: center;
-          padding: 8px 6px;
-          font-size: 12pt;
+          padding: 6px 4px;
+          font-size: 11pt;
         }
         .work-table td {
-          padding: 8px 10px;
-          font-size: 11.5pt;
+          padding: 5px 8px;
+          font-size: 10pt;
+        }
+        .work-table tr {
+          page-break-inside: avoid;
+          page-break-after: avoid;
         }
       </style>
     </head>
     <body style="font-family: 'Times New Roman', serif;">
+      <div class="Section1">
       <!-- BẢNG HEADER QUỐC HIỆU & CƠ QUAN BAN HÀNH -->
       <table class="header-table" style="width: 100%; border: none; margin-bottom: 12px;">
         <tr style="border: none;">
@@ -168,18 +190,18 @@ export function buildWorkScheduleDocHtml(doc: WorkScheduleExportDoc): string {
       </table>
 
       <!-- TIÊU ĐỀ LỊCH CÔNG TÁC -->
-      <div style="text-align: center; margin: 14px 0 12px 0;">
-        <div style="font-size: 15pt; font-weight: bold; color: #0284c7; text-transform: uppercase; letter-spacing: 0.5px;">${title}</div>
-        <div style="font-size: 12pt; font-weight: bold; color: #0284c7; margin-top: 3px;">${weekSub}</div>
+      <div style="text-align: center; margin: 10px 0 10px 0;">
+        <div style="font-size: 14pt; font-weight: bold; color: #0284c7; text-transform: uppercase; letter-spacing: 0.5px;">${title}</div>
+        <div style="font-size: 11.5pt; font-weight: bold; color: #0284c7; margin-top: 3px;">${weekSub}</div>
       </div>
 
       <!-- BẢNG LỊCH CÔNG TÁC TUẦN -->
       <table class="work-table" style="width: 100%; border-collapse: collapse;">
         <thead>
           <tr>
-            <th style="width: 14%; background-color: #0284c7; color: #ffffff; text-align: center; font-weight: bold; padding: 8px 4px; white-space: nowrap;">Thứ</th>
-            <th style="width: 43%; background-color: #0284c7; color: #ffffff; text-align: center; font-weight: bold; padding: 8px 10px;">Sáng</th>
-            <th style="width: 43%; background-color: #0284c7; color: #ffffff; text-align: center; font-weight: bold; padding: 8px 10px;">Chiều</th>
+            <th style="width: 14%; background-color: #0284c7; color: #ffffff; text-align: center; font-weight: bold; padding: 6px 4px; white-space: nowrap;">Thứ</th>
+            <th style="width: 43%; background-color: #0284c7; color: #ffffff; text-align: center; font-weight: bold; padding: 6px 8px;">Sáng</th>
+            <th style="width: 43%; background-color: #0284c7; color: #ffffff; text-align: center; font-weight: bold; padding: 6px 8px;">Chiều</th>
           </tr>
         </thead>
         <tbody>
@@ -191,16 +213,17 @@ export function buildWorkScheduleDocHtml(doc: WorkScheduleExportDoc): string {
       ${generalNote}
 
       <!-- KHỐI CHỮ KÝ LÃNH ĐẠO -->
-      <table style="width: 100%; border: none; margin-top: 18px;">
+      <table style="width: 100%; border: none; margin-top: 14px; page-break-inside: avoid;">
         <tr style="border: none;">
           <td style="width: 52%; border: none;"></td>
           <td style="width: 48%; text-align: center; vertical-align: top; border: none;">
-            <div style="font-size: 12pt; font-weight: bold; text-transform: uppercase;">${signerRole}</div>
-            <div style="font-size: 11pt; font-style: italic; color: #64748b; margin: 12px 0 18px 0;">(Đã ký)</div>
-            <div style="font-size: 12pt; font-weight: bold;">${signerName}</div>
+            <div style="font-size: 11.5pt; font-weight: bold; text-transform: uppercase;">${signerRole}</div>
+            <div style="font-size: 10.5pt; font-style: italic; color: #64748b; margin: 8px 0 14px 0;">(Đã ký)</div>
+            <div style="font-size: 11.5pt; font-weight: bold;">${signerName}</div>
           </td>
         </tr>
       </table>
+      </div>
     </body>
     </html>
   `
@@ -222,6 +245,7 @@ export function exportWorkScheduleToWord(doc: WorkScheduleExportDoc) {
 }
 
 export function exportWorkScheduleToPdf(doc: WorkScheduleExportDoc) {
+  // Lấy nguyên vẹn HTML chuẩn từ hàm buildWorkScheduleDocHtml (đã được kiểm chứng chuẩn đẹp như Word)
   const html = buildWorkScheduleDocHtml(doc)
   
   // Dọn dẹp iframe in cũ nếu có
@@ -236,15 +260,10 @@ export function exportWorkScheduleToPdf(doc: WorkScheduleExportDoc) {
   iframe.style.position = 'fixed'
   iframe.style.top = '-10000px'
   iframe.style.left = '-10000px'
-  iframe.style.width = '0'
-  iframe.style.height = '0'
+  iframe.style.width = '210mm'
+  iframe.style.height = '297mm'
   iframe.style.border = 'none'
   document.body.appendChild(iframe)
-
-  const docBodyContent = html.substring(
-    html.indexOf('<body') > -1 ? html.indexOf('>', html.indexOf('<body')) + 1 : 0,
-    html.indexOf('</body>') > -1 ? html.indexOf('</body>') : html.length,
-  )
 
   const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument
   if (!iframeDoc || !iframe.contentWindow) {
@@ -252,82 +271,111 @@ export function exportWorkScheduleToPdf(doc: WorkScheduleExportDoc) {
     return
   }
 
-  iframeDoc.open()
-  iframeDoc.write(`
+  // Tạo document HTML in chuẩn A4 đồng bộ 100% với file Word
+  const pdfPrintHtml = `
     <!DOCTYPE html>
     <html lang="vi">
     <head>
       <meta charset="utf-8">
-      <title>${doc.title || 'Lịch công tác tuần'}</title>
+      <title>${escapeHtml(doc.title || 'Lịch công tác tuần')}</title>
       <style>
-        /* Loại bỏ triệt để Header và Footer mặc định của trình duyệt (thời gian, ngày tháng, about:blank, số trang) */
+        /* Ép triệt tiêu 100% Header và Footer của trình duyệt (ngày giờ, URL, tiêu đề, số trang) bằng margin: 0 */
         @page {
           size: A4 portrait;
-          margin: 0;
+          margin: 0 !important;
         }
         * {
           box-sizing: border-box;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         html, body {
           background: #ffffff !important;
           color: #000000 !important;
           font-family: 'Times New Roman', 'Liberation Serif', serif;
-          margin: 0;
-          padding: 1.2cm 1.5cm 1.2cm 2.0cm;
-          line-height: 1.3;
-          font-size: 13pt;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          font-size: 11pt;
+          line-height: 1.25;
+        }
+        /* Căn chuẩn lề văn bản Nhà nước trực tiếp lên vùng chứa trang: Top 2.0cm, Right 2.0cm, Bottom 2.0cm, Left 3.0cm */
+        .Section1 {
+          width: 100% !important;
+          padding: 2.0cm 2.0cm 2.0cm 3.0cm !important;
+          box-sizing: border-box !important;
+          page-break-inside: avoid !important;
+          page-break-after: avoid !important;
         }
         table {
-          width: 100%;
-          border-collapse: collapse;
+          width: 100% !important;
+          border-collapse: collapse !important;
         }
         .header-table td {
           border: none !important;
-          padding: 0 4px;
+          padding: 0 4px !important;
         }
         .work-table {
-          width: 100%;
-          margin-top: 12px;
-          border: 1.5pt solid #0284c7;
+          width: 100% !important;
+          margin-top: 8px !important;
+          border: 1.5pt solid #0284c7 !important;
+          page-break-inside: avoid !important;
         }
         .work-table th, .work-table td {
-          border: 1pt solid #cbd5e1;
+          border: 1pt solid #cbd5e1 !important;
         }
         .work-table th {
-          background: #0284c7 !important;
           background-color: #0284c7 !important;
           color: #ffffff !important;
-          font-weight: bold;
-          text-align: center;
-          padding: 8px 6px;
-          font-size: 12pt;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
+          font-weight: bold !important;
+          text-align: center !important;
+          padding: 6px 4px !important;
+          font-size: 11pt !important;
         }
         .work-table td {
-          padding: 8px 10px;
-          font-size: 11.5pt;
+          padding: 6px 8px !important;
+          font-size: 10pt !important;
+          vertical-align: top !important;
+        }
+        .work-table tr {
+          page-break-inside: avoid !important;
+          page-break-after: avoid !important;
         }
         .col-day {
           background-color: #f8fafc !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
         }
         @media print {
-          body {
-            padding: 1.2cm 1.5cm 1.2cm 2.0cm !important;
+          @page {
+            size: A4 portrait;
+            margin: 0 !important;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+          }
+          .Section1 {
+            padding: 2.0cm 2.0cm 2.0cm 3.0cm !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
           }
         }
       </style>
     </head>
-    <body>
-      ${docBodyContent}
+    <body style="font-family: 'Times New Roman', serif;">
+      ${html.substring(
+        html.indexOf('<body') > -1 ? html.indexOf('>', html.indexOf('<body')) + 1 : 0,
+        html.indexOf('</body>') > -1 ? html.indexOf('</body>') : html.length,
+      )}
     </body>
     </html>
-  `)
+  `
+
+  iframeDoc.open()
+  iframeDoc.write(pdfPrintHtml)
   iframeDoc.close()
 
-  // Chờ iframe nạp xong rồi gọi lệnh in trực tiếp
   setTimeout(() => {
     try {
       iframe.contentWindow?.focus()

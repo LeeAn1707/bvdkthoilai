@@ -6709,11 +6709,11 @@ export interface Homepage {
     title?: string | null;
     description?: string | null;
     /**
-     * Tải ảnh mới hoặc chọn lại từ Thư viện Tệp & Hình ảnh.
+     * Kích thước chuẩn khuyến nghị: 1920 × 600 px (tỉ lệ 16:5 hoặc 3.2:1). Tối thiểu rộng 1400px để hiển thị sắc nét trên màn hình máy tính.
      */
     desktopImage?: (number | null) | Media;
     /**
-     * Tải ảnh mới hoặc chọn lại từ Thư viện Tệp & Hình ảnh.
+     * Kích thước chuẩn điện thoại: 1080 × 608 px (tỉ lệ 16:9) hoặc 1080 × 540 px (tỉ lệ 2:1). Hiển thị vừa khít trọn vẹn màn hình smartphone.
      */
     mobileImage?: (number | null) | Media;
   };
@@ -6724,13 +6724,16 @@ export interface Homepage {
     | {
         eyebrow: string;
         title: string;
+        /**
+         * Nhập mô tả bình thường. Nếu là ảnh chụp thật tập thể muốn chỉnh kích thước/tỉ lệ, anh/chị có thể dán thêm từ khóa vào cuối mô tả: [ratio:16/9] (chuẩn chụp ngang tập thể), [ratio:2/1] (rộng vừa mắt), [ratio:4/3] (chụp đứng/gần), [height:500px] (độ cao tùy ý), [fit:contain] (giữ 100% ảnh không cắt viền), [fit:cover] (phủ kín khung).
+         */
         description?: string | null;
         /**
-         * Tải banner mới hoặc chọn lại banner đã có trong thư viện.
+         * Kích thước chuẩn khuyến nghị: 1920 × 600 px (tỉ lệ 16:5 hoặc 3.2:1). Tối thiểu rộng 1400px để hiển thị sắc nét trên màn hình máy tính.
          */
         desktopImage?: (number | null) | Media;
         /**
-         * Không bắt buộc. Tải mới hoặc chọn lại ảnh mobile đã có trong thư viện.
+         * Kích thước chuẩn điện thoại: 1080 × 608 px (tỉ lệ 16:9) hoặc 1080 × 540 px (tỉ lệ 2:1). Hiển thị vừa khít trọn vẹn màn hình smartphone.
          */
         mobileImage?: (number | null) | Media;
         buttonLabel?: string | null;

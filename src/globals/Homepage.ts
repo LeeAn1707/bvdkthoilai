@@ -135,8 +135,24 @@ export const Homepage: GlobalConfig = {
         { name: 'eyebrow', label: 'Nhãn nhỏ', type: 'text', defaultValue: 'BỆNH VIỆN ĐA KHOA KHU VỰC THỚI LAI' },
         { name: 'title', label: 'Tiêu đề', type: 'text', defaultValue: 'Chăm sóc sức khỏe tận tâm, thuận tiện và an toàn' },
         { name: 'description', label: 'Mô tả', type: 'textarea' },
-        { name: 'desktopImage', label: 'Ảnh Desktop', type: 'upload', relationTo: 'media', admin: { description: 'Tải ảnh mới hoặc chọn lại từ Thư viện Tệp & Hình ảnh.' } },
-        { name: 'mobileImage', label: 'Ảnh Mobile', type: 'upload', relationTo: 'media', admin: { description: 'Tải ảnh mới hoặc chọn lại từ Thư viện Tệp & Hình ảnh.' } },
+        {
+          name: 'desktopImage',
+          label: 'Ảnh Desktop',
+          type: 'upload',
+          relationTo: 'media',
+          admin: {
+            description: 'Kích thước chuẩn khuyến nghị: 1920 × 600 px (tỉ lệ 16:5 hoặc 3.2:1). Tối thiểu rộng 1400px để hiển thị sắc nét trên màn hình máy tính.',
+          },
+        },
+        {
+          name: 'mobileImage',
+          label: 'Ảnh Mobile',
+          type: 'upload',
+          relationTo: 'media',
+          admin: {
+            description: 'Kích thước chuẩn điện thoại: 1080 × 608 px (tỉ lệ 16:9) hoặc 1080 × 540 px (tỉ lệ 2:1). Hiển thị vừa khít trọn vẹn màn hình smartphone.',
+          },
+        },
       ],
     },
     {
@@ -153,9 +169,32 @@ export const Homepage: GlobalConfig = {
       fields: [
         { name: 'eyebrow', label: 'Nhãn nhỏ', type: 'text', required: true },
         { name: 'title', label: 'Tiêu đề banner', type: 'text', required: true },
-        { name: 'description', label: 'Mô tả', type: 'textarea' },
-        { name: 'desktopImage', label: 'Ảnh banner Desktop', type: 'upload', relationTo: 'media', admin: { description: 'Tải banner mới hoặc chọn lại banner đã có trong thư viện.' } },
-        { name: 'mobileImage', label: 'Ảnh banner Mobile', type: 'upload', relationTo: 'media', admin: { description: 'Không bắt buộc. Tải mới hoặc chọn lại ảnh mobile đã có trong thư viện.' } },
+        {
+          name: 'description',
+          label: 'Mô tả & Tùy chỉnh kích thước hiển thị',
+          type: 'textarea',
+          admin: {
+            description: 'Nhập mô tả bình thường. Nếu là ảnh chụp thật tập thể muốn chỉnh kích thước/tỉ lệ, anh/chị có thể dán thêm từ khóa vào cuối mô tả: [ratio:16/9] (chuẩn chụp ngang tập thể), [ratio:2/1] (rộng vừa mắt), [ratio:4/3] (chụp đứng/gần), [height:500px] (độ cao tùy ý), [fit:contain] (giữ 100% ảnh không cắt viền), [fit:cover] (phủ kín khung).',
+          },
+        },
+        {
+          name: 'desktopImage',
+          label: 'Ảnh banner Desktop',
+          type: 'upload',
+          relationTo: 'media',
+          admin: {
+            description: 'Kích thước chuẩn khuyến nghị: 1920 × 600 px (tỉ lệ 16:5 hoặc 3.2:1). Tối thiểu rộng 1400px để hiển thị sắc nét trên màn hình máy tính.',
+          },
+        },
+        {
+          name: 'mobileImage',
+          label: 'Ảnh banner Mobile',
+          type: 'upload',
+          relationTo: 'media',
+          admin: {
+            description: 'Kích thước chuẩn điện thoại: 1080 × 608 px (tỉ lệ 16:9) hoặc 1080 × 540 px (tỉ lệ 2:1). Hiển thị vừa khít trọn vẹn màn hình smartphone.',
+          },
+        },
         { name: 'buttonLabel', label: 'Nhãn nút', type: 'text' },
         { name: 'buttonUrl', label: 'Liên kết nút', type: 'text' },
         { name: 'visible', label: 'Hiển thị', type: 'checkbox', defaultValue: true },
