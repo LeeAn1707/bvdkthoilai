@@ -2667,6 +2667,25 @@ body { background: #fff; color: var(--ink); overflow-x: hidden; }
 .heroBannerDots { position: absolute; z-index: 3; left: 50%; bottom: 13px; display: flex; gap: 7px; transform: translateX(-50%); }
 .heroBannerDots button { width: 8px; height: 8px; border: 0; border-radius: 99px; padding: 0; background: rgba(255,255,255,.72); box-shadow: 0 1px 5px rgba(0,47,78,.22); cursor: pointer; transition: .22s ease; }
 .heroBannerDots button.active { width: 27px; background: #0878d1; }
+@media (max-width: 820px) {
+  .heroBannerCarousel {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    transform: none !important;
+    height: auto !important;
+    aspect-ratio: 2 / 1 !important;
+  }
+  .heroBannerSlide img {
+    object-fit: cover !important;
+  }
+}
+@media (max-width: 480px) {
+  .heroBannerCarousel {
+    aspect-ratio: 2 / 1 !important;
+  }
+}
 @media(max-width:680px){.heroBannerArrow{width:34px;height:34px;opacity:.85}.heroBannerArrow.previous{left:8px}.heroBannerArrow.next{right:8px}.heroBannerDots{bottom:8px}}
 .hospitalHeroGrid { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 760px); align-items: center; padding-top: 52px; padding-bottom: 72px; }
 .heroContent { max-width: 760px; color: white; }

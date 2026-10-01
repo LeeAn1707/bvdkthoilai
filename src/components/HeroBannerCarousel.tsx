@@ -36,7 +36,7 @@ export function HeroBannerCarousel({ slides, intervalSeconds = 6, bannerWidth = 
 
   return <section className="hospitalHero heroBannerCarousel" aria-label="Banner Bệnh viện Đa khoa khu vực Thới Lai" style={bannerStyle}>
     {slides.map((slide, index) => <picture className={`heroBannerSlide ${index === active ? 'active' : ''}`} key={slide.id} aria-hidden={index !== active}>
-      {slide.mobileUrl && <source media="(max-width: 680px)" srcSet={slide.mobileUrl} />}
+      {slide.mobileUrl && <source media="(max-width: 820px)" srcSet={slide.mobileUrl} />}
       <img src={slide.desktopUrl} alt={slide.title || 'Bệnh viện Đa khoa khu vực Thới Lai'} />
     </picture>)}
 

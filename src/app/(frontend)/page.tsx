@@ -240,11 +240,20 @@ export default async function HomePage() {
   const booking = resolveBookingConfig(medproSettings, siteSettings)
   const medpro = booking.url
   const builtInHeroImage = '/banners/banner-bvdk-thoi-lai-1920x600.png'
+  const builtInHeroMobileImage = '/banners/banner-bvdk-thoi-lai-mobile.png'
   const configuredHeroSlides = (Array.isArray(home?.banners) ? home.banners : [])
     .filter((item: any) => item.visible !== false && mediaUrl(item.desktopImage))
-    .map((item: any, index: number) => ({ id: String(item.id || index), desktopUrl: mediaUrl(item.desktopImage), mobileUrl: mediaUrl(item.mobileImage) || undefined, title: item.title }))
+    .map((item: any, index: number) => ({
+      id: String(item.id || index),
+      desktopUrl: mediaUrl(item.desktopImage),
+      mobileUrl: mediaUrl(item.mobileImage) || builtInHeroMobileImage,
+      title: item.title,
+    }))
   const fallbackHeroImage = mediaUrl(home?.hero?.desktopImage) || builtInHeroImage
-  const heroSlides = configuredHeroSlides.length ? configuredHeroSlides : [{ id: 'default', desktopUrl: fallbackHeroImage, mobileUrl: mediaUrl(home?.hero?.mobileImage) || undefined, title: home?.hero?.title }]
+  const fallbackHeroMobile = mediaUrl(home?.hero?.mobileImage) || builtInHeroMobileImage
+  const heroSlides = configuredHeroSlides.length
+    ? configuredHeroSlides
+    : [{ id: 'default', desktopUrl: fallbackHeroImage, mobileUrl: fallbackHeroMobile, title: home?.hero?.title }]
   const showHeroBanners = home?.showHeroBanners !== false
 
   const fallbackQuickLinks = [
