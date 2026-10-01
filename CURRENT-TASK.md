@@ -1,21 +1,27 @@
-# CURRENT TASK — Khôi Phục Nguyên Vẹn Cấu Trúc Schema Admin & Giữ Hiệu Ứng Tự Động Chuyển Khoa
+# CURRENT TASK — Điền Nội Dung Mẫu Chi Tiết Cho Bác Sĩ & Khoa Phòng Vào Admin
 
 ## Trạng thái: HOÀN THÀNH
 
-## Bối cảnh & Nguyên nhân lỗi
-- Khi thêm các trường mới vào `Homepage.ts` và `DisplaySettings.ts` mà chưa chạy migration database PostgreSQL, Payload CMS Admin gặp lỗi không khớp bảng dữ liệu khi mở 2 trang trên.
+## Nội dung đã điền
+1. **Hồ sơ chi tiết Bác sĩ (Ban Giám đốc & Đội ngũ y tế)**:
+   - Điền đầy đủ vào các trường Lexical RichText trong Admin:
+     + 🎓 **Quá trình Đào tạo**: Bác sĩ Đa khoa, BSCKI, BSCKII, các chứng chỉ đào tạo y khoa liên tục.
+     + 🏥 **Quá trình Công tác**: Các mốc thời gian, vị trí đảm nhiệm, chỉ đạo chuyên môn.
+     + ⭐ **Thế mạnh & Lĩnh vực chuyên môn**: Kỹ thuật chuyên sâu, phẫu thuật, cấp cứu, quản lý chất lượng.
+     + 🏆 **Thành tích & Nghiên cứu khoa học**: Danh hiệu Thầy thuốc, đề tài NCKH, bằng khen.
+     + 📝 **Tiểu sử / Lời giới thiệu tổng quan**: Thông điệp y đức và sự tận tâm phục vụ bệnh nhân.
 
-## Đã xử lý
-1. **Khôi phục nguyên bản 100% hai file schema**:
-   - [`src/globals/Homepage.ts`](file:///f:/20.9%20web/bvdkthoilai-main/src/globals/Homepage.ts): Đã trả về nguyên bản sạch sẽ của `origin/main`.
-   - [`src/globals/DisplaySettings.ts`](file:///f:/20.9%20web/bvdkthoilai-main/src/globals/DisplaySettings.ts): Đã trả về nguyên bản sạch sẽ của `origin/main`.
-   - Cả 2 trang Admin truy cập lại bình thường và an toàn tuyệt đối cho database.
-2. **Hiệu ứng chuyển động chuyên khoa ([`src/components/SpecialtiesCarousel.tsx`](file:///f:/20.9%20web/bvdkthoilai-main/src/components/SpecialtiesCarousel.tsx))**:
-   - Thiết lập thời gian chuyển động mặc định tiêu chuẩn là **4 giây** (khoảng thời gian tối ưu cho người đọc theo UX y tế).
-   - Tự động tạm dừng khi rê chuột và tiếp tục khi chuột rời đi.
-3. **Kiểm tra chất lượng**:
+2. **Hồ sơ chi tiết các Khoa / Phòng**:
+   - Cập nhật đầy đủ thông tin hành chính & nghiệp vụ:
+     + Trưởng khoa / phòng, số điện thoại trực, vị trí phòng trong khuôn viên viện.
+     + Giới thiệu ngắn (`summary`) và Bài viết giới thiệu chuyên môn (`content`).
+     + Chức năng – Nhiệm vụ (`functions`).
+     + Hoạt động chuyên môn (`activities`).
+     + Thành tích & Điểm nổi bật (`achievements`).
+
+3. **Kiểm tra an toàn**:
    - `npm run db:schema:check`: **PASS (Hợp lệ 100%)**.
-   - `npm run generate:types`: **PASS**.
-   - `npm run typecheck`: **PASS (0 lỗi)**.
+   - Toàn bộ dữ liệu được lưu trực tiếp vào CSDL Payload CMS, hiển thị ngay lập tức trên cả Admin và trang người dùng (`/bac-si/[slug]`, `/khoa-phong/[slug]`).
+
 
 
