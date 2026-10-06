@@ -197,6 +197,7 @@ Nếu gặp log `ERROR: there is no unique or exclusion constraint matching the 
   ```sql
   ALTER TABLE users ADD CONSTRAINT users_pkey PRIMARY KEY (id);
   ALTER TABLE site_visits_summary ADD CONSTRAINT site_visits_summary_pkey PRIMARY KEY (id);
+  ALTER TABLE site_visits_daily ADD CONSTRAINT site_visits_daily_pkey PRIMARY KEY (date);
   ```
 - **Quy tắc di chuyển an toàn:** Luôn dùng `pg_dump -Fc` và `pg_restore --clean --no-owner` hoặc chạy tạo schema hoàn chỉnh trước khi import dữ liệu.
 
