@@ -33,6 +33,13 @@ Do not create complex destructive migrations when a safe additive migration is s
 - Keep main tables and version tables consistent when both exist.
 - Verify generated ORM queries after schema changes that alter physical column names.
 
+## Backup, Restore & Data Migration Precautions
+- **Bắt buộc có Primary Key / Constraints:** Khi dump/restore dữ liệu giữa các môi trường (ví dụ chuyển lên Railway / Neon / VPS), luôn bảo đảm schema đầy đủ (Tables, PK, FK, Unique constraints, Enums).
+- **Tránh lỗi `ON CONFLICT`:** Payload CMS (Drizzle ORM) chạy `INSERT INTO <table> ... ON CONFLICT ("id") DO UPDATE`. Nếu bảng (ví dụ `users`, `site_visits_summary`) bị mất `PRIMARY KEY (id)`, server sẽ sập 500 khi login hoặc ghi log truy cập.
+- **Thứ tự Restore:** Luôn tạo ENUM types và bảng cha trước bảng con; nếu import dữ liệu dạng raw SQL hoặc CSV, phải chạy verify/tạo lại `PRIMARY KEY` cho tất cả các bảng.
+- **Lệnh tạo lại PK nhanh:** `ALTER TABLE users ADD CONSTRAINT users_pkey PRIMARY KEY (id);`.
+
 ## Production
 - Production deployment/migration rules are in `docs/ai/production-safety.md`.
 - Never infer that a local build proves production migration safety.
+

@@ -189,6 +189,15 @@ Database hoàn toàn trống vẫn cần bootstrap baseline theo `HUONG-DAN-TAO-
 - Migration chuyển **cấu trúc database** và dữ liệu hệ thống/backfill được viết rõ trong migration.
 - Bài viết, hình ảnh, cấu hình do người dùng nhập ở local là **nội dung**; chúng không tự động sao chép sang Neon khi push GitHub.
 
-Không tự đồng bộ toàn bộ nội dung local lên Neon vì có thể ghi đè dữ liệu thật. Nếu cần chuyển nội dung, dùng quy trình export/import hoặc backup/restore riêng có kiểm tra.
+## 10. Sự cố thường gặp: Mất Primary Key khi restore CSDL (Lỗi 500 khi Login)
+
+Nếu gặp log `ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification`:
+- **Nguyên nhân:** File dump/restore bị ngắt giữa chừng do lỗi ENUM hoặc tool export chỉ lấy dữ liệu thô mà không áp dụng khóa chính (`PRIMARY KEY`). Payload CMS dùng `INSERT ... ON CONFLICT ("id") DO UPDATE` nên bắt buộc phải có `PRIMARY KEY (id)`.
+- **Khắc phục ngay:** Kết nối vào Railway PostgreSQL và chạy:
+  ```sql
+  ALTER TABLE users ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+  ALTER TABLE site_visits_summary ADD CONSTRAINT site_visits_summary_pkey PRIMARY KEY (id);
+  ```
+- **Quy tắc di chuyển an toàn:** Luôn dùng `pg_dump -Fc` và `pg_restore --clean --no-owner` hoặc chạy tạo schema hoàn chỉnh trước khi import dữ liệu.
 
 Tham khảo: [Railway Pre-Deploy Command](https://docs.railway.com/deployments/pre-deploy-command), [Payload PostgreSQL migrations](https://payloadcms.com/docs/database/migrations), [Neon connection pooling](https://neon.com/docs/connect/connection-pooling), [Railway backup/restore](https://docs.railway.com/guides/postgres-backups-restores).

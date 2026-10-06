@@ -80,7 +80,7 @@ export default async function AdminDashboard() {
     count(payload, 'doctors'), count(payload, 'departments'), count(payload, 'specialties'),
     count(payload, 'advanced-techniques'), count(payload, 'scientific-activities'), count(payload, 'our-experts'),
     // Khám bệnh & Dịch vụ Y tế
-    count(payload, 'schedules'), count(payload, 'work-schedules'), count(payload, 'appointments'), count(payload, 'appointments', { status: { in: ['pending', 'new'] } }),
+    count(payload, 'schedules'), count(payload, 'work-schedules'), count(payload, 'appointments'), count(payload, 'appointments', { status: { equals: 'new' } }),
     count(payload, 'vaccines'), count(payload, 'vaccinationSchedules'), count(payload, 'services'), count(payload, 'servicePrices'),
     // Chăm sóc & Khảo sát
     count(payload, 'feedback', { status: { equals: 'new' } }),
@@ -112,7 +112,7 @@ export default async function AdminDashboard() {
     // Hộp thư & Đặt khám chờ xử lý (mới gửi)
     payload.find({ collection: 'feedback', where: { status: { in: ['new', 'processing'] } }, limit: 4, sort: '-createdAt', depth: 0, overrideAccess: true }).catch(() => ({ docs: [] })),
     payload.find({ collection: 'consultations', where: { status: { in: ['new', 'processing'] } }, limit: 4, sort: '-createdAt', depth: 0, overrideAccess: true }).catch(() => ({ docs: [] })),
-    payload.find({ collection: 'appointments', where: { status: { in: ['pending', 'new'] } }, limit: 4, sort: '-createdAt', depth: 0, overrideAccess: true }).catch(() => ({ docs: [] })),
+    payload.find({ collection: 'appointments', where: { status: { equals: 'new' } }, limit: 4, sort: '-createdAt', depth: 0, overrideAccess: true }).catch(() => ({ docs: [] })),
     // Lấy dữ liệu thật về khoa phòng và bác sĩ
     payload.find({ collection: 'departments', limit: 100, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] })),
     payload.find({ collection: 'doctors', limit: 300, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] })),
