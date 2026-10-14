@@ -28,6 +28,25 @@ interface LeaderProps {
   doctorsList?: any[]
 }
 
+function extractPlainText(val: any): string {
+  if (!val) return ''
+  if (typeof val === 'string') return val.trim()
+  if (typeof val === 'object' && val !== null) {
+    if (val.root) {
+      const walk = (node: any): string => {
+        if (!node) return ''
+        if (typeof node.text === 'string') return node.text
+        if (Array.isArray(node.children)) {
+          return node.children.map(walk).filter(Boolean).join(' ')
+        }
+        return ''
+      }
+      return walk(val.root).trim()
+    }
+  }
+  return ''
+}
+
 function LeaderCard({
   person,
   kind,
@@ -71,9 +90,19 @@ function LeaderCard({
     photoUrl = mediaUrl(fallbackDoctor.avatar, 'card')
   }
 
-  const name = person?.name?.trim() || linkedDoc?.name || 'Đang cập nhật'
-  const title = person?.title?.trim() || linkedDoc?.title || fallbackRole
-  const responsibility = person?.responsibility?.trim() || (linkedDoc?.expertise || linkedDoc?.bio || '')
+  const name = (typeof person?.name === 'string' && person.name.trim())
+    || (typeof linkedDoc?.name === 'string' && linkedDoc.name.trim())
+    || 'Đang cập nhật'
+
+  const title = (typeof person?.title === 'string' && person.title.trim())
+    || (typeof linkedDoc?.title === 'string' && linkedDoc.title.trim())
+    || fallbackRole
+
+  const rawResp = (typeof person?.responsibility === 'string' && person.responsibility.trim())
+    ? person.responsibility.trim()
+    : (extractPlainText(person?.responsibility) || extractPlainText(linkedDoc?.expertise) || (typeof linkedDoc?.professionalTitle === 'string' ? linkedDoc.professionalTitle.trim() : ''))
+
+  const responsibility = typeof rawResp === 'string' ? rawResp.trim() : ''
   const docUrl = linkedDoc?.slug ? `/bac-si/${linkedDoc.slug}` : undefined
 
   // Xác định kiểu hiển thị ảnh
@@ -117,7 +146,7 @@ function LeaderCard({
       <div className="bmLeaderMeta">
         <div className="bmLeaderRole">{title}</div>
         <h3 className="bmLeaderName">{name}</h3>
-        {responsibility && <p className="bmLeaderDesc">{responsibility}</p>}
+        {responsibility ? <p className="bmLeaderDesc">{responsibility}</p> : null}
       </div>
     </>
   )
@@ -252,8 +281,12 @@ export default async function OrganizationChartPage() {
       <SiteHeader />
       <PageHero
         eyebrow="CƠ CẤU BỘ MÁY"
-        title={chart?.pageTitle || 'Sơ đồ tổ chức Bệnh viện'}
-        description={chart?.description || `Cơ cấu tổ chức bộ máy và hệ thống các khoa, phòng trực thuộc ${hospitalName}.`}
+        title={typeof chart?.pageTitle === 'string' ? chart.pageTitle : 'Sơ đồ tổ chức Bệnh viện'}
+        description={
+          (typeof chart?.description === 'string' && chart.description.trim())
+            ? chart.description.trim()
+            : (extractPlainText(chart?.description) || `Cơ cấu tổ chức bộ máy và hệ thống các khoa, phòng trực thuộc ${hospitalName}.`)
+        }
       />
       <main className="bmOrgPage">
         <div className="container">
