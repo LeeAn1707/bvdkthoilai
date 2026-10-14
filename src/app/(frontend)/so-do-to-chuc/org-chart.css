@@ -134,24 +134,28 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  max-height: 260px; /* Giảm chiều cao ảnh vừa vặn chuẩn chân dung */
 }
 
-/* Tỷ lệ khung ảnh (Aspect Ratios) */
+/* Tỷ lệ khung ảnh (Aspect Ratios) - Tinh chỉnh gọn gàng, hạ bớt chiều cao */
 .bmLeaderPhotoBox[data-aspect="3/4"] {
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 1 / 1.02;
+  max-height: 260px;
 }
 
 .bmLeaderPhotoBox[data-aspect="4/5"] {
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 1 / 1.08;
+  max-height: 270px;
 }
 
 .bmLeaderPhotoBox[data-aspect="1/1"] {
   aspect-ratio: 1 / 1;
+  max-height: 250px;
 }
 
 .bmLeaderPhotoBox[data-aspect="auto"] {
-  min-height: 250px;
-  max-height: 300px;
+  min-height: 200px;
+  max-height: 260px;
 }
 
 /* KIỂU 1: full-cover (Tràn viền toàn ô thẻ - Full Width Card Top - Mặc định) */
@@ -198,7 +202,8 @@
 .bmLeaderPhotoBox[data-style="contain-box"],
 .bmLeaderPhotoBox.bmStyle_contain-box {
   padding: 16px;
-  min-height: 250px;
+  min-height: 200px;
+  max-height: 260px;
   display: flex;
   align-items: center;
   justify-content: center;
