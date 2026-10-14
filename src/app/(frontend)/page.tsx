@@ -13,6 +13,7 @@ import { ScheduleExplorer } from '@/components/ScheduleExplorer'
 import { VaccinationTabs } from '@/components/VaccinationTabs'
 import { HeroBannerCarousel } from '@/components/HeroBannerCarousel'
 import { FeaturedContentCarousel } from '@/components/FeaturedContentCarousel'
+import { SoyTeNewsSection } from '@/components/SoyTeNewsSection'
 import { AdvancedTechniquesCarousel } from '@/components/AdvancedTechniquesCarousel'
 import { OurExpertsCarousel } from '@/components/OurExpertsCarousel'
 import { OurExpertsFeaturedGrid } from '@/components/OurExpertsFeaturedGrid'
@@ -685,6 +686,17 @@ export default async function HomePage() {
     .sort((a: any, b: any) => new Date(b.dateValue || 0).getTime() - new Date(a.dateValue || 0).getTime())
     .slice(0, featuredItemLimit)
 
+  // Danh sách bài nổi bật riêng cho cột bên phải (kiểu Sở Y tế Cần Thơ)
+  const soyteFeaturedSidebar = news
+    .filter((n: any) => n.featured === true)
+    .slice(0, 8)
+    .map((item: any) => ({
+      id: `news-feat-${item.id}`,
+      title: item.title,
+      href: `/tin-tuc/${item.slug}`,
+      date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : '',
+    }))
+
   // ── HÀM RENDER SECTION THEO MẪU BỐ CỤC (đọc từ Admin config) ──
   // Mỗi section notices/procurement/documents/content-section đều gọi hàm này
   // để render theo layout đã chọn trong Admin → Homepage → section → "Mẫu bố cục"
@@ -1122,7 +1134,12 @@ export default async function HomePage() {
                     </div>
                     <a href={seeAllUrl}>Xem tất cả →</a>
                   </div>
-                  <FeaturedContentCarousel items={featuredItems} interval={featuredInterval} cardFit={cfg.featuredCardFit || 'cover'} />
+                  <SoyTeNewsSection
+                    items={featuredItems}
+                    featuredItems={soyteFeaturedSidebar}
+                    sidebarTitle="TIN NỔI BẬT"
+                    cardFit={cfg.featuredCardFit || 'cover'}
+                  />
                 </div>
               </section>
             )

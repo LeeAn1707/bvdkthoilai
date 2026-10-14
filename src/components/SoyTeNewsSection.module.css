@@ -1,0 +1,313 @@
+.soyteContainer {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px 26px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  box-sizing: border-box;
+}
+
+.soyteGrid {
+  display: grid;
+  grid-template-columns: 1.62fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+/* =========================================================
+   CỘT TRÁI: TIN CHÍNH (TIÊU ĐỀ + ẢNH LỚN + LIST TIN PHỤ)
+   ========================================================= */
+.leadCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.leadTitle {
+  margin: 0 0 14px 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.36;
+  color: #0f172a;
+}
+
+.leadTitleLink {
+  color: #0f172a;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.leadTitleLink:hover {
+  color: #005a9e;
+  text-decoration: underline;
+}
+
+.imageContainer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 280px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.imageLink {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.leadImage {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: auto;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.imageContainer:hover .leadImage {
+  transform: scale(1.025) translateZ(0);
+}
+
+.leadBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(0, 90, 158, 0.92);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.zoomBtn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.zoomBtn:hover {
+  background: rgba(0, 90, 158, 0.95);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+/* Danh sách tin phụ dưới ảnh */
+.leadSubList {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.leadSubItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 9px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.leadSubItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.subBullet {
+  width: 6px;
+  height: 6px;
+  background: #64748b;
+  margin-top: 8px;
+  flex-shrink: 0;
+  border-radius: 1px;
+}
+
+.subLink {
+  font-size: 0.96rem;
+  line-height: 1.48;
+  color: #334155;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.subLink:hover {
+  color: #005a9e;
+  text-decoration: underline;
+}
+
+/* =========================================================
+   CỘT PHẢI: "TIN NỔI BẬT" VỚI BULLET VUÔNG XANH DƯƠNG
+   ========================================================= */
+.sidebarCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebarHeader {
+  border-bottom: 2px solid #005a9e;
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebarTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #005a9e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sidebarList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebarItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.sidebarItem:last-child {
+  border-bottom: none;
+}
+
+.featuredBullet {
+  width: 7px;
+  height: 7px;
+  background: #005a9e;
+  margin-top: 8px;
+  flex-shrink: 0;
+  border-radius: 1px;
+}
+
+.featuredLink {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.48;
+  color: #1e293b;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.featuredLink:hover {
+  color: #005a9e;
+  text-decoration: underline;
+}
+
+/* =========================================================
+   LIGHTBOX MODAL (XEM ẢNH GỐC NÉT CĂNG TOÀN MÀN HÌNH)
+   ========================================================= */
+.lightboxBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.lightboxContent {
+  position: relative;
+  max-width: 92vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lightboxImg {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.lightboxClose {
+  position: absolute;
+  top: -42px;
+  right: 0;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.lightboxClose:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN (TABLET & MOBILE)
+   ========================================================= */
+@media (max-width: 920px) {
+  .soyteGrid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .soyteContainer {
+    padding: 18px 16px;
+  }
+  .leadTitle {
+    font-size: 1.2rem;
+  }
+  .imageContainer {
+    min-height: 220px;
+  }
+}
