@@ -98,11 +98,9 @@ function LeaderCard({
     || (typeof linkedDoc?.title === 'string' && linkedDoc.title.trim())
     || fallbackRole
 
-  const rawResp = (typeof person?.responsibility === 'string' && person.responsibility.trim())
-    ? person.responsibility.trim()
-    : (extractPlainText(person?.responsibility) || extractPlainText(linkedDoc?.expertise) || (typeof linkedDoc?.professionalTitle === 'string' ? linkedDoc.professionalTitle.trim() : ''))
-
-  const responsibility = typeof rawResp === 'string' ? rawResp.trim() : ''
+  // Chỉ hiển thị lĩnh vực phụ trách nếu admin nhập trực tiếp trong cấu hình Sơ đồ tổ chức
+  // Tuyệt đối không tự động lấy đoạn văn chuyên môn (expertise) của Bác sĩ làm tràn khung
+  const responsibility = typeof person?.responsibility === 'string' ? person.responsibility.trim() : ''
   const docUrl = linkedDoc?.slug ? `/bac-si/${linkedDoc.slug}` : undefined
 
   // Xác định kiểu hiển thị ảnh

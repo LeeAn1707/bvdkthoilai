@@ -90,34 +90,29 @@
 .bmDirectorWrap {
   display: flex;
   justify-content: center;
-  margin-bottom: 30px;
+  margin-bottom: 28px;
 }
 
-.bmDirectorCard {
-  width: 100%;
-  max-width: 300px;
-  background: #ffffff;
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: 0 10px 28px rgba(7, 86, 180, 0.08);
-  border: 1px solid #dbeafe;
-  text-decoration: none;
-  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex;
-  flex-direction: column;
-}
-
+.bmDirectorCard,
 .bmDeputyCard {
-  width: 100%;
+  width: 280px;
+  max-width: 280px;
   background: #ffffff;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(7, 86, 180, 0.07);
+  box-shadow: 0 8px 24px rgba(7, 86, 180, 0.08);
   border: 1px solid #e2e8f0;
   text-decoration: none;
   transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.bmDirectorCard {
+  border-color: #dbeafe;
+  box-shadow: 0 10px 28px rgba(7, 86, 180, 0.1);
 }
 
 .bmDirectorCard:hover,
@@ -323,104 +318,22 @@
   line-height: 1.45;
 }
 
-/* Các Phó Giám đốc: Tự động canh cân đối theo số lượng (2→6+) */
+/* Các Phó Giám đốc: Tự động canh cân đối theo số lượng, kích thước bằng Giám đốc */
 .bmDeputiesGrid {
-  display: grid;
-  /* Mặc định: tự động fit theo khoảng 220px, không quá 4 cột */
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 24px;
   max-width: 1100px;
   margin: 0 auto;
-  justify-items: stretch;
 }
 
-/* 1 Phó Giám đốc: căn giữa 1 cột */
-.bmDeputiesGrid[data-count="1"] {
-  grid-template-columns: minmax(0, 280px);
-  justify-content: center;
-}
-
-/* 2 Phó Giám đốc: 2 cột bằng nhau */
-.bmDeputiesGrid[data-count="2"] {
-  grid-template-columns: repeat(2, minmax(0, 280px));
-  justify-content: center;
-}
-
-/* 3 Phó Giám đốc: 3 cột */
-.bmDeputiesGrid[data-count="3"] {
-  grid-template-columns: repeat(3, 1fr);
-  max-width: 880px;
-}
-
-/* 4 Phó Giám đốc: 4 cột */
-.bmDeputiesGrid[data-count="4"] {
-  grid-template-columns: repeat(4, 1fr);
-  max-width: 1060px;
-}
-
-/* 5 Phó Giám đốc: 3 cột hàng đầu, 2 cột hàng sau (qua auto-fit) */
-.bmDeputiesGrid[data-count="5"] {
-  grid-template-columns: repeat(3, 1fr);
-  max-width: 920px;
-}
-
-/* 6 Phó Giám đốc: 3 cột × 2 hàng */
-.bmDeputiesGrid[data-count="6"] {
-  grid-template-columns: repeat(3, 1fr);
-  max-width: 960px;
-}
-
-/* 7-8 Phó Giám đốc: 4 cột × 2 hàng */
-.bmDeputiesGrid[data-count="7"],
-.bmDeputiesGrid[data-count="8"] {
-  grid-template-columns: repeat(4, 1fr);
-  max-width: 1100px;
-}
-
-.bmDeputyCard {
-  background: #ffffff;
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
-  border: 1px solid #e2e8f0;
-  text-decoration: none;
-  transition: all 0.25s ease;
+.bmDeputiesGrid > * {
+  width: 280px;
+  max-width: 280px;
   display: flex;
   flex-direction: column;
-}
-
-.bmDeputyCard:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(7, 86, 180, 0.1);
-  border-color: #bfdbfe;
-}
-
-.bmDeputyCard .bmLeaderPhotoBox {
-  height: 200px;
-  padding: 12px;
-}
-
-/* Thu nhỏ ảnh khi có nhiều Phó Giám đốc */
-.bmDeputiesGrid[data-count="4"] .bmLeaderPhotoBox,
-.bmDeputiesGrid[data-count="5"] .bmLeaderPhotoBox,
-.bmDeputiesGrid[data-count="6"] .bmLeaderPhotoBox,
-.bmDeputiesGrid[data-count="7"] .bmLeaderPhotoBox,
-.bmDeputiesGrid[data-count="8"] .bmLeaderPhotoBox {
-  height: 160px;
-  padding: 10px;
-}
-
-.bmDeputyCard .bmLeaderMeta {
-  padding: 14px 16px 18px;
-}
-
-.bmDeputyCard .bmLeaderRole {
-  font-size: 11px;
-  color: #0284c7;
-}
-
-.bmDeputyCard .bmLeaderName {
-  font-size: 15.5px;
 }
 
 /* =========================================================
@@ -696,6 +609,17 @@
 @media (max-width: 640px) {
   .bmOrgPage {
     padding: 24px 0 60px;
+  }
+
+  .bmDirectorCard,
+  .bmDeputyCard {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .bmDeputiesGrid > * {
+    width: 100%;
+    max-width: 320px;
   }
 
   .bmTreeWrap {
