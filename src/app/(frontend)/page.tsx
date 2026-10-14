@@ -707,7 +707,7 @@ export default async function HomePage() {
       date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : '',
     }))
 
-  const soyteFeaturedSidebar = [...featuredNewsList, ...remainingNewsList].slice(0, 10)
+  const soyteFeaturedSidebar = [...featuredNewsList, ...remainingNewsList].slice(0, 20)
 
   // ── HÀM RENDER SECTION THEO MẪU BỐ CỤC (đọc từ Admin config) ──
   // Mỗi section notices/procurement/documents/content-section đều gọi hàm này
