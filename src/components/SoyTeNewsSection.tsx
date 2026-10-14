@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import styles from './SoyTeNewsSection.module.css'
 
 export type SoyTeNewsItem = {
@@ -8,7 +8,7 @@ export type SoyTeNewsItem = {
   title: string
   excerpt?: string
   image?: string
-  imageFit?: 'cover' | 'contain' | 'fill'
+  imageFit?: 'cover' | 'contain' | 'fill' | string
   imagePosition?: string
   href: string
   kind?: string
@@ -16,8 +16,8 @@ export type SoyTeNewsItem = {
   dateValue?: string
 }
 
-const ITEM_HEIGHT = 78 // Chiều cao cố định mỗi dòng bài viết (px)
-const VISIBLE_COUNT = 5 // Số lượng bài hiển thị trong viewport
+const ITEM_HEIGHT = 78 // Chiều cao chuẩn mỗi bài ở cột phải (px)
+const VISIBLE_COUNT = 5 // Số lượng bài hiển thị trong khung nhìn
 
 export function SoyTeNewsSection({
   items,
@@ -41,18 +41,32 @@ export function SoyTeNewsSection({
     return null
   }
 
-  // Cột trái: CHỈ HIỂN THỊ 1 BÀI VIẾT TIÊU ĐIỂM DUY NHẤT
-  const leadItem = items[0]
+  // Danh sách các bài viết tham gia xoay vòng:
+  // Ưu tiên featuredItems (tin nổi bật), bổ sung từ items để luôn đầy đủ bài
+  const candidateList = featuredItems && featuredItems.length > 0 ? featuredItems : items
+  const seenIds = new Set<string>()
+  const rotationList: SoyTeNewsItem[] = []
 
-  // Cột phải: DANH SÁCH BÀI VIẾT THAM GIA XOAY VÒNG
-  // Loại trừ bài đang làm bài chính ở cột trái để tránh trùng lặp
-  const explicitFeatured = (featuredItems || []).filter((it) => it.id !== leadItem.id)
-  const seenIds = new Set([leadItem.id, ...explicitFeatured.map((x) => x.id)])
-  const fallbackPool = items.filter((it) => !seenIds.has(it.id))
-  const sidebarList = [...explicitFeatured, ...fallbackPool]
+  for (const it of candidateList) {
+    if (it && !seenIds.has(it.id)) {
+      seenIds.add(it.id)
+      rotationList.push(it)
+    }
+  }
+  for (const it of items) {
+    if (it && !seenIds.has(it.id)) {
+      seenIds.add(it.id)
+      rotationList.push(it)
+    }
+  }
 
-  const totalItems = sidebarList.length
-  const shouldAnimate = totalItems > VISIBLE_COUNT
+  const totalItems = rotationList.length
+  const shouldAnimate = totalItems > 1
+
+  // BÀI VIẾT ĐƯỢC CHỌN HIỂN THỊ Ở CỘT BÊN TRÁI:
+  // Đồng bộ 100% với bài viết đang ở vị trí xoay vòng (step % totalItems)
+  const activeIndex = shouldAnimate ? step % totalItems : 0
+  const currentLead = rotationList[activeIndex] || items[0]
 
   // Chuyển tới bài tiếp theo trong vòng xoay
   const handleNext = useCallback(() => {
@@ -65,7 +79,6 @@ export function SoyTeNewsSection({
   const handlePrev = useCallback(() => {
     if (!shouldAnimate) return
     if (step === 0) {
-      // Nhảy không hiệu ứng tới vị trí cuối cùng, rồi lùi 1 bước
       setWithTransition(false)
       setStep(totalItems)
       requestAnimationFrame(() => {
@@ -80,6 +93,12 @@ export function SoyTeNewsSection({
     }
   }, [shouldAnimate, step, totalItems])
 
+  // Khi người dùng bấm trực tiếp vào một bài ở cột phải: Lập tức hiển thị bài đó qua bên trái
+  const handleSelectArticle = (indexInList: number) => {
+    setWithTransition(true)
+    setStep(indexInList)
+  }
+
   // Reset về 0 không hiệu ứng khi vừa cuộn hết một vòng lặp vô tận
   useEffect(() => {
     if (!shouldAnimate) return
@@ -87,7 +106,7 @@ export function SoyTeNewsSection({
       const timer = setTimeout(() => {
         setWithTransition(false)
         setStep(0)
-      }, 500) // Khớp với transition 0.5s
+      }, 500)
       return () => clearTimeout(timer)
     }
   }, [step, totalItems, shouldAnimate])
@@ -116,56 +135,59 @@ export function SoyTeNewsSection({
 
   // Danh sách hiển thị nhân bản phần đầu để tạo vòng xoay liên tục không giật
   const displayList = shouldAnimate
-    ? [...sidebarList, ...sidebarList.slice(0, VISIBLE_COUNT)]
-    : sidebarList
+    ? [...rotationList, ...rotationList.slice(0, VISIBLE_COUNT)]
+    : rotationList
 
-  const rawFit = leadItem.imageFit || cardFit
+  const rawFit = currentLead.imageFit || cardFit
   const normalizedFit = rawFit === 'contain' ? 'contain' : (rawFit === 'fill' ? 'fill' : 'cover')
 
   return (
     <div className={styles.soyteContainer} aria-label="Điểm tin hoạt động y tế">
       <div className={styles.soyteGrid}>
-        {/* ================= CỘT TRÁI: CHỈ HIỂN THỊ 1 BÀI VIẾT ================= */}
+        {/* ================= CỘT TRÁI: CHỈ HIỂN THỊ 1 BÀI VIẾT (ĐỒNG BỘ THEO VÒNG XOAY) ================= */}
         <div className={styles.leadCol}>
           {/* 1. Tiêu đề bài viết */}
-          <h3 className={styles.leadTitle}>
-            <a href={leadItem.href} className={styles.leadTitleLink}>
-              {leadItem.title}
-            </a>
-          </h3>
+          <div className={styles.leadTitleWrap}>
+            <h3 className={styles.leadTitle} key={`title-${currentLead.id}`}>
+              <a href={currentLead.href} className={styles.leadTitleLink}>
+                {currentLead.title}
+              </a>
+            </h3>
+          </div>
 
           {/* 2. Thẻ Meta: Nhãn chuyên mục & Ngày đăng bài */}
-          <div className={styles.leadMeta}>
-            {leadItem.kind && (
+          <div className={styles.leadMeta} key={`meta-${currentLead.id}`}>
+            {currentLead.kind && (
               <span className={styles.leadBadge}>
-                {leadItem.kind}
+                {currentLead.kind}
               </span>
             )}
-            {leadItem.date && (
+            {currentLead.date && (
               <span className={styles.leadDate}>
-                📅 {leadItem.date}
+                📅 {currentLead.date}
               </span>
             )}
           </div>
 
-          {/* 3. Khung ảnh lớn sắc nét (không có danh sách bài con bên dưới) */}
-          {leadItem.image && (
+          {/* 3. Khung ảnh lớn sắc nét của bài viết đang xoay vòng */}
+          {currentLead.image && (
             <div
               className={styles.imageContainer}
               style={{
                 background: normalizedFit === 'contain' ? '#eaf4fc' : undefined,
               }}
             >
-              <a href={leadItem.href} className={styles.imageLink}>
+              <a href={currentLead.href} className={styles.imageLink}>
                 <img
-                  src={leadItem.image}
-                  alt={leadItem.title}
+                  key={`img-${currentLead.id}`}
+                  src={currentLead.image}
+                  alt={currentLead.title}
                   className={styles.leadImage}
                   loading="eager"
                   decoding="sync"
                   style={{
                     objectFit: normalizedFit,
-                    objectPosition: leadItem.imagePosition || 'center center',
+                    objectPosition: currentLead.imagePosition || 'center center',
                   }}
                 />
               </a>
@@ -177,7 +199,7 @@ export function SoyTeNewsSection({
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  setZoomImg(leadItem.image || null)
+                  setZoomImg(currentLead.image || null)
                 }}
                 title="Xem ảnh gốc sắc nét toàn màn hình"
                 aria-label="Xem ảnh phóng to"
@@ -193,16 +215,16 @@ export function SoyTeNewsSection({
             </div>
           )}
 
-          {/* 4. Đoạn tóm tắt nội dung ngắn gọn */}
-          {leadItem.excerpt && (
-            <p className={styles.leadExcerpt}>
-              {leadItem.excerpt}
+          {/* 4. Đoạn tóm tắt nội dung ngắn gọn của bài viết */}
+          {currentLead.excerpt && (
+            <p className={styles.leadExcerpt} key={`excerpt-${currentLead.id}`}>
+              {currentLead.excerpt}
             </p>
           )}
 
           {/* 5. Nút xem chi tiết bài viết */}
           <div className={styles.leadActionWrap}>
-            <a href={leadItem.href} className={styles.leadActionBtn}>
+            <a href={currentLead.href} className={styles.leadActionBtn}>
               Xem chi tiết bài viết →
             </a>
           </div>
@@ -264,21 +286,47 @@ export function SoyTeNewsSection({
                 transition: withTransition ? 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)' : 'none',
               }}
             >
-              {displayList.map((item, idx) => (
-                <li key={`${item.id}-${idx}`} className={styles.tickerItem}>
-                  <span className={styles.featuredBullet} aria-hidden="true" />
-                  <div className={styles.itemContent}>
-                    <a href={item.href} className={styles.featuredLink} title={item.title}>
-                      {item.title}
-                    </a>
-                    {item.date && (
-                      <span className={styles.itemDate}>
-                        {item.date}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
+              {displayList.map((item, idx) => {
+                const isItemActive = item.id === currentLead.id
+                return (
+                  <li
+                    key={`${item.id}-${idx}`}
+                    className={`${styles.tickerItem} ${isItemActive ? styles.tickerItemActive : ''}`}
+                    onClick={() => handleSelectArticle(idx % totalItems)}
+                    title="Bấm để xem bài viết này ở khung ảnh bên trái"
+                  >
+                    <span
+                      className={`${styles.featuredBullet} ${isItemActive ? styles.featuredBulletActive : ''}`}
+                      aria-hidden="true"
+                    />
+                    <div className={styles.itemContent}>
+                      <a
+                        href={item.href}
+                        className={`${styles.featuredLink} ${isItemActive ? styles.featuredLinkActive : ''}`}
+                        title={item.title}
+                        onClick={(e) => {
+                          // Click chữ tiêu đề cho phép mở link bài viết
+                          e.stopPropagation()
+                        }}
+                      >
+                        {item.title}
+                      </a>
+                      <div className={styles.itemMeta}>
+                        {item.date && (
+                          <span className={styles.itemDate}>
+                            {item.date}
+                          </span>
+                        )}
+                        {isItemActive && (
+                          <span className={styles.nowPlayingTag} aria-label="Đang hiển thị">
+                            <span>●</span> Đang xem
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         </div>

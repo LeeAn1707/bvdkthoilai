@@ -16,19 +16,36 @@
 }
 
 /* =========================================================
-   CỘT TRÁI: CHỈ HIỂN THỊ 1 BÀI VIẾT DUY NHẤT
+   CỘT TRÁI: BÀI VIẾT ĐỒNG BỘ 100% VỚI VÒNG XOAY TIN NỔI BẬT
    ========================================================= */
 .leadCol {
   display: flex;
   flex-direction: column;
 }
 
+.leadTitleWrap {
+  min-height: 56px;
+  margin-bottom: 10px;
+}
+
 .leadTitle {
-  margin: 0 0 10px 0;
+  margin: 0;
   font-size: 1.35rem;
   font-weight: 700;
   line-height: 1.36;
   color: #0f172a;
+  animation: titleFadeIn 0.35s ease-out;
+}
+
+@keyframes titleFadeIn {
+  from {
+    opacity: 0.35;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .leadTitleLink {
@@ -49,6 +66,7 @@
   margin-bottom: 12px;
   font-size: 0.82rem;
   color: #64748b;
+  animation: titleFadeIn 0.35s ease-out;
 }
 
 .leadBadge {
@@ -99,7 +117,19 @@
   transform: translateZ(0);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+  animation: imageFadeZoom 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes imageFadeZoom {
+  0% {
+    opacity: 0.35;
+    transform: scale(1.025) translateZ(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateZ(0);
+  }
 }
 
 .imageContainer:hover .leadImage {
@@ -143,6 +173,7 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  animation: titleFadeIn 0.35s ease-out;
 }
 
 .leadActionWrap {
@@ -281,12 +312,21 @@
   padding: 10px 8px;
   border-bottom: 1px solid #f1f5f9;
   border-radius: 6px;
-  transition: background 0.2s ease;
+  transition: all 0.25s ease;
+  cursor: pointer;
   overflow: hidden;
 }
 
 .tickerItem:hover {
   background: #f8fafc;
+}
+
+/* Trạng thái bài viết đang được chiếu ở cột bên trái */
+.tickerItemActive {
+  background: #f0f7ff !important;
+  border-left: 3px solid #005a9e;
+  padding-left: 9px;
+  box-shadow: 0 1px 4px rgba(0, 90, 158, 0.08);
 }
 
 .featuredBullet {
@@ -296,12 +336,20 @@
   margin-top: 6px;
   flex-shrink: 0;
   border-radius: 1px;
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .tickerItem:hover .featuredBullet {
   background: #0284c7;
   transform: scale(1.25);
+}
+
+.featuredBulletActive {
+  width: 8px;
+  height: 8px;
+  background: #005a9e;
+  box-shadow: 0 0 6px rgba(0, 90, 158, 0.8);
+  margin-top: 5px;
 }
 
 .itemContent {
@@ -330,10 +378,34 @@
   text-decoration: underline;
 }
 
+.featuredLinkActive {
+  color: #005a9e !important;
+  font-weight: 700;
+}
+
+.itemMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .itemDate {
   font-size: 0.78rem;
   color: #94a3b8;
   font-weight: 500;
+}
+
+.nowPlayingTag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #005a9e;
+  background: #e0f2fe;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 /* =========================================================

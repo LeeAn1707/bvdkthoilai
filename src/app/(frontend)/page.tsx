@@ -687,25 +687,31 @@ export default async function HomePage() {
     .slice(0, featuredItemLimit)
 
   // Danh sách bài cho cột "TIN NỔI BẬT" bên phải (kiểu Sở Y tế Cần Thơ):
+  const mapNewsToItem = (item: any) => {
+    const { fit, position } = resolveFitAndPosition(item.coverFit, item.coverPosition)
+    return {
+      id: `news-${item.id}`,
+      title: item.title,
+      excerpt: item.excerpt,
+      image: mediaUrl(item.cover || item.seoImage) || defaultMedia.news,
+      imageFit: fit,
+      imagePosition: position,
+      href: `/tin-tuc/${item.slug}`,
+      kind: typeof item.categoryRef === 'object' && item.categoryRef?.name ? item.categoryRef.name.toUpperCase() : (item.category ? item.category.toUpperCase() : 'TIN TỨC'),
+      dateValue: item.publishedAt || item.updatedAt,
+      date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
+    }
+  }
+
   // 1. Ưu tiên bài được tích chọn "Tin nổi bật" (featured = true) trong Admin
   const featuredNewsList = news
     .filter((n: any) => n.featured === true)
-    .map((item: any) => ({
-      id: `news-${item.id}`,
-      title: item.title,
-      href: `/tin-tuc/${item.slug}`,
-      date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : '',
-    }))
+    .map(mapNewsToItem)
 
   // 2. Tự động bổ sung các bài tin mới nhất khác để cột luôn đầy đặn (đủ 6-7 bài)
   const remainingNewsList = news
     .filter((n: any) => !n.featured)
-    .map((item: any) => ({
-      id: `news-${item.id}`,
-      title: item.title,
-      href: `/tin-tuc/${item.slug}`,
-      date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : '',
-    }))
+    .map(mapNewsToItem)
 
   const soyteFeaturedSidebar = [...featuredNewsList, ...remainingNewsList].slice(0, featuredItemLimit)
 

@@ -1,26 +1,21 @@
-# CURRENT TASK — Đưa cấu hình tốc độ và số lượng tin nổi bật xoay vòng vào Admin CMS
+# CURRENT TASK — Đồng bộ hai chiều: Cột phải xoay vòng bài nào thì cột trái hiển thị bài đó
 
-## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE VÀ SYNC CMS THÀNH CÔNG
+## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE VÀ RENDER THÀNH CÔNG
 
 ## 1. Yêu cầu nghiệp vụ
-- Người dùng yêu cầu: Đưa vào trang Quản trị (Admin CMS) để có thể tùy chỉnh:
-  1. Tốc độ xoay vòng chuyển động (thời gian tính bằng giây).
-  2. Số lượng bài viết tối đa tham gia xoay vòng ở cột TIN NỔI BẬT.
+- Người dùng yêu cầu: Khi cột bên phải (TIN NỔI BẬT) xoay vòng đến bài viết nào thì cột bên trái phải hiển thị bài viết đó (Tiêu đề + Ảnh to sắc nét + Tóm tắt + Nhãn chuyên mục).
 
 ## 2. Giải pháp thực hiện
-1. `src/globals/Homepage.ts`:
-   - Tối ưu hóa cấu hình trường `carouselSeconds` (Tốc độ xoay vòng tin nổi bật, từ 2 đến 30 giây, mặc định 3.5s).
-   - Tối ưu hóa cấu hình trường `featuredItemLimit` (Số lượng bài viết tham gia xoay vòng, từ 4 đến 50 bài, mặc định 16 bài).
-   - Cập nhật nhãn (label) và phần hướng dẫn (description) chi tiết, rõ ràng trong Admin.
-2. `src/app/(frontend)/page.tsx`:
-   - Đồng bộ `featuredItemLimit` và `carouselSeconds` từ Admin vào `SoyTeNewsSection`.
-   - Cột TIN NỔI BẬT tự động lấy đúng số lượng bài tối đa được chỉ định trong Admin (`slice(0, featuredItemLimit)`).
+1. `src/app/(frontend)/page.tsx`:
+   - Hàm `mapNewsToItem` nạp đầy đủ thông tin: ảnh đại diện độ nét cao (`image`), tỷ lệ hiển thị (`imageFit`, `imagePosition`), trích dẫn tóm tắt (`excerpt`), nhãn chuyên mục (`kind`), ngày đăng (`date`).
+2. `src/components/SoyTeNewsSection.tsx`:
+   - Liên kết biến `currentLead` ở cột trái đồng bộ 100% với `activeIndex` (vị trí bài đang xoay vòng ở cột phải).
+   - Khi cột phải tự động cuộn đến bài tiếp theo, cột trái tự động chuyển cảnh (fade in + zoom êm mắt) hiển thị bài đó.
+   - Khi người xem click vào bất kỳ bài nào trong danh sách cột phải, cột trái lập tức chuyển sang bài đó.
+   - Bài viết đang được chiếu ở cột trái được đánh dấu nổi bật rõ ràng ở cột phải (`tickerItemActive`, bullet vuông sáng, nhãn `● Đang xem`).
+3. `src/components/SoyTeNewsSection.module.css`:
+   - Thêm các định dạng active item, animation chuyển đổi tiêu đề và ảnh mềm mại, sang trọng.
 
-## 3. Vị trí quản trị trong Admin CMS
-- `Admin → Globals → Trang chủ (Homepage) → Khối "Hoạt động nổi bật tại bệnh viện" (featured-news)`:
-  - Trường: **Tốc độ xoay vòng tin nổi bật (giây)**.
-  - Trường: **Số lượng bài viết tham gia xoay vòng**.
-
-## 4. Kết quả kiểm tra
+## 3. Kết quả kiểm tra
 - `npm run typecheck`: PASS 100%.
-- `npm run db:schema:check`: PASS (không ảnh hưởng schema contract, tương thích hoàn toàn dữ liệu CSDL).
+- Kiểm tra render HTTP `localhost:3000`: STATUS 200 OK, `hasTickerItemActive = true`.
