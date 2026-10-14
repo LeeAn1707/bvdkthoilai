@@ -560,8 +560,8 @@ export const Homepage: GlobalConfig = {
             { name: 'visible', label: 'Hiển thị thẻ này', type: 'checkbox', defaultValue: true },
           ],
         },
-        { name: 'carouselSeconds', label: 'Tốc độ xoay vòng tin nổi bật (giây)', type: 'number', min: 2, max: 30, defaultValue: 3.5, admin: { condition: (_data, siblingData) => siblingData?.type === 'featured-news', description: 'Thời gian (giây) giữa mỗi lần tự động chuyển bài viết ở cột TIN NỔI BẬT (khuyên dùng từ 3 đến 5 giây).' } },
-        { name: 'featuredItemLimit', label: 'Số lượng bài viết tham gia xoay vòng', type: 'number', min: 4, max: 50, defaultValue: 16, admin: { condition: (_data, siblingData) => siblingData?.type === 'featured-news', description: 'Quy định tổng số bài viết tối đa được đưa vào danh sách xoay vòng ở cột TIN NỔI BẬT (từ 4 đến 50 bài).' } },
+        { name: 'carouselSeconds', label: 'Tốc độ xoay vòng tin nổi bật (giây)', type: 'number', min: 2.5, max: 20, defaultValue: 4.5, admin: { condition: (_data, siblingData) => siblingData?.type === 'featured-news', description: 'Thời gian (giây) giữa mỗi lần tự động chuyển bài viết ở cột TIN NỔI BẬT (khuyên dùng từ 3 đến 5 giây).' } },
+        { name: 'featuredItemLimit', label: 'Số lượng bài viết tham gia xoay vòng', type: 'number', min: 4, max: 40, defaultValue: 16, admin: { condition: (_data, siblingData) => siblingData?.type === 'featured-news', description: 'Quy định tổng số bài viết tối đa được đưa vào danh sách xoay vòng ở cột TIN NỔI BẬT (từ 4 đến 40 bài).' } },
         {
           name: 'featuredSources',
           dbName: 'fn_sources',

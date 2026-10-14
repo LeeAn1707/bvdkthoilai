@@ -6929,7 +6929,7 @@ export interface Homepage {
          */
         carouselSeconds?: number | null;
         /**
-         * Quy định tổng số bài viết tối đa được đưa vào danh sách xoay vòng ở cột TIN NỔI BẬT (từ 4 đến 50 bài).
+         * Quy định tổng số bài viết tối đa được đưa vào danh sách xoay vòng ở cột TIN NỔI BẬT (từ 4 đến 40 bài).
          */
         featuredItemLimit?: number | null;
         /**
