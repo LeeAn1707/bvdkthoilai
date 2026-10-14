@@ -111,7 +111,43 @@ const localOrigins = localDevPorts.flatMap((port) => [
   `http://localhost:${port}`,
   `http://127.0.0.1:${port}`,
 ])
-const allowedOrigins = Array.from(new Set([...(siteURL ? [siteURL] : []), ...(!isProduction ? localOrigins : [])]))
+
+const normalizeOrigin = (url?: string | null): string => {
+  if (!url) return ''
+  const trimmed = url.trim()
+  if (!trimmed) return ''
+  const withProtocol = trimmed.startsWith('http://') || trimmed.startsWith('https://')
+    ? trimmed
+    : `https://${trimmed}`
+  return withProtocol.replace(/\/+$/, '')
+}
+
+const railwayPublicDomain = normalizeOrigin(process.env.RAILWAY_PUBLIC_DOMAIN)
+const railwayStaticUrl = normalizeOrigin(process.env.RAILWAY_STATIC_URL)
+const normalizedSiteURL = normalizeOrigin(siteURL)
+
+const allowedOrigins = Array.from(
+  new Set(
+    [
+      normalizedSiteURL,
+      railwayPublicDomain,
+      railwayStaticUrl,
+      'https://bvdkthoilai-production-3b8e.up.railway.app',
+      'https://benhvienthoilai.vn',
+      'https://www.benhvienthoilai.vn',
+      ...(process.env.ADDITIONAL_ALLOWED_ORIGINS
+        ? process.env.ADDITIONAL_ALLOWED_ORIGINS.split(',').map((o) => normalizeOrigin(o))
+        : []),
+      ...localOrigins,
+    ].filter(Boolean),
+  ),
+)
+
+const effectiveServerURL =
+  normalizedSiteURL ||
+  railwayPublicDomain ||
+  railwayStaticUrl ||
+  (isProduction ? 'https://bvdkthoilai-production-3b8e.up.railway.app' : 'http://localhost:3000')
 
 const r2Bucket = process.env.R2_BUCKET || ''
 const r2AccessKeyId = process.env.R2_ACCESS_KEY_ID || ''
@@ -283,7 +319,7 @@ if (!effectiveDatabaseURL && !isBuildPhase) {
 }
 
 export default buildConfig({
-  serverURL: siteURL || 'http://localhost:3000',
+  serverURL: effectiveServerURL,
   maxDepth: 4,
   upload: { limits: { fileSize: 50 * 1024 * 1024 } },
   graphQL: { disable: true },

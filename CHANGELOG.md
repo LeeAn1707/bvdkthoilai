@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-10-14 — Sửa Lỗi 401 Unauthorized Mất Phiên Admin & CSRF Allowlist Trên Railway
+
+- Khắc phục lỗi 401 Unauthorized (`There was an error building form state: Unauthorized, you must be logged in to make this request`) khi mở form bài viết và upload media trên Railway.
+- Cập nhật `payload.config.ts`: chuẩn hóa Origin, bổ sung tên miền Railway (`RAILWAY_PUBLIC_DOMAIN`, `RAILWAY_STATIC_URL`, `https://bvdkthoilai-production-3b8e.up.railway.app`) và các tên miền bệnh viện vào `csrf` và `cors` allowlist.
+- Cập nhật `serverURL` tự động nhận diện tên miền Railway khi chạy trên production.
+- Cung cấp script PostgreSQL tự động khôi phục Primary Key và Sequence (`scripts/fix-railway-constraints.sql`) khắc phục lỗi treo Admin `payload_preferences` và lỗi tạo bản ghi `media`/`notices`.
+
 ## 2026-10-01 — Xuất Lịch Word/PDF, Tự Động Điền Lịch Tuần & Nhật Ký Sửa Đổi Lịch Làm Việc
 
 - Bổ sung tính năng xuất Lịch làm việc cơ quan ra 2 định dạng Word (`.doc`) và PDF (`.pdf`) chuẩn thể thức hành chính theo mẫu Cần Thơ (`src/lib/workScheduleExport.ts`), tích hợp iframe ẩn giúp in trực tiếp và tải về mà không mở tab `about:blank`.

@@ -1,24 +1,21 @@
-# CURRENT TASK — Xử Lý Lỗi Khôi Phục Admin & Sửa Lỗi Thiếu Primary Key Trên Railway
+# CURRENT TASK — Khắc phục lỗi 401 Unauthorized và Treo Admin trên Railway
 
-## Trạng thái: HOÀN THÀNH
+## Trạng thái: ĐÃ XỬ LÝ XONG CODE — CHỜ DEPLOY & CHẠY SCRIPT SQL
 
-## Nội dung đã xử lý
-1. **Mở khóa tài khoản Admin**:
-   - Tài khoản `leean170792@gmail.com` bị khóa tự động sau 5 lần thử sai (`lockTime: 15 phút`).
-   - Đã reset `login_attempts = 0` và `lock_until = NULL` trên CSDL Railway.
+## 1. Nguyên nhân lỗi 401: Unauthorized, you must be logged in to make this request
+- Trong Payload 3.x, cơ chế bảo vệ CSRF (`extractJWT.js`) sẽ bỏ qua Cookie đăng nhập nếu Header `Origin` của trình duyệt không nằm trong danh sách `csrf` / `cors`.
+- Trên Railway, domain truy cập là `https://bvdkthoilai-production-3b8e.up.railway.app`. Trước đó, `payload.config.ts` chỉ cho phép `NEXT_PUBLIC_SITE_URL` (thường là domain chính thức hoặc localhost). Khi chạy Server Action `buildFormState`, Payload không nhận diện cookie phiên -> `req.user = null` -> ném lỗi 401 Unauthorized và treo form ở chữ "ĐANG TẢI".
 
-2. **Khắc phục lỗi 500 khi đăng nhập trên Railway**:
-   - Phát hiện nguyên nhân qua logs: `ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification`.
-   - Do khi import/restore CSDL bị lỗi giữa chừng, các bảng `users` và `site_visits_summary` bị thiếu ràng buộc Khóa chính (`PRIMARY KEY`).
-   - Đã tạo lại khóa chính trên CSDL Railway:
-     ```sql
-     ALTER TABLE users ADD CONSTRAINT users_pkey PRIMARY KEY (id);
-     ALTER TABLE site_visits_summary ADD CONSTRAINT site_visits_summary_pkey PRIMARY KEY (id);
-     ```
+## 2. Giải pháp đã thực hiện
+1. **Đã sửa `payload.config.ts`**:
+   - Tự động chuẩn hóa URL (xóa dấu `/` thừa, thêm `https://` nếu thiếu).
+   - Thêm đầy đủ `RAILWAY_PUBLIC_DOMAIN`, `RAILWAY_STATIC_URL`, `https://bvdkthoilai-production-3b8e.up.railway.app`, `https://benhvienthoilai.vn`, `https://www.benhvienthoilai.vn` vào `allowedOrigins` (`csrf` & `cors`).
+   - Cập nhật `serverURL` tự động nhận diện domain Railway khi chạy trên production.
+   - Đã kiểm tra `tsc --noEmit` đạt 100%.
 
-3. **Ghi chép tài liệu phòng tránh vào dự án**:
-   - Đã cập nhật vào [docs/ai/database.md](file:///f:/20.9%20web/bvdkthoilai-main/docs/ai/database.md#L36-L45) quy tắc an toàn khi backup/restore CSDL.
-   - Đã bổ sung mục 10 vào [docs/RAILWAY-DEPLOYMENT.md](file:///f:/20.9%20web/bvdkthoilai-main/docs/RAILWAY-DEPLOYMENT.md#L192-L203) hướng dẫn xử lý lỗi thiếu constraint và phương pháp dump/restore chuẩn.
+2. **File SQL khôi phục CSDL PostgreSQL**:
+   - File [scripts/fix-railway-constraints.sql](file:///f:/20.9%20web/bvdkthoilai-main/scripts/fix-railway-constraints.sql) dùng để khôi phục Primary Key và Sequence tự tăng ID cho `payload_preferences`, `media`, `notices`, `news`...
 
-
-
+## 3. Các bước tiếp theo
+1. Commit & Push code lên GitHub để Railway tự động redeploy bản sửa lỗi CSRF.
+2. Mở Railway Dashboard -> Chọn Database PostgreSQL -> Tab **Data** -> **Query Editor** -> Dán script SQL [scripts/fix-railway-constraints.sql](file:///f:/20.9%20web/bvdkthoilai-main/scripts/fix-railway-constraints.sql) và bấm **Run Query**.
