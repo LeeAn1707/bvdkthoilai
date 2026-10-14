@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import styles from './SoyTeNewsSection.module.css'
 
 export type SoyTeNewsItem = {
@@ -21,15 +21,57 @@ export function SoyTeNewsSection({
   featuredItems = [],
   sidebarTitle = 'TIN NỔI BẬT',
   cardFit = 'cover',
+  autoplaySeconds = 5,
 }: {
   items: SoyTeNewsItem[]
   featuredItems?: SoyTeNewsItem[]
   sidebarTitle?: string
   cardFit?: 'cover' | 'contain' | 'fill'
+  autoplaySeconds?: number
 }) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+  const [progress, setProgress] = useState(0)
   const [zoomImg, setZoomImg] = useState<string | null>(null)
 
-  // ESC key to close lightbox
+  // Nhóm các bài viết tham gia chuyển đổi ở khung chính (tối đa 5 bài)
+  const sliderItems = items.slice(0, Math.min(items.length, 5))
+  const totalSlides = sliderItems.length
+
+  const handleNext = useCallback(() => {
+    if (totalSlides <= 1) return
+    setCurrentIndex((prev) => (prev + 1) % totalSlides)
+    setProgress(0)
+  }, [totalSlides])
+
+  const handlePrev = useCallback(() => {
+    if (totalSlides <= 1) return
+    setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides)
+    setProgress(0)
+  }, [totalSlides])
+
+  // Tự động chuyển bài viết qua lại theo chu kỳ thời gian
+  useEffect(() => {
+    if (totalSlides <= 1 || isPaused) return
+
+    const intervalMs = Math.max(2500, autoplaySeconds * 1000)
+    const tickStep = 50 // Cập nhật progress mỗi 50ms
+
+    const progressTimer = setInterval(() => {
+      setProgress((prev) => {
+        const next = prev + (tickStep / intervalMs) * 100
+        if (next >= 100) {
+          handleNext()
+          return 0
+        }
+        return next
+      })
+    }, tickStep)
+
+    return () => clearInterval(progressTimer)
+  }, [totalSlides, isPaused, autoplaySeconds, handleNext])
+
+  // Phím ESC đóng Lightbox
   useEffect(() => {
     if (!zoomImg) return
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -43,77 +85,82 @@ export function SoyTeNewsSection({
     return null
   }
 
-  const leadItem = items[0]
-  const subItems = items.slice(1, 5)
+  const currentLead = sliderItems[currentIndex] || items[0]
 
   // Cột "TIN NỔI BẬT" bên phải:
-  // Ưu tiên lấy từ danh sách featuredItems riêng (nếu có),
-  // nếu không thì lấy các bài từ vị trí thứ 5 trở đi của items.
   let sidebarList: SoyTeNewsItem[] = []
   if (featuredItems && featuredItems.length > 0) {
-    // Lọc bỏ trùng lặp với bài chính
-    sidebarList = featuredItems.filter((it) => it.id !== leadItem.id).slice(0, 7)
+    sidebarList = featuredItems.filter((it) => it.id !== currentLead.id).slice(0, 7)
   }
   if (sidebarList.length === 0) {
     sidebarList = items.slice(5, 12)
   }
-  // Trường hợp ít bài, nếu sidebar vẫn trống và subItems có nhiều bài, lấy ít nhất vài bài
   if (sidebarList.length === 0 && items.length > 2) {
-    sidebarList = items.slice(2, 6)
+    sidebarList = items.filter((_, idx) => idx !== currentIndex).slice(0, 5)
   }
 
-  const rawFit = leadItem.imageFit || cardFit
+  const rawFit = currentLead.imageFit || cardFit
   const normalizedFit = rawFit === 'contain' ? 'contain' : (rawFit === 'fill' ? 'fill' : 'cover')
 
   return (
-    <div className={styles.soyteContainer} aria-label="Điểm tin hoạt động y tế">
+    <div
+      className={styles.soyteContainer}
+      aria-label="Điểm tin hoạt động y tế"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
       <div className={styles.soyteGrid}>
-        {/* ================= CỘT TRÁI: TIN CHÍNH ================= */}
+        {/* ================= CỘT TRÁI: TIN CHÍNH CÓ HIỆU ỨNG CHUYỂN BÀI ================= */}
         <div className={styles.leadCol}>
-          {/* 1. Tiêu đề bài viết chính (nằm trên ảnh đúng chuẩn Sở Y tế) */}
-          <h3 className={styles.leadTitle}>
-            <a href={leadItem.href} className={styles.leadTitleLink}>
-              {leadItem.title}
-            </a>
-          </h3>
+          {/* 1. Tiêu đề bài viết chính (tự động đổi mượt mà theo bài đang phát) */}
+          <div className={styles.leadTitleWrap}>
+            <h3 className={styles.leadTitle} key={`title-${currentLead.id}`}>
+              <a href={currentLead.href} className={styles.leadTitleLink}>
+                {currentLead.title}
+              </a>
+            </h3>
+          </div>
 
-          {/* 2. Ảnh lớn chất lượng cao, không bị dẹt méo */}
-          {leadItem.image && (
-            <div
-              className={styles.imageContainer}
-              style={{
-                background: normalizedFit === 'contain' ? '#eaf4fc' : undefined,
-              }}
-            >
-              <a href={leadItem.href} className={styles.imageLink} tabIndex={-1} aria-hidden="true">
+          {/* 2. Ảnh lớn chất lượng cao với hiệu ứng chuyển slide fade/zoom */}
+          <div
+            className={styles.imageContainer}
+            style={{
+              background: normalizedFit === 'contain' ? '#eaf4fc' : undefined,
+            }}
+          >
+            {currentLead.image && (
+              <a href={currentLead.href} className={styles.imageLink} tabIndex={-1} aria-hidden="true">
                 <img
-                  src={leadItem.image}
-                  alt={leadItem.title}
+                  key={`img-${currentLead.id}`}
+                  src={currentLead.image}
+                  alt={currentLead.title}
                   className={styles.leadImage}
                   loading="eager"
                   decoding="sync"
                   style={{
                     objectFit: normalizedFit,
-                    objectPosition: leadItem.imagePosition || 'center center',
+                    objectPosition: currentLead.imagePosition || 'center center',
                   }}
                 />
               </a>
+            )}
 
-              {/* Nhãn thể loại bài viết */}
-              {leadItem.kind && (
-                <span className={styles.leadBadge}>
-                  {leadItem.kind}
-                </span>
-              )}
+            {/* Nhãn thể loại bài viết */}
+            {currentLead.kind && (
+              <span className={styles.leadBadge} key={`badge-${currentLead.id}`}>
+                {currentLead.kind}
+              </span>
+            )}
 
-              {/* Nút phóng to ảnh nét full HD/2K */}
+            {/* Nút phóng to ảnh nét full HD/2K */}
+            {currentLead.image && (
               <button
                 type="button"
                 className={styles.zoomBtn}
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  setZoomImg(leadItem.image || null)
+                  setZoomImg(currentLead.image || null)
                 }}
                 title="Xem ảnh gốc sắc nét toàn màn hình"
                 aria-label="Xem ảnh phóng to"
@@ -126,20 +173,98 @@ export function SoyTeNewsSection({
                 </svg>
                 <span>Phóng to</span>
               </button>
-            </div>
-          )}
+            )}
 
-          {/* 3. Danh sách tin phụ bên dưới ảnh với bullet vuông */}
-          {subItems.length > 0 && (
+            {/* Bộ điều khiển chuyển bài qua lại (‹  1/5  ›) */}
+            {totalSlides > 1 && (
+              <div className={styles.sliderControls}>
+                <button
+                  type="button"
+                  className={styles.navBtn}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handlePrev()
+                  }}
+                  title="Bài trước"
+                  aria-label="Chuyển bài trước"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+
+                <span className={styles.slideCounter}>
+                  {currentIndex + 1}/{totalSlides}
+                  {isPaused && <span className={styles.pauseBadge}>❚❚</span>}
+                </span>
+
+                <button
+                  type="button"
+                  className={styles.navBtn}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleNext()
+                  }}
+                  title="Bài kế tiếp"
+                  aria-label="Chuyển bài tiếp theo"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Thanh tiến trình tự động chuyển slide */}
+            {totalSlides > 1 && (
+              <div className={styles.progressBarTrack} aria-hidden="true">
+                <div
+                  className={styles.progressBarFill}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 3. Danh sách tin phụ bên dưới ảnh: nhấp hoặc hover bài nào để chuyển bài đó lên ảnh lớn */}
+          {sliderItems.length > 0 && (
             <ul className={styles.leadSubList}>
-              {subItems.map((item) => (
-                <li key={item.id} className={styles.leadSubItem}>
-                  <span className={styles.subBullet} aria-hidden="true" />
-                  <a href={item.href} className={styles.subLink}>
-                    {item.title}
-                  </a>
-                </li>
-              ))}
+              {sliderItems.map((item, idx) => {
+                const isActive = idx === currentIndex
+                return (
+                  <li
+                    key={item.id}
+                    className={`${styles.leadSubItem} ${isActive ? styles.leadSubItemActive : ''}`}
+                    onClick={() => {
+                      setCurrentIndex(idx)
+                      setProgress(0)
+                    }}
+                    title="Bấm để xem ảnh và nội dung bài này"
+                  >
+                    <span
+                      className={`${styles.subBullet} ${isActive ? styles.subBulletActive : ''}`}
+                      aria-hidden="true"
+                    />
+                    <a
+                      href={item.href}
+                      className={`${styles.subLink} ${isActive ? styles.subLinkActive : ''}`}
+                      onClick={(e) => {
+                        // Cho phép nhấp mở link bình thường nếu bấm trực tiếp vào chữ
+                        e.stopPropagation()
+                      }}
+                    >
+                      {item.title}
+                    </a>
+                    {isActive && (
+                      <span className={styles.nowPlayingTag} aria-label="Đang hiển thị">
+                        <span>●</span> Đang xem
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

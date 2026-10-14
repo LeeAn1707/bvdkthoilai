@@ -1,23 +1,26 @@
-# CURRENT TASK — Đổi thiết kế Điểm tin Bệnh viện theo phong cách Sở Y tế Cần Thơ
+# CURRENT TASK — Thêm hiệu ứng chuyển bài viết qua lại cho Điểm tin trang chủ
 
 ## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE VÀ RENDER THÀNH CÔNG
 
 ## 1. Yêu cầu nghiệp vụ
-- Người dùng yêu cầu chuyển đổi thiết kế chuyên mục "Điểm tin Bệnh viện Đa khoa khu vực Thới Lai" trên trang chủ sang phong cách Cổng thông tin Sở Y tế Cần Thơ (`https://soyte.cantho.gov.vn/`).
-- Bố cục theo chuẩn Sở Y tế:
-  - Cột trái (~62%): Tiêu đề tin chính to rõ nằm trên cùng → Ảnh khổ lớn chất lượng cao (sắc nét, không bị dẹt/nén nhỏ) → Danh sách các tin phụ bên dưới có bullet vuông nhỏ.
-  - Cột phải (~38%): Tiêu đề khối "TIN NỔI BẬT" có đường kẻ gạch chân đặc trưng → Danh sách các tin nổi bật có bullet vuông màu xanh dương và đường kẻ phân cách giữa các bài.
-  - Tích hợp nút kính lúp "🔍 Phóng to" ngay trên ảnh chính để mở xem ảnh gốc chất lượng cao toàn màn hình (Lightbox) nếu người xem cần đọc chi tiết chữ nhỏ/mã QR/poster.
+- Người dùng yêu cầu thêm hiệu ứng chuyển các bài viết qua lại với nhau trong chuyên mục Điểm tin Bệnh viện Đa khoa khu vực Thới Lai (thiết kế theo phong cách Sở Y tế Cần Thơ).
 
-## 2. Các file đã tạo và cập nhật
+## 2. Giải pháp thực hiện
 1. `src/components/SoyTeNewsSection.tsx`:
-   - Component React chuẩn client hỗ trợ hiển thị 2 cột, quản lý ảnh tiêu điểm, danh sách tin bài và modal Lightbox xem ảnh nét gốc.
+   - Bổ sung cơ chế Slideshow chuyển bài tự động (Autoplay) sau mỗi chu kỳ thời gian (mặc định theo cấu hình `carouselSeconds` hoặc 5 giây).
+   - Thanh tiến trình thời gian thực (Progress bar) màu xanh y tế chạy mượt mà dưới đáy khung ảnh.
+   - Nút điều hướng chuyển bài trước / sau (`‹` và `›`) cùng bộ đếm số bài (`1/4`, `2/4`...) đặt ở góc dưới ảnh.
+   - Tự động tạm dừng (Pause on hover) khi rê chuột vào đọc tin hoặc xem ảnh.
+   - Trạng thái liên kết tương tác với danh sách tin phụ bên dưới:
+     - Dòng bài đang hiển thị ở ảnh chính được đánh dấu sáng (`leadSubItemActive`), đổi màu bullet vuông sang xanh dương (`subBulletActive`) và gắn nhãn `● Đang xem`.
+     - Cho phép người xem bấm vào bất kỳ bài nào trong danh sách để bài đó lập tức chuyển lên làm bài chính có ảnh to.
+   - Giữ nguyên nút kính lúp `🔍 Phóng to` xem ảnh nét toàn màn hình (Lightbox).
 2. `src/components/SoyTeNewsSection.module.css`:
-   - Định dạng CSS 2 cột responsive (tự động chuyển thành 1 cột trên điện thoại / tablet), bullet vuông theo đúng phong cách Sở Y tế.
+   - Hiệu ứng chuyển cảnh mượt mà: `imageFadeZoom` và `titleFadeIn` khi chuyển giữa các bài viết.
+   - Hiệu ứng hover cho cột "TIN NỔI BẬT" (trượt nhẹ và mở rộng bullet).
 3. `src/app/(frontend)/page.tsx`:
-   - Thay thế carousel cũ bằng `SoyTeNewsSection` trong section `featured-news`.
-   - Lọc và truyền danh sách bài nổi bật (`soyteFeaturedSidebar`) cho cột bên phải.
+   - Kết nối `autoplaySeconds` từ cấu hình Homepage CMS vào `SoyTeNewsSection`.
 
 ## 3. Kết quả kiểm tra
-- `npm run typecheck`: PASS 100% không có lỗi.
-- Kiểm tra render HTTP `localhost:3000`: STATUS 200 OK, hiển thị đầy đủ cấu trúc `soyteContainer` và `TIN NỔI BẬT`.
+- `npm run typecheck`: PASS 100%.
+- Kiểm tra render HTTP `localhost:3000`: STATUS 200 OK, render đầy đủ `sliderControls` và `progressBarTrack`.

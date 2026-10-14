@@ -1139,6 +1139,7 @@ export default async function HomePage() {
                     featuredItems={soyteFeaturedSidebar}
                     sidebarTitle="TIN NỔI BẬT"
                     cardFit={cfg.featuredCardFit || 'cover'}
+                    autoplaySeconds={Math.max(3, Number(cfg.carouselSeconds || 5))}
                   />
                 </div>
               </section>
