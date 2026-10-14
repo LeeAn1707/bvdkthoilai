@@ -1,41 +1,27 @@
-# CURRENT TASK — Bổ sung tùy chọn kiểu hiển thị ảnh và thứ tự ưu tiên ảnh Sơ đồ tổ chức
+# CURRENT TASK — Tối ưu độ nét và hiển thị ảnh Điểm tin / Hoạt động nổi bật trang chủ
 
-## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE VÀ MIGRATION DATABASE THÀNH CÔNG
+## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE VÀ TỐI ƯU THÀNH CÔNG
 
-## 1. Yêu cầu nghiệp vụ
-- Bổ sung tùy chọn hiển thị ảnh full ô nội dung (tràn viền cover sát mép) hoặc nhiều kiểu dáng hiển thị khác cho Ban Lãnh đạo trong trang Sơ đồ tổ chức.
-- Quy tắc ưu tiên ảnh:
-  1. Ưu tiên 1: Ảnh chân dung tải trực tiếp tại cấu hình Sơ đồ tổ chức (`person.photo`).
-  2. Ưu tiên 2: Ảnh đại diện từ hồ sơ Bác sĩ liên kết (`doctor.avatar`).
-  3. Ưu tiên 3: Ảnh từ Chuyên gia (`our-experts.image`).
-  4. Ưu tiên 4: Fallback bác sĩ theo tên trùng khớp.
-  5. Fallback cuối: Chữ cái viết tắt tên.
-- Cung cấp nhiều kiểu hiển thị ảnh:
-  - `full-cover`: Tràn viền sát mép thẻ, lấp đầy toàn bộ ô.
-  - `cover-box`: Khung đệm lọt lòng nhưng ảnh phủ kín không hở 2 bên.
-  - `contain-box`: Vừa vặn nguyên vẹn không bị cắt mép.
-  - `rounded-inset`: Bo góc 14px lọt lòng sang trọng.
-  - `circle`: Khung tròn trang nhã.
-- Hỗ trợ tỷ lệ khung hình (3:4, 4:5, 1:1, auto) và căn chỉnh tiêu cự (top, center, bottom).
-- Cho phép cài đặt chung cho toàn trang và tùy biến độc lập cho từng vị trí lãnh đạo.
+## 1. Yêu cầu & Vấn đề xử lý
+- Người dùng phản ánh: Ảnh hiển thị trong chuyên mục Điểm tin / Hoạt động nổi bật tại bệnh viện trên trang chủ bị mờ nhòe ("bị nhè không nhìn rõ ảnh"), đặc biệt là các ảnh poster/banner có chữ, sơ đồ, QR code.
+- Nguyên nhân:
+  1. Tỷ lệ khung ảnh 16:9 trong lưới 4 cột quá thấp (~154px), khiến ảnh kích thước lớn bị thu nhỏ quá mức (>6 lần), nén các dòng chữ và chi tiết thành các vệt nhòe.
+  2. Thuật toán downscaling bilinear mặc định của Chromium làm mờ chi tiết trên layer có transform/transition.
+  3. Xung đột giá trị `objectFit` từ CSDL (như `cover-top`, `cover-bottom` không phải cú pháp hợp lệ của CSS `object-fit`), dẫn đến browser fallback không chuẩn.
 
-## 2. Các file đã cập nhật
-1. `src/globals/OrganizationChart.ts`:
-   - Thêm group `imageSettings` (kiểu ảnh, tỷ lệ, object-fit, căn tiêu cự) ở cấp toàn trang.
-   - Thêm `imageStyle`, `imageFit` vào `leaderFields()` (Giám đốc và các Phó Giám đốc), hỗ trợ giá trị `inherit` (theo cài đặt chung) hoặc ghi đè riêng.
-   - Gắn `enumName` ngắn gọn để tuân thủ giới hạn 63 ký tự của PostgreSQL identifier.
-2. `src/app/(frontend)/so-do-to-chuc/page.tsx`:
-   - Bổ sung `effectiveStyle`, `effectiveFit`, `effectiveAspectRatio`, `effectivePosition` cho `LeaderCard`.
-   - Bổ sung populate media ID nếu trả về ID số; tự động nạp avatar bác sĩ và ảnh chuyên gia theo đúng thứ tự ưu tiên.
-3. `src/app/(frontend)/so-do-to-chuc/org-chart.css`:
-   - Định dạng CSS cho 5 kiểu dáng `.bmLeaderPhotoBox--*` (`full-cover`, `cover-box`, `contain-box`, `rounded-inset`, `circle`).
-4. Migration & Schema Contract:
-   - Migration `scripts/db-migrations/20261014_079_add_org_chart_image_styles.mjs`.
-   - Đã seal `scripts/db-schema-contract.json` (hash 79511c524f8255353461eead7282ad7f69b957b6c89689a52e469e200373fce9).
-   - Đã deploy migration local thành công.
+## 2. Giải pháp thực hiện
+1. `src/components/FeaturedContentCarousel.module.css`:
+   - Nâng tỷ lệ khung hình từ `16 / 9` lên `16 / 10`, đặt `min-height: 175px` để tăng diện tích hiển thị, giúp chi tiết chữ và poster thoáng rõ hơn.
+   - Thêm `image-rendering: -webkit-optimize-contrast` và `image-rendering: auto` để tăng độ tương phản và độ sắc nét khi scale ảnh.
+   - Tối ưu GPU compositing với `transform: translateZ(0)` và `backface-visibility: hidden` để khử mờ khi render.
+2. `src/components/FeaturedContentCarousel.tsx`:
+   - Chuẩn hóa thuộc tính `objectFit` (`cover | contain | fill`).
+   - Tối ưu `loading="eager"` và `decoding="sync"` cho 4 thẻ hiển thị đầu tiên để tránh độ trễ decode mờ tạm thời.
+3. `src/app/(frontend)/page.tsx`:
+   - Bổ sung helper `resolveFitAndPosition` tách rời giá trị `fit` hợp lệ và `position` (`top center`, `center center`, `bottom center`) cho tất cả nguồn tin (news, notices, procurement, schedules, documents).
+4. `src/app/styles/30-home-editorial.css`:
+   - Bổ sung `image-rendering: -webkit-optimize-contrast` và `translateZ(0)` cho ảnh khối tin tức biên tập.
 
 ## 3. Kết quả kiểm tra
 - `npm run typecheck`: PASS 100%.
-- `npm run db:schema:check`: PASS.
-- `npm run validate:organization`: PASS 18/18.
-- `npm run validate:migrations`: PASS 346/346.
+- Kiểm tra trực quan: Ảnh hiển thị sắc nét, chữ rõ ràng, không bị méo tỷ lệ hay vỡ layout.

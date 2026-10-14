@@ -59,7 +59,8 @@
 .imageFrame {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 16 / 10;
+  min-height: 175px;
   flex: 0 0 auto;
   overflow: hidden;
   background: #f8fbfe;
@@ -73,11 +74,16 @@
   display: block;
   object-fit: cover;
   object-position: center;
-  transition: transform 0.3s ease;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: auto;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .card:hover .image {
-  transform: scale(1.03);
+  transform: scale(1.03) translateZ(0);
 }
 
 .badge {

@@ -57,11 +57,16 @@
   object-fit: cover;
   object-position: top center;
   display: block;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: auto;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   transition: transform .45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .editorialHeroCard:hover .editorialHeroImg {
-  transform: scale(1.04);
+  transform: scale(1.04) translateZ(0);
 }
 
 .editorialHeroBadge {
@@ -207,11 +212,16 @@
   object-fit: cover;
   object-position: center;
   display: block;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: auto;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   transition: transform .3s ease;
 }
 
 .editorialRowItem:hover .editorialRowImg {
-  transform: scale(1.05);
+  transform: scale(1.05) translateZ(0);
 }
 
 .editorialRowContent {

@@ -530,6 +530,17 @@ export default async function HomePage() {
       ]
   const fnFilterMode = fnConfig?.featuredFilterMode || 'all'
 
+  const resolveFitAndPosition = (coverFitVal: string | undefined, coverPosVal: string | undefined) => {
+    const rawFit = coverFitVal || fnConfig?.featuredCardFit || 'cover'
+    const fit = rawFit === 'contain' ? 'contain' : (rawFit === 'fill' ? 'fill' : 'cover')
+    const position = (rawFit === 'cover-top' || coverPosVal === 'top')
+      ? 'top center'
+      : ((rawFit === 'cover-bottom' || coverPosVal === 'bottom')
+        ? 'bottom center'
+        : 'center center')
+    return { fit, position }
+  }
+
   const dynamicFeaturedItems: any[] = []
 
   for (const src of fnSources) {
@@ -542,18 +553,21 @@ export default async function HomePage() {
       if (fnFilterMode === 'only-featured') {
         filteredNews = filteredNews.filter((item: any) => item.featured === true)
       }
-      const items = filteredNews.slice(0, limit).map((item: any) => ({
-        id: `news-${item.id}`,
-        title: item.title,
-        excerpt: item.excerpt,
-        image: mediaUrl(item.cover || item.seoImage) || defaultMedia.news,
-        imageFit: item.coverFit || fnConfig?.featuredCardFit || 'cover',
-        imagePosition: item.coverPosition ? (item.coverPosition === 'center' ? 'center center' : (item.coverPosition === 'bottom' ? 'center bottom' : 'top center')) : undefined,
-        href: `/tin-tuc/${item.slug}`,
-        kind: customBadge || (typeof item.categoryRef === 'object' && item.categoryRef?.name ? item.categoryRef.name.toUpperCase() : (item.category ? item.category.toUpperCase() : 'TIN TỨC')),
-        dateValue: item.publishedAt || item.updatedAt,
-        date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
-      }))
+      const items = filteredNews.slice(0, limit).map((item: any) => {
+        const { fit, position } = resolveFitAndPosition(item.coverFit, item.coverPosition)
+        return {
+          id: `news-${item.id}`,
+          title: item.title,
+          excerpt: item.excerpt,
+          image: mediaUrl(item.cover || item.seoImage) || defaultMedia.news,
+          imageFit: fit,
+          imagePosition: position,
+          href: `/tin-tuc/${item.slug}`,
+          kind: customBadge || (typeof item.categoryRef === 'object' && item.categoryRef?.name ? item.categoryRef.name.toUpperCase() : (item.category ? item.category.toUpperCase() : 'TIN TỨC')),
+          dateValue: item.publishedAt || item.updatedAt,
+          date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
+        }
+      })
       dynamicFeaturedItems.push(...items)
     } else if (src.source === 'news-category') {
       const targetCatId = typeof src.categoryRef === 'object' ? String(src.categoryRef?.id || '') : String(src.categoryRef || '')
@@ -572,73 +586,89 @@ export default async function HomePage() {
       }
 
       const defaultBadge = (typeof src.categoryRef === 'object' && src.categoryRef?.name) || src.categoryName || 'TIN TỨC'
-      const items = matchingNews.slice(0, limit).map((item: any) => ({
-        id: `news-cat-${item.id}`,
-        title: item.title,
-        excerpt: item.excerpt,
-        image: mediaUrl(item.cover || item.seoImage) || defaultMedia.news,
-        imageFit: item.coverFit || fnConfig?.featuredCardFit || 'cover',
-        imagePosition: item.coverPosition ? (item.coverPosition === 'center' ? 'center center' : (item.coverPosition === 'bottom' ? 'center bottom' : 'top center')) : undefined,
-        href: `/tin-tuc/${item.slug}`,
-        kind: customBadge || defaultBadge.toUpperCase(),
-        dateValue: item.publishedAt || item.updatedAt,
-        date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
-      }))
+      const items = matchingNews.slice(0, limit).map((item: any) => {
+        const { fit, position } = resolveFitAndPosition(item.coverFit, item.coverPosition)
+        return {
+          id: `news-cat-${item.id}`,
+          title: item.title,
+          excerpt: item.excerpt,
+          image: mediaUrl(item.cover || item.seoImage) || defaultMedia.news,
+          imageFit: fit,
+          imagePosition: position,
+          href: `/tin-tuc/${item.slug}`,
+          kind: customBadge || defaultBadge.toUpperCase(),
+          dateValue: item.publishedAt || item.updatedAt,
+          date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
+        }
+      })
       dynamicFeaturedItems.push(...items)
     } else if (src.source === 'notices') {
-      const items = notices.slice(0, limit).map((item: any) => ({
-        id: `notice-${item.id}`,
-        title: item.title,
-        excerpt: item.excerpt,
-        image: mediaUrl(item.cover || item.seoImage) || defaultMedia.notices,
-        imageFit: item.coverFit || fnConfig?.featuredCardFit || 'cover',
-        imagePosition: item.coverPosition ? (item.coverPosition === 'center' ? 'center center' : (item.coverPosition === 'bottom' ? 'center bottom' : 'top center')) : undefined,
-        href: `/thong-bao/${item.slug}`,
-        kind: customBadge || 'THÔNG BÁO',
-        dateValue: item.publishedAt || item.startAt || item.updatedAt,
-        date: (item.publishedAt || item.startAt) ? new Date(item.publishedAt || item.startAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
-      }))
+      const items = notices.slice(0, limit).map((item: any) => {
+        const { fit, position } = resolveFitAndPosition(item.coverFit, item.coverPosition)
+        return {
+          id: `notice-${item.id}`,
+          title: item.title,
+          excerpt: item.excerpt,
+          image: mediaUrl(item.cover || item.seoImage) || defaultMedia.notices,
+          imageFit: fit,
+          imagePosition: position,
+          href: `/thong-bao/${item.slug}`,
+          kind: customBadge || 'THÔNG BÁO',
+          dateValue: item.publishedAt || item.startAt || item.updatedAt,
+          date: (item.publishedAt || item.startAt) ? new Date(item.publishedAt || item.startAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
+        }
+      })
       dynamicFeaturedItems.push(...items)
     } else if (src.source === 'procurement') {
-      const items = procurement.slice(0, limit).map((item: any) => ({
-        id: `procurement-${item.id}`,
-        title: item.title,
-        excerpt: item.excerpt || item.summary,
-        image: mediaUrl(item.cover || item.seoImage) || defaultMedia.procurement,
-        imageFit: item.coverFit || fnConfig?.featuredCardFit || 'cover',
-        imagePosition: item.coverPosition ? (item.coverPosition === 'center' ? 'center center' : (item.coverPosition === 'bottom' ? 'center bottom' : 'top center')) : undefined,
-        href: `/dau-thau-mua-sam/${item.slug}`,
-        kind: customBadge || 'ĐẤU THẦU – MUA SẮM',
-        dateValue: item.publishedAt || item.updatedAt,
-        date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
-      }))
+      const items = procurement.slice(0, limit).map((item: any) => {
+        const { fit, position } = resolveFitAndPosition(item.coverFit, item.coverPosition)
+        return {
+          id: `procurement-${item.id}`,
+          title: item.title,
+          excerpt: item.excerpt || item.summary,
+          image: mediaUrl(item.cover || item.seoImage) || defaultMedia.procurement,
+          imageFit: fit,
+          imagePosition: position,
+          href: `/dau-thau-mua-sam/${item.slug}`,
+          kind: customBadge || 'ĐẤU THẦU – MUA SẮM',
+          dateValue: item.publishedAt || item.updatedAt,
+          date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
+        }
+      })
       dynamicFeaturedItems.push(...items)
     } else if (src.source === 'schedules') {
-      const items = schedules.slice(0, limit).map((item: any) => ({
-        id: `schedule-${item.id}`,
-        title: item.title,
-        excerpt: item.summary || item.note || 'Lịch khám mới được cập nhật từ bệnh viện.',
-        image: mediaUrl(item.coverImage || item.scheduleImage) || defaultMedia.schedules,
-        imageFit: fnConfig?.featuredCardFit || 'cover',
-        href: `/lich-kham/${item.id}`,
-        kind: customBadge || (item.mode === 'emergency' ? 'LỊCH TRỰC CẤP CỨU' : 'LỊCH KHÁM'),
-        dateValue: item.date || item.validFrom || item.weekStart || item.emergencyWeekStart || item.updatedAt,
-        date: (item.date || item.validFrom || item.weekStart || item.emergencyWeekStart) ? new Date(item.date || item.validFrom || item.weekStart || item.emergencyWeekStart).toLocaleDateString('vi-VN') : 'Mới cập nhật',
-      }))
+      const items = schedules.slice(0, limit).map((item: any) => {
+        const { fit, position } = resolveFitAndPosition(item.coverFit, undefined)
+        return {
+          id: `schedule-${item.id}`,
+          title: item.title,
+          excerpt: item.summary || item.note || 'Lịch khám mới được cập nhật từ bệnh viện.',
+          image: mediaUrl(item.coverImage || item.scheduleImage) || defaultMedia.schedules,
+          imageFit: fit,
+          imagePosition: position,
+          href: `/lich-kham/${item.id}`,
+          kind: customBadge || (item.mode === 'emergency' ? 'LỊCH TRỰC CẤP CỨU' : 'LỊCH KHÁM'),
+          dateValue: item.date || item.validFrom || item.weekStart || item.emergencyWeekStart || item.updatedAt,
+          date: (item.date || item.validFrom || item.weekStart || item.emergencyWeekStart) ? new Date(item.date || item.validFrom || item.weekStart || item.emergencyWeekStart).toLocaleDateString('vi-VN') : 'Mới cập nhật',
+        }
+      })
       dynamicFeaturedItems.push(...items)
     } else if (src.source === 'documents') {
-      const items = documents.slice(0, limit).map((item: any) => ({
-        id: `doc-${item.id}`,
-        title: item.title,
-        excerpt: item.summary || [item.number, item.issuer].filter(Boolean).join(' · ') || 'Văn bản, biểu mẫu của bệnh viện.',
-        image: mediaUrl(item.cover || item.seoImage) || defaultMedia.documents,
-        imageFit: item.coverFit || fnConfig?.featuredCardFit || 'cover',
-        imagePosition: item.coverPosition ? (item.coverPosition === 'center' ? 'center center' : (item.coverPosition === 'bottom' ? 'center bottom' : 'top center')) : undefined,
-        href: item.slug ? `/van-ban/${item.slug}` : (mediaUrl(item.file) || '/van-ban'),
-        kind: customBadge || 'VĂN BẢN',
-        dateValue: item.issuedAt || item.updatedAt,
-        date: item.issuedAt ? new Date(item.issuedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
-      }))
+      const items = documents.slice(0, limit).map((item: any) => {
+        const { fit, position } = resolveFitAndPosition(item.coverFit, item.coverPosition)
+        return {
+          id: `doc-${item.id}`,
+          title: item.title,
+          excerpt: item.summary || [item.number, item.issuer].filter(Boolean).join(' · ') || 'Văn bản, biểu mẫu của bệnh viện.',
+          image: mediaUrl(item.cover || item.seoImage) || defaultMedia.documents,
+          imageFit: fit,
+          imagePosition: position,
+          href: item.slug ? `/van-ban/${item.slug}` : (mediaUrl(item.file) || '/van-ban'),
+          kind: customBadge || 'VĂN BẢN',
+          dateValue: item.issuedAt || item.updatedAt,
+          date: item.issuedAt ? new Date(item.issuedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
+        }
+      })
       dynamicFeaturedItems.push(...items)
     }
   }
