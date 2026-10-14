@@ -88,16 +88,14 @@ export function SoyTeNewsSection({
   const currentLead = sliderItems[currentIndex] || items[0]
 
   // Cột "TIN NỔI BẬT" bên phải:
-  let sidebarList: SoyTeNewsItem[] = []
-  if (featuredItems && featuredItems.length > 0) {
-    sidebarList = featuredItems.filter((it) => it.id !== currentLead.id).slice(0, 7)
-  }
-  if (sidebarList.length === 0) {
-    sidebarList = items.slice(5, 12)
-  }
-  if (sidebarList.length === 0 && items.length > 2) {
-    sidebarList = items.filter((_, idx) => idx !== currentIndex).slice(0, 5)
-  }
+  // 1. Ưu tiên các bài từ featuredItems (đã sắp xếp tin nổi bật lên trước)
+  const explicitFeatured = (featuredItems || []).filter((it) => it.id !== currentLead.id)
+
+  // 2. Bổ sung thêm từ danh sách items để luôn có đủ 6-7 bài, không bị khoảng trống trắng
+  const seenIds = new Set([currentLead.id, ...explicitFeatured.map((x) => x.id)])
+  const fallbackPool = items.filter((it) => !seenIds.has(it.id))
+
+  const sidebarList = [...explicitFeatured, ...fallbackPool].slice(0, 7)
 
   const rawFit = currentLead.imageFit || cardFit
   const normalizedFit = rawFit === 'contain' ? 'contain' : (rawFit === 'fill' ? 'fill' : 'cover')

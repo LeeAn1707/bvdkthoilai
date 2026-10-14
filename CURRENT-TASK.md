@@ -1,26 +1,22 @@
-# CURRENT TASK — Thêm hiệu ứng chuyển bài viết qua lại cho Điểm tin trang chủ
+# CURRENT TASK — Bổ sung cơ chế tự động lấp đầy tin cho cột TIN NỔI BẬT
 
 ## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE VÀ RENDER THÀNH CÔNG
 
-## 1. Yêu cầu nghiệp vụ
-- Người dùng yêu cầu thêm hiệu ứng chuyển các bài viết qua lại với nhau trong chuyên mục Điểm tin Bệnh viện Đa khoa khu vực Thới Lai (thiết kế theo phong cách Sở Y tế Cần Thơ).
+## 1. Yêu cầu & Vấn đề giải quyết
+- Người dùng thắc mắc: Cột "TIN NỔI BẬT" bên phải của chuyên mục Điểm tin chỉ hiển thị 1 tin duy nhất ("LỊCH NGÀY 21.9.2026") và để lại khoảng trắng lớn, hỏi khi nào mới hiển thị tin ở bên này.
+- Nguyên nhân:
+  - Cột này trước đó chỉ lọc các bài viết có tích chọn `featured === true` ("Tin nổi bật") trong Admin CMS.
+  - Do trong cơ sở dữ liệu hiện tại mới chỉ có đúng 1 bài viết được tích chọn "Tin nổi bật", dẫn đến cột bị thiếu bài.
+- Giải pháp:
+  - Nâng cấp cơ chế hiển thị thông minh (Smart Auto-Fill):
+    1. Ưu tiên đưa các bài được quản trị viên tích chọn "Tin nổi bật" lên hàng đầu.
+    2. Tự động lấy thêm các bài tin tức / thông báo mới nhất khác bù vào để cột bên phải luôn lấp đầy đủ 6 – 7 bài tin, đều đặn và cân đối với cột bên trái theo đúng giao diện Sở Y tế.
+    3. Hướng dẫn quản trị viên cách tích chọn "Tin nổi bật" trong Admin khi muốn ghim một bài viết bất kỳ lên cột này.
 
-## 2. Giải pháp thực hiện
-1. `src/components/SoyTeNewsSection.tsx`:
-   - Bổ sung cơ chế Slideshow chuyển bài tự động (Autoplay) sau mỗi chu kỳ thời gian (mặc định theo cấu hình `carouselSeconds` hoặc 5 giây).
-   - Thanh tiến trình thời gian thực (Progress bar) màu xanh y tế chạy mượt mà dưới đáy khung ảnh.
-   - Nút điều hướng chuyển bài trước / sau (`‹` và `›`) cùng bộ đếm số bài (`1/4`, `2/4`...) đặt ở góc dưới ảnh.
-   - Tự động tạm dừng (Pause on hover) khi rê chuột vào đọc tin hoặc xem ảnh.
-   - Trạng thái liên kết tương tác với danh sách tin phụ bên dưới:
-     - Dòng bài đang hiển thị ở ảnh chính được đánh dấu sáng (`leadSubItemActive`), đổi màu bullet vuông sang xanh dương (`subBulletActive`) và gắn nhãn `● Đang xem`.
-     - Cho phép người xem bấm vào bất kỳ bài nào trong danh sách để bài đó lập tức chuyển lên làm bài chính có ảnh to.
-   - Giữ nguyên nút kính lúp `🔍 Phóng to` xem ảnh nét toàn màn hình (Lightbox).
-2. `src/components/SoyTeNewsSection.module.css`:
-   - Hiệu ứng chuyển cảnh mượt mà: `imageFadeZoom` và `titleFadeIn` khi chuyển giữa các bài viết.
-   - Hiệu ứng hover cho cột "TIN NỔI BẬT" (trượt nhẹ và mở rộng bullet).
-3. `src/app/(frontend)/page.tsx`:
-   - Kết nối `autoplaySeconds` từ cấu hình Homepage CMS vào `SoyTeNewsSection`.
+## 2. Các file đã cập nhật
+- `src/app/(frontend)/page.tsx`: Gộp các tin nổi bật và tin mới nhất cho `soyteFeaturedSidebar`.
+- `src/components/SoyTeNewsSection.tsx`: Bổ sung cơ chế auto-fill từ `items` nếu `featuredItems` chưa đủ bài.
 
 ## 3. Kết quả kiểm tra
 - `npm run typecheck`: PASS 100%.
-- Kiểm tra render HTTP `localhost:3000`: STATUS 200 OK, render đầy đủ `sliderControls` và `progressBarTrack`.
+- Kiểm tra render thực tế: Cột TIN NỔI BẬT đã hiển thị đầy đủ 6 – 7 bài tin, không còn bị khoảng trắng.

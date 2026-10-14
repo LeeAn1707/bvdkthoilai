@@ -686,16 +686,28 @@ export default async function HomePage() {
     .sort((a: any, b: any) => new Date(b.dateValue || 0).getTime() - new Date(a.dateValue || 0).getTime())
     .slice(0, featuredItemLimit)
 
-  // Danh sách bài nổi bật riêng cho cột bên phải (kiểu Sở Y tế Cần Thơ)
-  const soyteFeaturedSidebar = news
+  // Danh sách bài cho cột "TIN NỔI BẬT" bên phải (kiểu Sở Y tế Cần Thơ):
+  // 1. Ưu tiên bài được tích chọn "Tin nổi bật" (featured = true) trong Admin
+  const featuredNewsList = news
     .filter((n: any) => n.featured === true)
-    .slice(0, 8)
     .map((item: any) => ({
-      id: `news-feat-${item.id}`,
+      id: `news-${item.id}`,
       title: item.title,
       href: `/tin-tuc/${item.slug}`,
       date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : '',
     }))
+
+  // 2. Tự động bổ sung các bài tin mới nhất khác để cột luôn đầy đặn (đủ 6-7 bài)
+  const remainingNewsList = news
+    .filter((n: any) => !n.featured)
+    .map((item: any) => ({
+      id: `news-${item.id}`,
+      title: item.title,
+      href: `/tin-tuc/${item.slug}`,
+      date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : '',
+    }))
+
+  const soyteFeaturedSidebar = [...featuredNewsList, ...remainingNewsList].slice(0, 10)
 
   // ── HÀM RENDER SECTION THEO MẪU BỐ CỤC (đọc từ Admin config) ──
   // Mỗi section notices/procurement/documents/content-section đều gọi hàm này
