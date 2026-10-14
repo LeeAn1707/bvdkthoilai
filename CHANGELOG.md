@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-10-14 — Tùy Chọn Kiểu Hiển Thị Ảnh Ban Lãnh Đạo & Thứ Tự Ưu Tiên Ảnh Sơ Đồ Tổ Chức
+
+- Bổ sung tùy chọn kiểu hiển thị ảnh cho Ban Lãnh đạo trong **Sơ đồ tổ chức** (`src/globals/OrganizationChart.ts`), hỗ trợ 5 kiểu dáng: Tràn viền thẻ (`full-cover`), Khung phủ kín (`cover-box`), Vừa vặn (`contain-box`), Bo góc lọt lòng (`rounded-inset`), và Hình tròn (`circle`).
+- Bổ sung tùy chọn tỷ lệ khung hình (3:4, 4:5, 1:1, auto) và căn chỉnh tiêu cự (top, center, bottom).
+- Cho phép áp dụng cấu hình chung cho toàn bộ sơ đồ hoặc tùy biến độc lập cho từng vị trí lãnh đạo (Giám đốc và từng Phó Giám đốc).
+- Chuẩn hóa thứ tự ưu tiên ảnh: 1. Ảnh chân dung sơ đồ tổ chức $\rightarrow$ 2. Ảnh đại diện hồ sơ Bác sĩ liên kết $\rightarrow$ 3. Ảnh từ Chuyên gia $\rightarrow$ 4. Fallback bác sĩ theo tên trùng khớp $\rightarrow$ 5. Ký tự viết tắt.
+- Bổ sung truy vấn gom media ID để xử lý các ảnh chưa được populate sâu trong Payload.
+- Tạo migration `20261014_079_add_org_chart_image_styles.mjs` và khóa DB Schema Contract snapshot 079.
+
 ## 2026-10-14 — Sửa Lỗi 401 Unauthorized Mất Phiên Admin & CSRF Allowlist Trên Railway
 
 - Khắc phục lỗi 401 Unauthorized (`There was an error building form state: Unauthorized, you must be logged in to make this request`) khi mở form bài viết và upload media trên Railway.

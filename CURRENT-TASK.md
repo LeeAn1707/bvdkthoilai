@@ -1,21 +1,41 @@
-# CURRENT TASK — Khắc phục lỗi 401 Unauthorized và Treo Admin trên Railway
+# CURRENT TASK — Bổ sung tùy chọn kiểu hiển thị ảnh và thứ tự ưu tiên ảnh Sơ đồ tổ chức
 
-## Trạng thái: ĐÃ XỬ LÝ XONG CODE — CHỜ DEPLOY & CHẠY SCRIPT SQL
+## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE VÀ MIGRATION DATABASE THÀNH CÔNG
 
-## 1. Nguyên nhân lỗi 401: Unauthorized, you must be logged in to make this request
-- Trong Payload 3.x, cơ chế bảo vệ CSRF (`extractJWT.js`) sẽ bỏ qua Cookie đăng nhập nếu Header `Origin` của trình duyệt không nằm trong danh sách `csrf` / `cors`.
-- Trên Railway, domain truy cập là `https://bvdkthoilai-production-3b8e.up.railway.app`. Trước đó, `payload.config.ts` chỉ cho phép `NEXT_PUBLIC_SITE_URL` (thường là domain chính thức hoặc localhost). Khi chạy Server Action `buildFormState`, Payload không nhận diện cookie phiên -> `req.user = null` -> ném lỗi 401 Unauthorized và treo form ở chữ "ĐANG TẢI".
+## 1. Yêu cầu nghiệp vụ
+- Bổ sung tùy chọn hiển thị ảnh full ô nội dung (tràn viền cover sát mép) hoặc nhiều kiểu dáng hiển thị khác cho Ban Lãnh đạo trong trang Sơ đồ tổ chức.
+- Quy tắc ưu tiên ảnh:
+  1. Ưu tiên 1: Ảnh chân dung tải trực tiếp tại cấu hình Sơ đồ tổ chức (`person.photo`).
+  2. Ưu tiên 2: Ảnh đại diện từ hồ sơ Bác sĩ liên kết (`doctor.avatar`).
+  3. Ưu tiên 3: Ảnh từ Chuyên gia (`our-experts.image`).
+  4. Ưu tiên 4: Fallback bác sĩ theo tên trùng khớp.
+  5. Fallback cuối: Chữ cái viết tắt tên.
+- Cung cấp nhiều kiểu hiển thị ảnh:
+  - `full-cover`: Tràn viền sát mép thẻ, lấp đầy toàn bộ ô.
+  - `cover-box`: Khung đệm lọt lòng nhưng ảnh phủ kín không hở 2 bên.
+  - `contain-box`: Vừa vặn nguyên vẹn không bị cắt mép.
+  - `rounded-inset`: Bo góc 14px lọt lòng sang trọng.
+  - `circle`: Khung tròn trang nhã.
+- Hỗ trợ tỷ lệ khung hình (3:4, 4:5, 1:1, auto) và căn chỉnh tiêu cự (top, center, bottom).
+- Cho phép cài đặt chung cho toàn trang và tùy biến độc lập cho từng vị trí lãnh đạo.
 
-## 2. Giải pháp đã thực hiện
-1. **Đã sửa `payload.config.ts`**:
-   - Tự động chuẩn hóa URL (xóa dấu `/` thừa, thêm `https://` nếu thiếu).
-   - Thêm đầy đủ `RAILWAY_PUBLIC_DOMAIN`, `RAILWAY_STATIC_URL`, `https://bvdkthoilai-production-3b8e.up.railway.app`, `https://benhvienthoilai.vn`, `https://www.benhvienthoilai.vn` vào `allowedOrigins` (`csrf` & `cors`).
-   - Cập nhật `serverURL` tự động nhận diện domain Railway khi chạy trên production.
-   - Đã kiểm tra `tsc --noEmit` đạt 100%.
+## 2. Các file đã cập nhật
+1. `src/globals/OrganizationChart.ts`:
+   - Thêm group `imageSettings` (kiểu ảnh, tỷ lệ, object-fit, căn tiêu cự) ở cấp toàn trang.
+   - Thêm `imageStyle`, `imageFit` vào `leaderFields()` (Giám đốc và các Phó Giám đốc), hỗ trợ giá trị `inherit` (theo cài đặt chung) hoặc ghi đè riêng.
+   - Gắn `enumName` ngắn gọn để tuân thủ giới hạn 63 ký tự của PostgreSQL identifier.
+2. `src/app/(frontend)/so-do-to-chuc/page.tsx`:
+   - Bổ sung `effectiveStyle`, `effectiveFit`, `effectiveAspectRatio`, `effectivePosition` cho `LeaderCard`.
+   - Bổ sung populate media ID nếu trả về ID số; tự động nạp avatar bác sĩ và ảnh chuyên gia theo đúng thứ tự ưu tiên.
+3. `src/app/(frontend)/so-do-to-chuc/org-chart.css`:
+   - Định dạng CSS cho 5 kiểu dáng `.bmLeaderPhotoBox--*` (`full-cover`, `cover-box`, `contain-box`, `rounded-inset`, `circle`).
+4. Migration & Schema Contract:
+   - Migration `scripts/db-migrations/20261014_079_add_org_chart_image_styles.mjs`.
+   - Đã seal `scripts/db-schema-contract.json` (hash 79511c524f8255353461eead7282ad7f69b957b6c89689a52e469e200373fce9).
+   - Đã deploy migration local thành công.
 
-2. **File SQL khôi phục CSDL PostgreSQL**:
-   - File [scripts/fix-railway-constraints.sql](file:///f:/20.9%20web/bvdkthoilai-main/scripts/fix-railway-constraints.sql) dùng để khôi phục Primary Key và Sequence tự tăng ID cho `payload_preferences`, `media`, `notices`, `news`...
-
-## 3. Các bước tiếp theo
-1. Commit & Push code lên GitHub để Railway tự động redeploy bản sửa lỗi CSRF.
-2. Mở Railway Dashboard -> Chọn Database PostgreSQL -> Tab **Data** -> **Query Editor** -> Dán script SQL [scripts/fix-railway-constraints.sql](file:///f:/20.9%20web/bvdkthoilai-main/scripts/fix-railway-constraints.sql) và bấm **Run Query**.
+## 3. Kết quả kiểm tra
+- `npm run typecheck`: PASS 100%.
+- `npm run db:schema:check`: PASS.
+- `npm run validate:organization`: PASS 18/18.
+- `npm run validate:migrations`: PASS 346/346.

@@ -7434,6 +7434,14 @@ export interface OrganizationChart {
      */
     photo?: (number | null) | Media;
     responsibility?: string | null;
+    /**
+     * Chọn kiểu hiển thị riêng cho ô này hoặc để theo cài đặt chung.
+     */
+    imageStyle?: ('inherit' | 'full-cover' | 'cover-box' | 'contain-box' | 'rounded-inset' | 'circle') | null;
+    /**
+     * Cover giúp phủ kín ô; Contain giữ trọn hình gốc.
+     */
+    imageFit?: ('inherit' | 'cover' | 'contain') | null;
     phone?: string | null;
     email?: string | null;
   };
@@ -7454,6 +7462,14 @@ export interface OrganizationChart {
          */
         photo?: (number | null) | Media;
         responsibility?: string | null;
+        /**
+         * Chọn kiểu hiển thị riêng cho ô này hoặc để theo cài đặt chung.
+         */
+        imageStyle?: ('inherit' | 'full-cover' | 'cover-box' | 'contain-box' | 'rounded-inset' | 'circle') | null;
+        /**
+         * Cover giúp phủ kín ô; Contain giữ trọn hình gốc.
+         */
+        imageFit?: ('inherit' | 'cover' | 'contain') | null;
         phone?: string | null;
         email?: string | null;
         id?: string | null;
@@ -7483,6 +7499,27 @@ export interface OrganizationChart {
     deputyColor?: string | null;
     officeColor?: string | null;
     departmentColor?: string | null;
+  };
+  /**
+   * Cấu hình giao diện và cách hiển thị ảnh chân dung của Giám đốc và các Phó Giám đốc trên toàn sơ đồ.
+   */
+  imageSettings?: {
+    /**
+     * Kiểu dáng hiển thị ảnh thẻ Ban Giám đốc.
+     */
+    imageStyle?: ('full-cover' | 'cover-box' | 'contain-box' | 'rounded-inset' | 'circle') | null;
+    /**
+     * Tỷ lệ khung ảnh chân dung.
+     */
+    imageAspectRatio?: ('3/4' | '4/5' | '1/1' | 'auto') | null;
+    /**
+     * Cover giúp ảnh phủ kín ô thẻ đẹp mắt; Contain giữ nguyên 100% chi tiết ảnh.
+     */
+    imageFit?: ('cover' | 'contain') | null;
+    /**
+     * Khi ảnh bị cắt theo tỷ lệ, hệ thống sẽ ưu tiên giữ phần tiêu điểm này.
+     */
+    imagePosition?: ('top' | 'center' | 'bottom') | null;
   };
   updatedAt?: string | null;
   createdAt?: string | null;
@@ -10721,6 +10758,8 @@ export interface OrganizationChartSelect<T extends boolean = true> {
         title?: T;
         photo?: T;
         responsibility?: T;
+        imageStyle?: T;
+        imageFit?: T;
         phone?: T;
         email?: T;
       };
@@ -10733,6 +10772,8 @@ export interface OrganizationChartSelect<T extends boolean = true> {
         title?: T;
         photo?: T;
         responsibility?: T;
+        imageStyle?: T;
+        imageFit?: T;
         phone?: T;
         email?: T;
         id?: T;
@@ -10757,6 +10798,14 @@ export interface OrganizationChartSelect<T extends boolean = true> {
         deputyColor?: T;
         officeColor?: T;
         departmentColor?: T;
+      };
+  imageSettings?:
+    | T
+    | {
+        imageStyle?: T;
+        imageAspectRatio?: T;
+        imageFit?: T;
+        imagePosition?: T;
       };
   updatedAt?: T;
   createdAt?: T;

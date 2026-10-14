@@ -1718,6 +1718,41 @@ export const enum__homepage_v_version_status = pgEnum(
   "enum__homepage_v_version_status",
   ["draft", "published"],
 );
+export const org_leader_img_style = pgEnum("org_leader_img_style", [
+  "inherit",
+  "full-cover",
+  "cover-box",
+  "contain-box",
+  "rounded-inset",
+  "circle",
+]);
+export const org_leader_img_fit = pgEnum("org_leader_img_fit", [
+  "inherit",
+  "cover",
+  "contain",
+]);
+export const org_global_img_style = pgEnum("org_global_img_style", [
+  "full-cover",
+  "cover-box",
+  "contain-box",
+  "rounded-inset",
+  "circle",
+]);
+export const org_global_img_ratio = pgEnum("org_global_img_ratio", [
+  "3/4",
+  "4/5",
+  "1/1",
+  "auto",
+]);
+export const org_global_img_fit = pgEnum("org_global_img_fit", [
+  "cover",
+  "contain",
+]);
+export const org_global_img_pos = pgEnum("org_global_img_pos", [
+  "top",
+  "center",
+  "bottom",
+]);
 export const hist_milestone_align = pgEnum("hist_milestone_align", [
   "left",
   "justify",
@@ -15633,6 +15668,8 @@ export const organization_chart_deputy_directors = pgTable(
       onDelete: "set null",
     }),
     responsibility: varchar("responsibility"),
+    imageStyle: org_leader_img_style("image_style").default("inherit"),
+    imageFit: org_leader_img_fit("image_fit").default("inherit"),
     phone: varchar("phone"),
     email: varchar("email"),
   },
@@ -15730,6 +15767,11 @@ export const organization_chart = pgTable(
       onDelete: "set null",
     }),
     director_responsibility: varchar("director_responsibility"),
+    director_imageStyle: org_leader_img_style("director_image_style").default(
+      "inherit",
+    ),
+    director_imageFit:
+      org_leader_img_fit("director_image_fit").default("inherit"),
     director_phone: varchar("director_phone"),
     director_email: varchar("director_email"),
     appearance_primaryColor: varchar("appearance_primary_color").default(
@@ -15747,6 +15789,18 @@ export const organization_chart = pgTable(
     appearance_departmentColor: varchar("appearance_department_color").default(
       "#6B62C8",
     ),
+    imageSettings_imageStyle: org_global_img_style(
+      "image_settings_image_style",
+    ).default("full-cover"),
+    imageSettings_imageAspectRatio: org_global_img_ratio(
+      "image_settings_image_aspect_ratio",
+    ).default("3/4"),
+    imageSettings_imageFit: org_global_img_fit(
+      "image_settings_image_fit",
+    ).default("cover"),
+    imageSettings_imagePosition: org_global_img_pos(
+      "image_settings_image_position",
+    ).default("top"),
     updatedAt: timestamp("updated_at", {
       mode: "string",
       withTimezone: true,
@@ -15784,6 +15838,8 @@ export const _organization_chart_v_version_deputy_directors = pgTable(
       onDelete: "set null",
     }),
     responsibility: varchar("responsibility"),
+    imageStyle: org_leader_img_style("image_style").default("inherit"),
+    imageFit: org_leader_img_fit("image_fit").default("inherit"),
     phone: varchar("phone"),
     email: varchar("email"),
     _uuid: varchar("_uuid"),
@@ -15902,6 +15958,12 @@ export const _organization_chart_v = pgTable(
       },
     ),
     version_director_responsibility: varchar("version_director_responsibility"),
+    version_director_imageStyle: org_leader_img_style(
+      "version_director_image_style",
+    ).default("inherit"),
+    version_director_imageFit: org_leader_img_fit(
+      "version_director_image_fit",
+    ).default("inherit"),
     version_director_phone: varchar("version_director_phone"),
     version_director_email: varchar("version_director_email"),
     version_appearance_primaryColor: varchar(
@@ -15919,6 +15981,18 @@ export const _organization_chart_v = pgTable(
     version_appearance_departmentColor: varchar(
       "version_appearance_department_color",
     ).default("#6B62C8"),
+    version_imageSettings_imageStyle: org_global_img_style(
+      "version_image_settings_image_style",
+    ).default("full-cover"),
+    version_imageSettings_imageAspectRatio: org_global_img_ratio(
+      "version_image_settings_image_aspect_ratio",
+    ).default("3/4"),
+    version_imageSettings_imageFit: org_global_img_fit(
+      "version_image_settings_image_fit",
+    ).default("cover"),
+    version_imageSettings_imagePosition: org_global_img_pos(
+      "version_image_settings_image_position",
+    ).default("top"),
     version_updatedAt: timestamp("version_updated_at", {
       mode: "string",
       withTimezone: true,
@@ -25410,6 +25484,12 @@ type DatabaseSchema = {
   enum__homepage_v_version_sections_document_columns: typeof enum__homepage_v_version_sections_document_columns;
   enum__homepage_v_version_sections_font_family: typeof enum__homepage_v_version_sections_font_family;
   enum__homepage_v_version_status: typeof enum__homepage_v_version_status;
+  org_leader_img_style: typeof org_leader_img_style;
+  org_leader_img_fit: typeof org_leader_img_fit;
+  org_global_img_style: typeof org_global_img_style;
+  org_global_img_ratio: typeof org_global_img_ratio;
+  org_global_img_fit: typeof org_global_img_fit;
+  org_global_img_pos: typeof org_global_img_pos;
   hist_milestone_align: typeof hist_milestone_align;
   hist_icon_type: typeof hist_icon_type;
   hist_val_title_align: typeof hist_val_title_align;

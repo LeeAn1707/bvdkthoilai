@@ -23,6 +23,46 @@ const leaderFields = (): Field[] => [
     } 
   },
   { name: 'responsibility', label: 'Lĩnh vực phụ trách / Nhiệm vụ', type: 'text' },
+  {
+    type: 'row',
+    fields: [
+      {
+        name: 'imageStyle',
+        label: 'Kiểu hiển thị ảnh riêng cho ô này',
+        type: 'select',
+        enumName: 'org_leader_img_style',
+        defaultValue: 'inherit',
+        options: [
+          { label: '⚙️ Theo cài đặt chung của sơ đồ', value: 'inherit' },
+          { label: '🖼️ Tràn viền toàn ô thẻ (Full Width / Card Top - Khuyến nghị)', value: 'full-cover' },
+          { label: '📐 Phủ kín khung ảnh (Cover Fit - Không viền trắng)', value: 'cover-box' },
+          { label: '🔍 Vừa vặn nguyên gốc (Contain Fit - Giữ toàn ảnh)', value: 'contain-box' },
+          { label: '🔲 Chân dung bo góc lọt lòng (Inset Rounded)', value: 'rounded-inset' },
+          { label: '⚪ Chân dung hình tròn (Circle Avatar)', value: 'circle' },
+        ],
+        admin: {
+          width: '50%',
+          description: 'Chọn kiểu hiển thị riêng cho ô này hoặc để theo cài đặt chung.',
+        },
+      },
+      {
+        name: 'imageFit',
+        label: 'Cách khớp ảnh riêng cho ô này',
+        type: 'select',
+        enumName: 'org_leader_img_fit',
+        defaultValue: 'inherit',
+        options: [
+          { label: '⚙️ Theo cài đặt chung', value: 'inherit' },
+          { label: 'Phủ kín không chừa viền trắng (Cover)', value: 'cover' },
+          { label: 'Hiển thị trọn vẹn toàn bộ hình (Contain)', value: 'contain' },
+        ],
+        admin: {
+          width: '50%',
+          description: 'Cover giúp phủ kín ô; Contain giữ trọn hình gốc.',
+        },
+      },
+    ],
+  },
   { name: 'phone', label: 'Điện thoại liên hệ', type: 'text' },
   { name: 'email', label: 'Email', type: 'text' },
 ]
@@ -135,6 +175,92 @@ export const OrganizationChart: GlobalConfig = {
         { name: 'deputyColor', label: 'Màu thẻ Phó Giám đốc', type: 'text', defaultValue: '#0B84D8' },
         { name: 'officeColor', label: 'Màu nhóm Phòng', type: 'text', defaultValue: '#188B72' },
         { name: 'departmentColor', label: 'Màu nhóm Khoa', type: 'text', defaultValue: '#6B62C8' },
+      ],
+    },
+    {
+      name: 'imageSettings',
+      label: '🖼️ Tùy chọn hiển thị ảnh Ban Lãnh đạo (Toàn trang)',
+      type: 'group',
+      admin: {
+        description: 'Cấu hình giao diện và cách hiển thị ảnh chân dung của Giám đốc và các Phó Giám đốc trên toàn sơ đồ.',
+      },
+      fields: [
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'imageStyle',
+              label: 'Kiểu hiển thị ảnh mặc định',
+              type: 'select',
+              enumName: 'org_global_img_style',
+              defaultValue: 'full-cover',
+              options: [
+                { label: '🖼️ Tràn viền toàn ô thẻ (Full Width / Card Top - Khuyến nghị)', value: 'full-cover' },
+                { label: '📐 Phủ kín khung ảnh (Cover Fit - Không viền trắng hai bên)', value: 'cover-box' },
+                { label: '🔍 Vừa vặn nguyên gốc (Contain Fit - Giữ toàn bộ hình)', value: 'contain-box' },
+                { label: '🔲 Chân dung bo góc lọt lòng (Inset Rounded)', value: 'rounded-inset' },
+                { label: '⚪ Chân dung hình tròn (Circle Avatar)', value: 'circle' },
+              ],
+              admin: {
+                width: '50%',
+                description: 'Kiểu dáng hiển thị ảnh thẻ Ban Giám đốc.',
+              },
+            },
+            {
+              name: 'imageAspectRatio',
+              label: 'Tỷ lệ khung ảnh',
+              type: 'select',
+              enumName: 'org_global_img_ratio',
+              defaultValue: '3/4',
+              options: [
+                { label: 'Tỷ lệ 3:4 (Chuẩn chân dung y tế - Đẹp nhất)', value: '3/4' },
+                { label: 'Tỷ lệ 4:5 (Chân dung đứng dài)', value: '4/5' },
+                { label: 'Tỷ lệ 1:1 (Khung vuông)', value: '1/1' },
+                { label: 'Tự do theo chiều cao thẻ', value: 'auto' },
+              ],
+              admin: {
+                width: '50%',
+                description: 'Tỷ lệ khung ảnh chân dung.',
+              },
+            },
+          ],
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'imageFit',
+              label: 'Cách khớp ảnh trong khung',
+              type: 'select',
+              enumName: 'org_global_img_fit',
+              defaultValue: 'cover',
+              options: [
+                { label: 'Phủ kín khung không để viền trắng (Cover - Cắt vừa khung)', value: 'cover' },
+                { label: 'Hiển thị trọn vẹn toàn bộ hình ảnh (Contain - Không cắt mép)', value: 'contain' },
+              ],
+              admin: {
+                width: '50%',
+                description: 'Cover giúp ảnh phủ kín ô thẻ đẹp mắt; Contain giữ nguyên 100% chi tiết ảnh.',
+              },
+            },
+            {
+              name: 'imagePosition',
+              label: 'Vị trí tiêu điểm ảnh',
+              type: 'select',
+              enumName: 'org_global_img_pos',
+              defaultValue: 'top',
+              options: [
+                { label: 'Ưu tiên phía trên (Gương mặt / Đầu)', value: 'top' },
+                { label: 'Chính giữa khung hình', value: 'center' },
+                { label: 'Phần thân áo', value: 'bottom' },
+              ],
+              admin: {
+                width: '50%',
+                description: 'Khi ảnh bị cắt theo tỷ lệ, hệ thống sẽ ưu tiên giữ phần tiêu điểm này.',
+              },
+            },
+          ],
+        },
       ],
     },
   ],

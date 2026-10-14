@@ -95,65 +95,197 @@
 
 .bmDirectorCard {
   width: 100%;
-  max-width: 290px;
+  max-width: 300px;
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 10px 25px rgba(7, 86, 180, 0.08);
+  box-shadow: 0 10px 28px rgba(7, 86, 180, 0.08);
   border: 1px solid #dbeafe;
   text-decoration: none;
-  transition: all 0.25s ease;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
 }
 
-.bmDirectorCard:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 36px rgba(7, 86, 180, 0.14);
-  border-color: #93c5fd;
+.bmDeputyCard {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(7, 86, 180, 0.07);
+  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
 }
 
+.bmDirectorCard:hover,
+.bmDeputyCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 18px 40px rgba(7, 86, 180, 0.16);
+  border-color: #60a5fa;
+}
+
+/* =========================================================
+   CÁC KIỂU HIỂN THỊ ẢNH BAN LÃNH ĐẠO (ĐA DẠNG & FULL Ô)
+   ========================================================= */
 .bmLeaderPhotoBox {
   width: 100%;
-  height: 250px;
-  overflow: hidden;
-  background: #f8fafc;
   position: relative;
+  overflow: hidden;
+  background: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
   box-sizing: border-box;
 }
 
-.bmLeaderPhotoBox img {
+/* Tỷ lệ khung ảnh (Aspect Ratios) */
+.bmLeaderPhotoBox[data-aspect="3/4"] {
+  aspect-ratio: 3 / 4;
+}
+
+.bmLeaderPhotoBox[data-aspect="4/5"] {
+  aspect-ratio: 4 / 5;
+}
+
+.bmLeaderPhotoBox[data-aspect="1/1"] {
+  aspect-ratio: 1 / 1;
+}
+
+.bmLeaderPhotoBox[data-aspect="auto"] {
+  min-height: 250px;
+  max-height: 300px;
+}
+
+/* KIỂU 1: full-cover (Tràn viền toàn ô thẻ - Full Width Card Top - Mặc định) */
+.bmLeaderPhotoBox[data-style="full-cover"],
+.bmLeaderPhotoBox.bmStyle_full-cover {
+  padding: 0 !important;
+  margin: 0;
+  width: 100%;
+  display: block;
+  background: #e2e8f0;
+}
+
+.bmLeaderPhotoBox[data-style="full-cover"] img,
+.bmLeaderPhotoBox.bmStyle_full-cover img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  display: block;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* KIỂU 2: cover-box (Phủ kín khung ảnh - Cover Fit) */
+.bmLeaderPhotoBox[data-style="cover-box"],
+.bmLeaderPhotoBox.bmStyle_cover-box {
+  padding: 10px 10px 0;
+  box-sizing: border-box;
+  background: #f8fafc;
+  display: block;
+}
+
+.bmLeaderPhotoBox[data-style="cover-box"] img,
+.bmLeaderPhotoBox.bmStyle_cover-box img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 12px 12px 0 0;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+/* KIỂU 3: contain-box (Vừa vặn nguyên gốc không cắt ảnh) */
+.bmLeaderPhotoBox[data-style="contain-box"],
+.bmLeaderPhotoBox.bmStyle_contain-box {
+  padding: 16px;
+  min-height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+.bmLeaderPhotoBox[data-style="contain-box"] img,
+.bmLeaderPhotoBox.bmStyle_contain-box img {
   max-width: 100%;
   max-height: 100%;
   width: auto;
   height: auto;
-  object-fit: contain !important;
-  object-position: center center;
-  display: block;
   margin: auto;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+/* KIỂU 4: rounded-inset (Chân dung lọt lòng bo góc mềm) */
+.bmLeaderPhotoBox[data-style="rounded-inset"],
+.bmLeaderPhotoBox.bmStyle_rounded-inset {
+  padding: 16px 16px 8px;
+  background: #ffffff;
+  display: block;
+  box-sizing: border-box;
+}
+
+.bmLeaderPhotoBox[data-style="rounded-inset"] img,
+.bmLeaderPhotoBox.bmStyle_rounded-inset img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 14px rgba(7, 86, 180, 0.08);
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+/* KIỂU 5: circle (Chân dung hình tròn) */
+.bmLeaderPhotoBox[data-style="circle"],
+.bmLeaderPhotoBox.bmStyle_circle {
+  padding: 24px 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  box-sizing: border-box;
+  aspect-ratio: auto !important;
+}
+
+.bmLeaderPhotoBox[data-style="circle"] img,
+.bmLeaderPhotoBox.bmStyle_circle img {
+  width: 140px !important;
+  height: 140px !important;
+  max-width: 140px !important;
+  max-height: 140px !important;
+  border-radius: 50% !important;
+  border: 4px solid #ffffff;
+  outline: 2px solid var(--bm-accent);
+  box-shadow: 0 8px 24px rgba(0, 136, 204, 0.2);
+  display: block;
   transition: transform 0.35s ease;
 }
 
 .bmDirectorCard:hover .bmLeaderPhotoBox img,
 .bmDeputyCard:hover .bmLeaderPhotoBox img {
-  transform: scale(1.02);
+  transform: scale(1.03);
 }
 
 .bmLeaderPlaceholder {
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   background: #e0f2fe;
   color: var(--bm-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 800;
+  margin: auto;
 }
 
 .bmLeaderMeta {

@@ -22,25 +22,92 @@ interface LeaderProps {
   kind: 'director' | 'deputy'
   fallbackRole: string
   fallbackDoctor?: any
+  globalImageSettings?: any
+  doctorExpertMap?: Map<number | string, any>
+  mediaMap?: Map<number, any>
+  doctorsList?: any[]
 }
 
-function LeaderCard({ person, kind, fallbackRole, fallbackDoctor }: LeaderProps) {
-  const linkedDoc = person?.doctorRef && typeof person.doctorRef === 'object'
-    ? person.doctorRef
-    : fallbackDoctor
+function LeaderCard({
+  person,
+  kind,
+  fallbackRole,
+  fallbackDoctor,
+  globalImageSettings,
+  doctorExpertMap,
+  mediaMap,
+  doctorsList,
+}: LeaderProps) {
+  // Tìm Bác sĩ liên kết đầy đủ
+  const docRefId = typeof person?.doctorRef === 'object' ? person?.doctorRef?.id : person?.doctorRef
+  const fullLinkedDoc = docRefId
+    ? (doctorsList?.find((d: any) => d.id === docRefId) || (typeof person?.doctorRef === 'object' ? person.doctorRef : null))
+    : null
 
-  const rawPhoto = person?.photo
-  const photoUrl = mediaUrl(rawPhoto, 'card') || (linkedDoc?.avatar ? mediaUrl(linkedDoc.avatar, 'card') : '')
+  const linkedDoc = fullLinkedDoc || fallbackDoctor
+
+  // 1. ƯU TIÊN 1: Lấy ảnh trực tiếp từ Sơ đồ tổ chức (person.photo)
+  let rawPhoto = person?.photo
+  if (typeof rawPhoto === 'number' && mediaMap?.has(rawPhoto)) {
+    rawPhoto = mediaMap.get(rawPhoto)
+  }
+  let photoUrl = mediaUrl(rawPhoto, 'card')
+
+  // 2. ƯU TIÊN 2: Nếu Sơ đồ tổ chức không có ảnh, lấy từ Bác sĩ liên kết (doctor.avatar)
+  if (!photoUrl && linkedDoc?.avatar) {
+    photoUrl = mediaUrl(linkedDoc.avatar, 'card')
+  }
+
+  // 3. ƯU TIÊN 3: Nếu vẫn chưa có ảnh, tìm trong danh mục Chuyên gia (our-experts)
+  if (!photoUrl && linkedDoc?.id && doctorExpertMap) {
+    const expert = doctorExpertMap.get(linkedDoc.id)
+    if (expert?.image) {
+      photoUrl = mediaUrl(expert.image, 'card')
+    }
+  }
+
+  // 4. ƯU TIÊN 4: Fallback doctor avatar
+  if (!photoUrl && fallbackDoctor?.avatar) {
+    photoUrl = mediaUrl(fallbackDoctor.avatar, 'card')
+  }
+
   const name = person?.name?.trim() || linkedDoc?.name || 'Đang cập nhật'
   const title = person?.title?.trim() || linkedDoc?.title || fallbackRole
   const responsibility = person?.responsibility?.trim() || (linkedDoc?.expertise || linkedDoc?.bio || '')
   const docUrl = linkedDoc?.slug ? `/bac-si/${linkedDoc.slug}` : undefined
 
+  // Xác định kiểu hiển thị ảnh
+  const effectiveStyle = (person?.imageStyle && person.imageStyle !== 'inherit')
+    ? person.imageStyle
+    : (globalImageSettings?.imageStyle || 'full-cover')
+
+  const effectiveFit = (person?.imageFit && person.imageFit !== 'inherit')
+    ? person.imageFit
+    : (globalImageSettings?.imageFit || (effectiveStyle === 'contain-box' ? 'contain' : 'cover'))
+
+  const effectiveAspectRatio = globalImageSettings?.imageAspectRatio || '3/4'
+  const effectivePosition = globalImageSettings?.imagePosition || 'top'
+
   const cardContent = (
     <>
-      <div className="bmLeaderPhotoBox">
+      <div
+        className={`bmLeaderPhotoBox bmStyle_${effectiveStyle}`}
+        data-style={effectiveStyle}
+        data-fit={effectiveFit}
+        data-aspect={effectiveAspectRatio}
+        data-position={effectivePosition}
+      >
         {photoUrl ? (
-          <img src={photoUrl} alt={name} loading="lazy" />
+          <img
+            src={photoUrl}
+            alt={name}
+            loading="lazy"
+            className="bmLeaderImg"
+            style={{
+              objectFit: effectiveFit as any,
+              objectPosition: effectivePosition === 'top' ? 'top center' : (effectivePosition === 'bottom' ? 'bottom center' : 'center center'),
+            }}
+          />
         ) : (
           <div className="bmLeaderPlaceholder">
             <span>{name.trim().slice(0, 1) || '✚'}</span>
@@ -79,6 +146,8 @@ export default async function OrganizationChartPage() {
   let allUnits: any[] = []
   let doctors: any[] = []
   let siteSettings: any = null
+  let doctorExpertMap = new Map<number | string, any>()
+  let mediaMap = new Map<number, any>()
 
   try {
     const [settings, payload, siteRes] = await Promise.all([
@@ -88,12 +157,39 @@ export default async function OrganizationChartPage() {
     ])
     chart = settings
     siteSettings = siteRes
-    const [unitsRes, docsRes] = await Promise.all([
+    const [unitsRes, docsRes, expertsRes] = await Promise.all([
       payload.find({ collection: 'departments', limit: 100, sort: ['order', 'name'], depth: 1 }),
       payload.find({ collection: 'doctors', where: { active: { equals: true } }, limit: 100, sort: ['order', 'name'], depth: 1 }),
+      payload.find({ collection: 'our-experts', limit: 100, depth: 1 }).catch(() => ({ docs: [] })),
     ])
     allUnits = unitsRes.docs as any[]
     doctors = docsRes.docs as any[]
+
+    for (const exp of (expertsRes.docs as any[])) {
+      const docId = typeof exp.doctorRef === 'object' ? exp.doctorRef?.id : exp.doctorRef
+      if (docId) {
+        doctorExpertMap.set(docId, exp)
+      }
+    }
+
+    // Nếu ảnh trong sơ đồ là ID số (chưa populate), nạp bổ sung từ media
+    const rawMediaIds: number[] = []
+    if (typeof chart?.director?.photo === 'number') rawMediaIds.push(chart.director.photo)
+    if (Array.isArray(chart?.deputyDirectors)) {
+      for (const deputy of chart.deputyDirectors) {
+        if (typeof deputy?.photo === 'number') rawMediaIds.push(deputy.photo)
+      }
+    }
+    if (rawMediaIds.length > 0) {
+      const mediaDocs = await payload.find({
+        collection: 'media',
+        where: { id: { in: rawMediaIds } },
+        limit: rawMediaIds.length,
+      }).then((res) => res.docs).catch(() => [])
+      for (const m of mediaDocs) {
+        mediaMap.set(m.id, m)
+      }
+    }
   } catch {}
 
   const hospitalName = siteSettings?.hospitalName || 'Bệnh viện Đa khoa Khu vực Thới Lai'
@@ -176,11 +272,15 @@ export default async function OrganizationChartPage() {
                     person={chart?.director}
                     fallbackRole="Giám đốc Bệnh viện"
                     fallbackDoctor={directorDoctor}
+                    globalImageSettings={chart?.imageSettings}
+                    doctorExpertMap={doctorExpertMap}
+                    mediaMap={mediaMap}
+                    doctorsList={doctors}
                   />
                 </div>
               )}
 
-              {/* Các Phó Giám đốc ở hàng dưới - tự cănh chỉnh theo số lượng */}
+              {/* Các Phó Giám đốc ở hàng dưới - tự canh chỉnh theo số lượng */}
               {deputies.length > 0 && (
                 <div
                   className="bmDeputiesGrid"
@@ -193,6 +293,10 @@ export default async function OrganizationChartPage() {
                       person={person}
                       fallbackRole="Phó Giám đốc Bệnh viện"
                       fallbackDoctor={deputyDoctors[index]}
+                      globalImageSettings={chart?.imageSettings}
+                      doctorExpertMap={doctorExpertMap}
+                      mediaMap={mediaMap}
+                      doctorsList={doctors}
                     />
                   ))}
                 </div>

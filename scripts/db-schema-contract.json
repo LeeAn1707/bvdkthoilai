@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "migrationId": "20260925_078_seal_external_fetch_toggles_schema",
-  "schemaSha256": "7dc9eaa98f90ff0d29b4f574fb32df941c0959b02a0cf01c63cba8192ab25aba"
+  "migrationId": "20261014_079_add_org_chart_image_styles",
+  "schemaSha256": "79511c524f8255353461eead7282ad7f69b957b6c89689a52e469e200373fce9"
 }
