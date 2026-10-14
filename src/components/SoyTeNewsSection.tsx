@@ -16,8 +16,10 @@ export type SoyTeNewsItem = {
   dateValue?: string
 }
 
-const ITEM_HEIGHT = 78 // Chiều cao chuẩn mỗi bài ở cột phải (px)
-const VISIBLE_COUNT = 5 // Số lượng bài hiển thị trong khung nhìn
+const ITEM_CARD_HEIGHT = 74 // Chiều cao mỗi thẻ bài viết ở cột phải khi không có ảnh nhỏ (px)
+const ITEM_GAP = 8 // Khoảng cách giữa các thẻ (px)
+const ITEM_STEP = ITEM_CARD_HEIGHT + ITEM_GAP // 82px mỗi bước cuộn
+const VISIBLE_COUNT = 6 // Mặc định hiển thị 6 tin nổi bật cố định trong khung nhìn
 
 export function SoyTeNewsSection({
   items,
@@ -281,7 +283,7 @@ export function SoyTeNewsSection({
             <ul
               className={styles.tickerTrack}
               style={{
-                transform: `translateY(-${step * ITEM_HEIGHT}px)`,
+                transform: `translateY(-${step * ITEM_STEP}px)`,
                 transition: withTransition ? 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)' : 'none',
               }}
             >
@@ -294,23 +296,12 @@ export function SoyTeNewsSection({
                     onClick={() => handleSelectArticle(idx % totalItems)}
                     title="Bấm để xem bài viết này ở khung ảnh bên trái"
                   >
-                    <span
-                      className={`${styles.featuredBullet} ${isItemActive ? styles.featuredBulletActive : ''}`}
-                      aria-hidden="true"
-                    />
+                    {/* 1. Khối nội dung: Badge chuyên mục + Ngày đăng & Tiêu đề */}
                     <div className={styles.itemContent}>
-                      <a
-                        href={item.href}
-                        className={`${styles.featuredLink} ${isItemActive ? styles.featuredLinkActive : ''}`}
-                        title={item.title}
-                        onClick={(e) => {
-                          // Click chữ tiêu đề cho phép mở link bài viết
-                          e.stopPropagation()
-                        }}
-                      >
-                        {item.title}
-                      </a>
                       <div className={styles.itemMeta}>
+                        <span className={styles.itemBadge}>
+                          {item.kind || 'TIN TỨC'}
+                        </span>
                         {item.date && (
                           <span className={styles.itemDate}>
                             {item.date}
@@ -322,6 +313,24 @@ export function SoyTeNewsSection({
                           </span>
                         )}
                       </div>
+                      <a
+                        href={item.href}
+                        className={`${styles.featuredLink} ${isItemActive ? styles.featuredLinkActive : ''}`}
+                        title={item.title}
+                        onClick={(e) => {
+                          // Click chữ tiêu đề cho phép mở link bài viết
+                          e.stopPropagation()
+                        }}
+                      >
+                        {item.title}
+                      </a>
+                    </div>
+
+                    {/* 2. Nút tròn mũi tên sang phải */}
+                    <div className={styles.itemArrow} aria-hidden="true">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
                     </div>
                   </li>
                 )
