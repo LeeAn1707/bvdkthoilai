@@ -1,30 +1,38 @@
-.soyteContainer {
+/* =========================================================
+   GRID CHỨA 2 Ô BO TRÒN ĐỒNG BỘ VỚI TOÀN BỘ GIAO DIỆN TRANG CHỦ
+   ========================================================= */
+.newsSectionGrid {
+  display: grid;
+  grid-template-columns: 1.58fr 1fr;
+  gap: 24px;
+  align-items: stretch;
   width: 100%;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 24px 26px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
   box-sizing: border-box;
 }
 
-.soyteGrid {
-  display: grid;
-  grid-template-columns: 1.58fr 1fr;
-  gap: 32px;
-  align-items: stretch;
-}
-
 /* =========================================================
-   CỘT TRÁI: BÀI VIẾT ĐỒNG BỘ 100% VỚI VÒNG XOAY TIN NỔI BẬT
+   Ô BÊN TRÁI: CARD BÀI VIẾT NỔI BẬT BO TRÒN 16px
    ========================================================= */
-.leadCol {
+.leadCard {
+  background: #ffffff;
+  border: 1px solid #dce8f2;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(10, 42, 74, 0.05);
   display: flex;
   flex-direction: column;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+  box-sizing: border-box;
+}
+
+.leadCard:hover {
+  transform: translateY(-2px);
+  border-color: #0878d1;
+  box-shadow: 0 10px 28px rgba(8, 120, 209, 0.12);
 }
 
 .leadTitleWrap {
-  min-height: 56px;
+  min-height: 54px;
   margin-bottom: 10px;
 }
 
@@ -73,7 +81,7 @@
   background: #005a9e;
   color: #ffffff;
   padding: 3px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.4px;
@@ -86,13 +94,13 @@
   gap: 4px;
 }
 
-/* Khung ảnh lớn của bài viết chính */
+/* Khung ảnh bài viết chính */
 .imageContainer {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
   min-height: 270px;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
@@ -147,7 +155,7 @@
   background: rgba(15, 23, 42, 0.75);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 5px 10px;
   font-size: 0.78rem;
   font-weight: 600;
@@ -165,7 +173,7 @@
 
 /* Đoạn tóm tắt bài viết chính */
 .leadExcerpt {
-  margin: 0 0 14px 0;
+  margin: 0 0 16px 0;
   font-size: 0.95rem;
   line-height: 1.55;
   color: #475569;
@@ -178,38 +186,57 @@
 
 .leadActionWrap {
   margin-top: auto;
-  padding-top: 4px;
+  padding-top: 6px;
+  display: flex;
 }
 
 .leadActionBtn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  background: #f0f7ff;
+  color: #005a9e;
+  border: 1px solid #d0e7fb;
+  padding: 7px 14px;
+  border-radius: 8px;
   font-size: 0.92rem;
   font-weight: 700;
-  color: #005a9e;
   text-decoration: none;
   transition: all 0.2s ease;
 }
 
 .leadActionBtn:hover {
-  color: #0284c7;
+  background: #005a9e;
+  color: #ffffff;
+  border-color: #005a9e;
   transform: translateX(3px);
 }
 
 /* =========================================================
-   CỘT PHẢI: TIN NỔI BẬT XOAY VÒNG CHUYỂN ĐỘNG TUẦN TỰ
+   Ô BÊN PHẢI: CARD TIN NỔI BẬT XOAY VÒNG BO TRÒN 16px
    ========================================================= */
-.sidebarCol {
+.sidebarCard {
+  background: #ffffff;
+  border: 1px solid #dce8f2;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(10, 42, 74, 0.05);
   display: flex;
   flex-direction: column;
+  transition: box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+  box-sizing: border-box;
   height: 100%;
+}
+
+.sidebarCard:hover {
+  border-color: #0878d1;
+  box-shadow: 0 10px 28px rgba(8, 120, 209, 0.12);
 }
 
 .sidebarHeader {
   border-bottom: 2px solid #005a9e;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -261,16 +288,16 @@
 .tickerControls {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .controlBtn {
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
   color: #475569;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -290,7 +317,7 @@
   position: relative;
   height: 390px; /* 5 bài * 78px = 390px */
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .tickerTrack {
@@ -311,7 +338,7 @@
   gap: 10px;
   padding: 10px 8px;
   border-bottom: 1px solid #f1f5f9;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.25s ease;
   cursor: pointer;
   overflow: hidden;
@@ -325,7 +352,7 @@
 .tickerItemActive {
   background: #f0f7ff !important;
   border-left: 3px solid #005a9e;
-  padding-left: 9px;
+  padding-left: 10px;
   box-shadow: 0 1px 4px rgba(0, 90, 158, 0.08);
 }
 
@@ -335,7 +362,7 @@
   background: #005a9e;
   margin-top: 6px;
   flex-shrink: 0;
-  border-radius: 1px;
+  border-radius: 2px;
   transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -400,7 +427,7 @@
   font-weight: 700;
   color: #005a9e;
   background: #e0f2fe;
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 4px;
   letter-spacing: 0.2px;
   display: inline-flex;
@@ -442,7 +469,7 @@
   max-width: 100%;
   max-height: 85vh;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
 }
 
@@ -472,12 +499,14 @@
    RESPONSIVE DESIGN (TABLET & MOBILE)
    ========================================================= */
 @media (max-width: 920px) {
-  .soyteGrid {
+  .newsSectionGrid {
     grid-template-columns: 1fr;
-    gap: 28px;
+    gap: 20px;
   }
-  .soyteContainer {
+  .leadCard,
+  .sidebarCard {
     padding: 18px 16px;
+    border-radius: 16px;
   }
   .leadTitle {
     font-size: 1.2rem;

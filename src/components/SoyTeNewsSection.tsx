@@ -142,10 +142,9 @@ export function SoyTeNewsSection({
   const normalizedFit = rawFit === 'contain' ? 'contain' : (rawFit === 'fill' ? 'fill' : 'cover')
 
   return (
-    <div className={styles.soyteContainer} aria-label="Điểm tin hoạt động y tế">
-      <div className={styles.soyteGrid}>
-        {/* ================= CỘT TRÁI: CHỈ HIỂN THỊ 1 BÀI VIẾT (ĐỒNG BỘ THEO VÒNG XOAY) ================= */}
-        <div className={styles.leadCol}>
+    <div className={styles.newsSectionGrid} aria-label="Điểm tin hoạt động y tế">
+      {/* ================= CỘT TRÁI: CARD BÀI VIẾT NỔI BẬT BO TRÒN 16px ================= */}
+      <div className={styles.leadCard}>
           {/* 1. Tiêu đề bài viết */}
           <div className={styles.leadTitleWrap}>
             <h3 className={styles.leadTitle} key={`title-${currentLead.id}`}>
@@ -230,9 +229,9 @@ export function SoyTeNewsSection({
           </div>
         </div>
 
-        {/* ================= CỘT PHẢI: TIN NỔI BẬT CHUYỂN ĐỘNG XOAY VÒNG ================= */}
+        {/* ================= CỘT PHẢI: CARD TIN NỔI BẬT XOAY VÒNG BO TRÒN 16px ================= */}
         <div
-          className={styles.sidebarCol}
+          className={styles.sidebarCard}
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -330,9 +329,8 @@ export function SoyTeNewsSection({
             </ul>
           </div>
         </div>
-      </div>
 
-      {/* ================= POPUP LIGHTBOX XEM ẢNH NÉT GỐC ================= */}
+        {/* ================= POPUP LIGHTBOX XEM ẢNH NÉT GỐC ================= */}
       {zoomImg && (
         <div
           className={styles.lightboxBackdrop}
