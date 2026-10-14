@@ -1,27 +1,26 @@
-# CURRENT TASK — Tối ưu Điểm tin: Cột trái 1 bài viết duy nhất & Cột phải tin nổi bật xoay vòng
+# CURRENT TASK — Đưa cấu hình tốc độ và số lượng tin nổi bật xoay vòng vào Admin CMS
 
-## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE VÀ RENDER THÀNH CÔNG
+## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE VÀ SYNC CMS THÀNH CÔNG
 
 ## 1. Yêu cầu nghiệp vụ
-- Người dùng yêu cầu:
-  1. Cột bên trái: CHỈ hiển thị 1 bài viết duy nhất (bỏ danh sách các tin con bên dưới ảnh).
-  2. Cột bên phải: Danh sách TIN NỔI BẬT chuyển động theo thứ tự xoay vòng (rotating infinite ticker).
+- Người dùng yêu cầu: Đưa vào trang Quản trị (Admin CMS) để có thể tùy chỉnh:
+  1. Tốc độ xoay vòng chuyển động (thời gian tính bằng giây).
+  2. Số lượng bài viết tối đa tham gia xoay vòng ở cột TIN NỔI BẬT.
 
 ## 2. Giải pháp thực hiện
-1. `src/components/SoyTeNewsSection.tsx`:
-   - Cột trái: Loại bỏ hoàn toàn `leadSubList` bên dưới ảnh. Chỉ giữ lại đúng 1 bài viết tiêu điểm: Tiêu đề to rõ + Thẻ nhãn & ngày tháng + Ảnh lớn sắc nét có nút phóng to 🔍 + Đoạn tóm tắt (excerpt) + Nút "Xem chi tiết bài viết →".
-   - Cột phải: Xây dựng cơ chế cuộn xoay vòng vô tận mượt mà (Seamless Infinite Vertical Ticker):
-     - Hiển thị 5 bài trong khung nhìn cao 390px (mỗi bài cố định chuẩn 78px).
-     - Tự động trượt lên từng bài sau mỗi chu kỳ thời gian (mặc định 3.5s).
-     - Nhân bản mảng cuối (`[...sidebarList, ...sidebarList.slice(0, 5)]`) và snap vị trí không giật khi hết vòng xoay.
-     - Tạm dừng khi rê chuột vào (`pause on hover`).
-     - Có nút điều khiển thủ công Lên / Xuống (`▲` và `▼`) ở tiêu đề cột.
-2. `src/components/SoyTeNewsSection.module.css`:
-   - Định dạng khung nhìn `.tickerViewport` và đường ray `.tickerTrack`.
-   - Cân đối chiều cao hoàn hảo giữa cột trái và cột phải (~390px - 440px).
-3. `src/app/(frontend)/page.tsx`:
-   - Tăng danh sách bài tham gia xoay vòng ở cột TIN NỔI BẬT lên tối đa 20 bài.
+1. `src/globals/Homepage.ts`:
+   - Tối ưu hóa cấu hình trường `carouselSeconds` (Tốc độ xoay vòng tin nổi bật, từ 2 đến 30 giây, mặc định 3.5s).
+   - Tối ưu hóa cấu hình trường `featuredItemLimit` (Số lượng bài viết tham gia xoay vòng, từ 4 đến 50 bài, mặc định 16 bài).
+   - Cập nhật nhãn (label) và phần hướng dẫn (description) chi tiết, rõ ràng trong Admin.
+2. `src/app/(frontend)/page.tsx`:
+   - Đồng bộ `featuredItemLimit` và `carouselSeconds` từ Admin vào `SoyTeNewsSection`.
+   - Cột TIN NỔI BẬT tự động lấy đúng số lượng bài tối đa được chỉ định trong Admin (`slice(0, featuredItemLimit)`).
 
-## 3. Kết quả kiểm tra
+## 3. Vị trí quản trị trong Admin CMS
+- `Admin → Globals → Trang chủ (Homepage) → Khối "Hoạt động nổi bật tại bệnh viện" (featured-news)`:
+  - Trường: **Tốc độ xoay vòng tin nổi bật (giây)**.
+  - Trường: **Số lượng bài viết tham gia xoay vòng**.
+
+## 4. Kết quả kiểm tra
 - `npm run typecheck`: PASS 100%.
-- Kiểm tra render HTTP `localhost:3000`: STATUS 200 OK, `hasLeadSubList = false`, `hasTickerViewport = true`.
+- `npm run db:schema:check`: PASS (không ảnh hưởng schema contract, tương thích hoàn toàn dữ liệu CSDL).

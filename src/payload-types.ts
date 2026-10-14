@@ -6925,11 +6925,11 @@ export interface Homepage {
             }[]
           | null;
         /**
-         * Điểm tin nổi bật tự động chuyển qua các thẻ nội dung được chọn.
+         * Thời gian (giây) giữa mỗi lần tự động chuyển bài viết ở cột TIN NỔI BẬT (khuyên dùng từ 3 đến 5 giây).
          */
         carouselSeconds?: number | null;
         /**
-         * Khung ngoài hiển thị 4 card trên desktop. Số này quy định tổng số nội dung tối đa được đưa vào vòng chuyển động.
+         * Quy định tổng số bài viết tối đa được đưa vào danh sách xoay vòng ở cột TIN NỔI BẬT (từ 4 đến 50 bài).
          */
         featuredItemLimit?: number | null;
         /**

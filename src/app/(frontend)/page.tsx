@@ -401,8 +401,8 @@ export default async function HomePage() {
   const introImage = mediaUrl(organizationConfig?.organizationImage || home?.intro?.image, 'article') || '/banners/banner-benh-vien.png'
   const medproCard = organizationConfig?.organizationMedpro || {}
   const medproCardUrl = medproCard.buttonUrl || medpro
-  const featuredInterval = Math.max(2500, Number(sectionConfig('featured-news')?.carouselSeconds || 4.5) * 1000)
-  const featuredItemLimit = Math.min(40, Math.max(4, Number(sectionConfig('featured-news')?.featuredItemLimit || 16)))
+  const featuredInterval = Math.max(2000, Number(sectionConfig('featured-news')?.carouselSeconds || 3.5) * 1000)
+  const featuredItemLimit = Math.min(50, Math.max(4, Number(sectionConfig('featured-news')?.featuredItemLimit || 16)))
 
   const sectionStyle = (key: string) => {
     const item = sectionConfig(key)
@@ -707,7 +707,7 @@ export default async function HomePage() {
       date: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : '',
     }))
 
-  const soyteFeaturedSidebar = [...featuredNewsList, ...remainingNewsList].slice(0, 20)
+  const soyteFeaturedSidebar = [...featuredNewsList, ...remainingNewsList].slice(0, featuredItemLimit)
 
   // ── HÀM RENDER SECTION THEO MẪU BỐ CỤC (đọc từ Admin config) ──
   // Mỗi section notices/procurement/documents/content-section đều gọi hàm này
@@ -1151,7 +1151,7 @@ export default async function HomePage() {
                     featuredItems={soyteFeaturedSidebar}
                     sidebarTitle="TIN NỔI BẬT"
                     cardFit={cfg.featuredCardFit || 'cover'}
-                    autoplaySeconds={Math.max(3, Number(cfg.carouselSeconds || 5))}
+                    autoplaySeconds={Math.max(2, Number(cfg.carouselSeconds || 3.5))}
                   />
                 </div>
               </section>
