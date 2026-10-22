@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import ExcelJS from 'exceljs'
 import { getCMS } from '@/lib/payload'
 import { hasModulePermission } from '@/access'
@@ -366,8 +367,16 @@ export async function GET(req: Request) {
       },
     })
   } catch (error: any) {
+    const errorId = `ERR-EXP-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`
+    console.error(`[AppointmentsExport][${errorId}] Lỗi xuất file Excel:`, {
+      name: error?.name || 'Error',
+      code: error?.code || 'INTERNAL_ERROR',
+    })
     return NextResponse.json(
-      { error: 'Không thể xuất file Excel: ' + (error?.message || 'Lỗi hệ thống') },
+      {
+        error: 'Không thể xuất file Excel vào lúc này. Quý khách vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên hệ thống.',
+        errorId,
+      },
       { status: 500 }
     )
   }

@@ -186,16 +186,22 @@ export const appointmentAccess = (action: PermissionAction): Access => async ({ 
   // Ban Giám Đốc (board) và Điều phối phòng khám (clinic-schedule) được xem/điều phối toàn viện
   if (role === 'board' || role === 'clinic-schedule') return true
 
-  // Quản lý khoa (department-manager) hoặc user có ràng buộc department:
-  // Chỉ được thao tác với các phiếu hẹn thuộc đúng khoa của mình.
-  if (role === 'department-manager' || user?.department) {
-    const department = (user as any)?.department
-    const departmentID = typeof department === 'object' && department ? department.id : department
-    if (!departmentID) return false
-    return { department: { equals: departmentID } } as Where
-  }
+  // Nguyên tắc Deny-by-default: Mọi tài khoản khác (kể cả department-manager hay tài khoản có custom permissions)
+  // bắt buộc phải được gắn vào một khoa/phòng cụ thể (user.department).
+  // Nếu không gắn khoa -> TUYỆT ĐỐI KHÔNG được xem hoặc sửa dữ liệu lịch hẹn (Fail-closed).
+  const department = (user as any)?.department
+  const departmentID = typeof department === 'object' && department ? department.id : department
+  if (!departmentID) return false
 
-  return true
+  return { department: { equals: departmentID } } as Where
+}
+
+export const appointmentDepartmentFieldAccess: FieldAccess = ({ req }) => {
+  const user = req?.user as any
+  if (!isActiveUser(user)) return false
+  const role = roleOf(user)
+  // Chỉ admin cấp cao hoặc nhân sự điều phối toàn viện mới được thay đổi Khoa tiếp nhận của phiếu hẹn
+  return isElevatedRole(role) || role === 'clinic-schedule'
 }
 
 export const departmentScopedAccess = (module: string, action: PermissionAction, departmentField = 'department'): Access => ({ req }) => {

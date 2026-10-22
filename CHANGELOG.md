@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-10-22 — Hoàn Thiện Sau Đợt Review Độc Lập #2: Deny-by-default, Concurrency PostgreSQL & An Toàn Log
+
+- **P1 - Khử khuẩn lỗi 500 API xuất Excel:** Sửa `appointments-export` route để response HTTP 500 không trả `error.message`, SQL hay stack trace; trả thông điệp cố định kèm correlation `errorId` (`ERR-EXP-...`).
+- **P1 - Kiểm thử Concurrency thực sự với PostgreSQL:** Viết integration test `TC-APPT-05` kết nối PostgreSQL thật qua pool, chạy 20 workers đồng thời với ràng buộc `UNIQUE (code)`, kiểm chứng bắt lỗi 23505 và thuật toán retry sinh 100% mã duy nhất; tự động dọn sạch bảng tạm; an toàn bỏ qua nếu gặp database production.
+- **P1 - Khóa quyền lịch hẹn theo Deny-by-default:** Rà soát `appointmentAccess`, tài khoản có custom permissions nhưng không gắn khoa mặc định bị từ chối truy cập (fail-closed); thêm `appointmentDepartmentFieldAccess` bảo vệ trường `department` khi cập nhật.
+- **P1 - Phân loại log lỗi an toàn:** Route `/api/appointments` phân loại lỗi theo category (`DATABASE_UNIQUE_VIOLATION`, `DATABASE_FOREIGN_KEY_VIOLATION`, v.v.), loại bỏ hoàn toàn việc in raw SQL queries và thông tin người bệnh ra log hệ thống.
+- **P1 - Bảo vệ riêng tư khi trùng lịch:** Response HTTP 409 không trả lại mã phiếu hẹn cũ (`code`) hoặc thông tin người bệnh, chống rò rỉ dữ liệu khi người lạ chỉ biết số điện thoại.
+- **CI / GitHub Actions:** Bổ sung `npm run build` vào `.github/workflows/quality-gate.yml` để đảm bảo Next.js build được kiểm tra liên tục trên CI.
+- Tự động hóa 24/24 test cases bảo mật (P0: 11, P1: 13), 100% PASS typecheck, `validate:all` và build.
+
 ## 2026-10-22 — Khắc Phục Lỗ Hổng Bảo Mật P0 & P1 & Hoàn Thiện Sau Đợt Review Độc Lập
 
 - **P0 - Khử khuẩn bí mật:** Xóa bỏ hoàn toàn chuỗi mật khẩu database cũ khỏi toàn bộ mã nguồn và test assertion; kiểm tra xác nhận không còn bí mật nào trong repository.

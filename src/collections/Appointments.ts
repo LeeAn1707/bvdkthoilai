@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { appointmentAccess, moduleAccess } from '@/access'
+import { appointmentAccess, appointmentDepartmentFieldAccess, moduleAccess } from '@/access'
 
 export const Appointments: CollectionConfig = {
   slug: 'appointments',
@@ -130,6 +130,9 @@ export const Appointments: CollectionConfig = {
               type: 'relationship',
               relationTo: 'departments',
               admin: { width: '30%' },
+              access: {
+                update: appointmentDepartmentFieldAccess,
+              },
             },
             {
               name: 'doctor',

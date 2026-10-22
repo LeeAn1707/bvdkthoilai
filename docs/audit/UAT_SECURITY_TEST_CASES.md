@@ -22,10 +22,12 @@ Các dòng dưới đây là **kịch bản đề xuất**, không phải kết 
 | TC-ACL-05 | P0 | Role không có quyền gửi PATCH/DELETE lịch khám bằng API. | Từ chối; quyền delete chỉ dành riêng cho elevated admin. | PASS |
 | TC-ACL-06 | P0 | Role không có quyền xuất gọi URL/export API hoặc server action trực tiếp. | 403; không có file Excel, chỉ `board` và `department-manager` được export. | PASS |
 | TC-ACL-07 | P0 | Khi nghiệp vụ có chia khoa: user khoa A truy vấn, pagination, filter và export bản ghi khoa B. | Không nhận được dữ liệu khoa B từ bất cứ đường nào. | PASS |
-| TC-ACL-08 | P1 | Thử thay ID, query filter, `depth`, `limit` và endpoint export để lấy thêm dữ liệu. | Không vượt row-level authorization. | NOT RUN (Cần DB staging đa khoa) |
+| TC-ACL-08 | P1 | Tài khoản có custom permissions nhưng không gắn khoa; bảo vệ trường `department` khi update. | Khóa Deny-by-default (trả về false), trường department chỉ được sửa bởi super-admin/system-admin/admin/clinic-schedule. | PASS |
 | TC-PRIV-01 | P0 | Export hợp lệ bằng role được phê duyệt; xem field trong Excel. | Chỉ các cột/record được phép, có audit trail. | NOT RUN (Cần UI staging) |
 | TC-PRIV-02 | P1 | Gây lỗi DB giả lập ở staging, đọc response và log. | Response không lộ SQL, secret, stack trace/PII; trả mã correlation ID ẩn danh. | PASS |
 | TC-PRIV-03 | P1 | Kiểm tra dữ liệu riêng tư trong URL, browser cache, search indexing và file media. | Không rò dữ liệu cá nhân ra URL công khai/crawler/cache public. | NOT RUN (Cần audit URL staging) |
+| TC-PRIV-04 | P1 | Người dùng chỉ biết SĐT gửi request đặt lịch trùng lặp (HTTP 409). | Không trả mã phiếu hẹn cũ (`code`), họ tên hay thông tin lịch hẹn cũ cho client chưa xác minh. | PASS |
+
 
 ## 3. Nhóm API đặt lịch / chống lạm dụng
 
@@ -35,7 +37,7 @@ Các dòng dưới đây là **kịch bản đề xuất**, không phải kết 
 | TC-APPT-02 | P0 | Thử gửi trực tiếp `status=completed`, `staffNote` qua form route. | Không tin input của client; các field nội bộ bị ghi đè thành giá trị mặc định an toàn. | PASS |
 | TC-APPT-03 | P1 | SĐT/email/ngày giờ sai định dạng, field dài bất thường. | 400/422 dễ hiểu; regex validate SĐT/email/ngày. | PASS |
 | TC-APPT-04 | P1 | Gửi trùng cùng SĐT/ngày/chuyên khoa; nhấp nút liên tiếp. | Chặn gửi liên tiếp trong 60s và chặn trùng chuyên khoa trong ngày. | PASS |
-| TC-APPT-05 | P1 | Trên staging, dùng công cụ tải có giới hạn gửi 100–500 requests đồng thời với dữ liệu giả. | Thuật toán retry bắt `unique_violation` và cấp mã đuôi ngẫu nhiên, không va chạm. | PASS |
+| TC-APPT-05 | P1 | Kiểm thử Concurrency thực sự với PostgreSQL (20 request đồng thời). | Bắt lỗi 23505 unique_violation, retry tự động cấp mã ngẫu nhiên, 100% mã duy nhất, HTTP 200. | PASS |
 | TC-APPT-06 | P1 | Sinh mã vào thời điểm chuyển ngày theo Asia/Ho_Chi_Minh. | Tính chuẩn mốc thời gian UTC+7 để lọc số thứ tự theo ngày. | PASS |
 | TC-APPT-07 | P1 | Giả lập đã cấp 9999 mã của một ngày bằng fixture. | Mở rộng lên `BVTL10000`, không quay vòng về 1 gây trùng lịch sử. | PASS |
 | TC-APPT-08 | P1 | Sau nâng cấp schema sinh mã mới, truy cập mã lịch cũ. | Mã cũ (`BVTLxxxx`, `LK-xxxx`) còn tra cứu được bình thường. | PASS |
@@ -53,6 +55,8 @@ Các dòng dưới đây là **kịch bản đề xuất**, không phải kết 
 | TC-SEC-07 | P1 | Gửi body vượt maxBytes nhưng không có Content-Length (chunked) đến staging. | `readJsonBodyWithLimit` đếm byte stream thực tế, trả 413 Payload Too Large. | PASS |
 | TC-SEC-08 | P1 | Gửi JSON sâu, rất nhiều field, loại Content-Type không hỗ trợ. | Bắt lỗi JSON parsing, trả 400 an toàn, không treo tiến trình. | PASS |
 | TC-SEC-09 | P1 | Gây lỗi 500 có thông điệp nội bộ ở staging. | Không hiển thị `error.message` cho client, chỉ trả correlation ID. | PASS |
+| TC-SEC-09C | P1 | Route xuất Excel `/api/appointments-export` gặp lỗi 500. | Không trả `error.message`, thông báo lỗi cố định + errorId `ERR-EXP-...`. | PASS |
+| TC-LOG-01 | P1 | Ghi log hệ thống và bắt lỗi tại các API nhạy cảm. | Phân loại theo category lỗi, không ghi raw SQL string hoặc PII người bệnh ra log. | PASS |
 | TC-SEC-10 | P1 | Xác minh CORS/CSRF/origin khi API dùng cookie session; thử request khác nguồn. | Payload CSRF allowlist được áp dụng. | NOT RUN (Cần staging browser) |
 | TC-SEC-11 | P1 | Upload thử file giả có phần mở rộng không khớp magic bytes, SVG script, quá kích thước. | Chặn theo chính sách `UploadSettings`. | NOT RUN (Cần media upload test) |
 

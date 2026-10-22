@@ -41,3 +41,9 @@ jobs:
 
       - name: Regression checks
         run: npm run validate:all
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+

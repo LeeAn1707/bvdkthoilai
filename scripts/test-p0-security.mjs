@@ -5,7 +5,7 @@
  */
 
 import assert from 'node:assert/strict'
-import { roleHasModulePermission, hasModulePermission, appointmentAccess } from '../src/access/index.ts'
+import { roleHasModulePermission, hasModulePermission, appointmentAccess, appointmentDepartmentFieldAccess } from '../src/access/index.ts'
 import { verifyTurnstile } from '../src/lib/request-security.ts'
 import { Appointments } from '../src/collections/Appointments.ts'
 
@@ -188,6 +188,38 @@ await runAsyncTest('TC-ACL-07', 'Department-manager bị giới hạn phạm vi 
   assert.equal(filterBoard, true, 'Ban Giám Đốc được xem toàn viện')
   const filterClinic = await viewAccess({ req: { user: mockUsers.clinicSchedule } })
   assert.equal(filterClinic, true, 'Điều phối phòng khám được xem toàn viện')
+})
+
+await runAsyncTest('TC-ACL-08', 'Khóa quyền lịch hẹn theo Deny-by-default và bảo vệ trường department khi update', async () => {
+  const viewAccess = appointmentAccess('view')
+  const editAccess = appointmentAccess('edit')
+
+  // 1. User có custom permission nhưng KHÔNG gắn khoa -> DENY-BY-DEFAULT (false)
+  const userCustomNoDept = {
+    id: 301,
+    role: 'editor',
+    status: 'active',
+    useCustomPermissions: true,
+    permissions: [{ module: 'appointments', actions: ['view', 'edit'] }],
+    department: null,
+  }
+  const viewResult = await viewAccess({ req: { user: userCustomNoDept } })
+  assert.equal(viewResult, false, 'User có custom permission nhưng không có department phải bị DENY (false)')
+  const editResult = await editAccess({ req: { user: userCustomNoDept } })
+  assert.equal(editResult, false, 'User có custom permission nhưng không có department phải bị DENY khi edit')
+
+  // 2. Bảo vệ trường department: Trưởng khoa A KHÔNG được phép đổi department sang khoa khác
+  const managerA = { id: 201, role: 'department-manager', status: 'active', department: 10 }
+  assert.equal(
+    appointmentDepartmentFieldAccess({ req: { user: managerA } }),
+    false,
+    'Trưởng khoa không được phép cập nhật/đổi trường department của phiếu hẹn'
+  )
+
+  // 3. Chỉ elevated admin và clinic-schedule mới được thay đổi trường department
+  assert.equal(appointmentDepartmentFieldAccess({ req: { user: mockUsers.admin } }), true)
+  assert.equal(appointmentDepartmentFieldAccess({ req: { user: mockUsers.superAdmin } }), true)
+  assert.equal(appointmentDepartmentFieldAccess({ req: { user: mockUsers.clinicSchedule } }), true)
 })
 
 console.log('\n====================================================')

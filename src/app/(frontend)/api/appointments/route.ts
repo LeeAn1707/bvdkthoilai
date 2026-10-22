@@ -157,7 +157,7 @@ export async function POST(req: Request) {
         if (matchedDup) {
           return NextResponse.json(
             {
-              error: `Số điện thoại này đã có phiếu hẹn "${matchedDup.code}" đăng ký khám ngày ${appointmentDate.split('-').reverse().join('/')}. Quý khách vui lòng không đăng ký trùng lặp hoặc liên hệ tổng đài để đổi thông tin.`,
+              error: `Số điện thoại này đã có lịch hẹn đăng ký khám ngày ${appointmentDate.split('-').reverse().join('/')}. Quý khách vui lòng không đăng ký trùng lặp hoặc liên hệ trực tiếp tổng đài bệnh viện để điều chỉnh thông tin.`,
             },
             { status: 409 }
           )
@@ -379,20 +379,23 @@ export async function POST(req: Request) {
     })
   } catch (error: any) {
     const errorId = `ERR-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`
-    
-    // Khử khuẩn (sanitize) log để tuyệt đối không để lộ PII người bệnh hoặc connection string / mật khẩu DB
-    const safeErrorDetail = typeof error?.message === 'string'
-      ? error.message
-          .replace(/postgres(ql)?:\/\/[^@\s]+@/gi, 'postgres://[REDACTED]@')
-          .replace(/Key \([^)]+\)=\([^)]+\)/gi, 'Key ([REDACTED])=([REDACTED])')
-          .replace(/VALUES\s*\([^)]+\)/gi, 'VALUES ([REDACTED])')
-          .slice(0, 300)
-      : 'Internal processing error'
+
+    // Phân loại lỗi an toàn theo danh mục nghiệp vụ mà không phụ thuộc regex hay in chuỗi error.message thô của DB
+    let errorCategory = 'INTERNAL_ERROR'
+    if (error?.code === '23505') {
+      errorCategory = 'DATABASE_UNIQUE_VIOLATION'
+    } else if (error?.code === '23503') {
+      errorCategory = 'DATABASE_FOREIGN_KEY_VIOLATION'
+    } else if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+      errorCategory = 'NETWORK_TIMEOUT'
+    } else if (error?.name === 'ValidationError') {
+      errorCategory = 'VALIDATION_ERROR'
+    }
 
     console.error(`[AppointmentAPI][${errorId}] Lỗi tạo lịch hẹn:`, {
       name: error?.name || 'Error',
-      code: error?.code || 'INTERNAL_ERROR',
-      detail: safeErrorDetail,
+      code: error?.code || 'UNKNOWN',
+      category: errorCategory,
     })
     return NextResponse.json(
       {
