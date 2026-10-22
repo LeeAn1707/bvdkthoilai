@@ -1,19 +1,19 @@
-# CURRENT TASK — Bỏ ảnh nhỏ trong ô tin nổi bật và hiển thị mặc định 6 tin cố định rồi xoay vòng
+# CURRENT TASK — Fix mất viền bo góc và chữ bị mờ khi focus/active ô Tin Nổi Bật
 
 ## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE THÀNH CÔNG
 
-## 1. Yêu cầu & Kết quả đạt được
-- Đã loại bỏ hoàn toàn phần thumbnail ảnh nhỏ trong từng ô bài viết ở cột TIN NỔI BẬT:
-  + Ô bài viết trở nên thanh thoát, gọn gàng và tinh tế với layout:
-    * Hàng 1 (Meta): Badge chuyên mục nền xanh nhạt `#eaf3fc`, chữ xanh đậm `#005a9e` + Ngày đăng bài `14/9/2026`.
-    * Hàng 2 (Tiêu đề): Tiêu đề bài viết in đậm 2 dòng (`line-clamp: 2`), màu xanh đen navy `#0f3d64`.
-    * Bên phải: Nút tròn mũi tên chevron phải `>` màu xanh dịu (`28px × 28px`).
-- Khung nhìn hiển thị mặc định **6 tin nổi bật cố định** cùng lúc lúc ban đầu:
-  + Chiều cao khung nhìn chuẩn xác `484px` (6 bài * 74px + 5 khoảng cách * 8px), cân bằng hoàn hảo với chiều cao của thẻ lớn bên trái.
-  + Trong chu kỳ thời gian ban đầu (3.5s - 4.5s), 6 tin nổi bật đầu tiên đứng yên cố định và bài viết đầu tiên được hiển thị ở cột lớn bên trái.
-  + Sau đó, danh sách tự động xoay vòng cuộn lên từng bài để các bài viết khác (bài 7, 8, ...) lần lượt xuất hiện và hiển thị sang cột trái, sau khi hết toàn bộ bài viết sẽ lặp lại vô tận.
-  + Người dùng có thể bấm vào ô bất kỳ để chủ động chọn bài chiếu sang cột lớn bên trái.
+## 1. Vấn đề đã xác định
+- Khi focus/hover hoặc khi ô bài viết ở trạng thái active ("• Đang xem"), hiệu ứng `transform: translateX(3px)` làm thẻ dịch chuyển sang phải 3px, khiến cạnh phải và góc bo tròn bên phải bị tràn ra ngoài khung `tickerViewport` (`overflow: hidden`) dẫn đến mất toàn bộ đường viền bo góc bên phải.
+- `transform: translateX(3px)` kết hợp với `will-change: transform` khiến trình duyệt (đặc biệt là Chrome trên Windows) chuyển sang render GPU texture và tắt cơ chế DirectWrite ClearType (subpixel antialiasing), làm chữ bị mờ, mảnh và vỡ hạt.
+- Cỡ chữ dùng số thập phân (`13.5px`, `10.5px`, `11.5px`) và màu tiêu đề khi active dùng `#005a9e` trên nền `#f0f7ff` có độ tương phản chưa tối ưu, làm giảm độ sắc nét của chữ.
 
-## 2. Kết quả kiểm tra
+## 2. Giải pháp đã thực hiện
+- Loại bỏ hoàn toàn `transform: translateX(3px)` ở `:hover` và `.tickerItemActive`.
+- Bổ sung padding an toàn `padding: 2px 4px` cho `.tickerViewport` (chiều cao chuẩn `488px` = `484px` nội dung 6 bài + `4px` padding) để 4 góc bo tròn `14px` và viền 4 phía không bao giờ bị cắt xén (clip).
+- Thêm `:focus-visible` chuẩn accessibility với viền `#005a9e` rõ nét.
+- Bỏ `will-change: transform` ở `.tickerTrack` để font chữ luôn giữ được độ nét tự nhiên từ Windows DirectWrite ClearType khi tĩnh.
+- Chuẩn hóa cỡ chữ sang số nguyên chuẩn (`14px` tiêu đề, `12px` ngày tháng, `11px` badge) và nâng độ tương phản màu chữ khi active sang `#003e73` (xanh navy đậm sắc nét).
+
+## 3. Kết quả kiểm tra
 - `npm run typecheck`: PASS 100% không có lỗi TypeScript.
-- Kiểm tra tính toán bước nhảy `ITEM_STEP = 82px` tịnh tiến chính xác tuyệt đối.
+- `git diff`: Chỉ thay đổi đúng file CSS mục tiêu [SoyTeNewsSection.module.css](file:///f:/20.9%20web/bvdkthoilai-main/src/components/SoyTeNewsSection.module.css).

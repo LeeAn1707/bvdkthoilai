@@ -315,10 +315,10 @@
 /* Khung hiển thị danh sách xoay vòng */
 .tickerViewport {
   position: relative;
-  height: 484px; /* 6 bài * 74px + 5 khoảng cách * 8px = 484px */
+  height: 488px; /* 6 bài * 74px + 5 khoảng cách * 8px = 484px + 4px padding */
   overflow: hidden;
   border-radius: 14px;
-  padding: 1px 0;
+  padding: 2px 4px;
   box-sizing: border-box;
 }
 
@@ -328,7 +328,6 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  will-change: transform;
 }
 
 /* Thẻ ô bài viết dạng card bo tròn không có ảnh nhỏ */
@@ -340,30 +339,34 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 14px;
+  padding: 7px 14px;
   background: #ffffff;
   border: 1px solid #dce8f3;
   border-radius: 14px;
   box-shadow: 0 2px 6px rgba(10, 42, 74, 0.03);
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.2s ease, background-color 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
   cursor: pointer;
   position: relative;
   overflow: hidden;
 }
 
 .tickerItem:hover {
-  transform: translateX(3px);
-  border-color: #0878d1;
-  box-shadow: 0 4px 14px rgba(8, 120, 209, 0.12);
-  background: #fafcfe;
+  border-color: #0078d4;
+  box-shadow: 0 3px 10px rgba(0, 120, 212, 0.12);
+  background: #f8fbff;
 }
 
-/* Khi là ô đang hiển thị ở cột bên trái (Active) */
+.tickerItem:focus-visible {
+  border-color: #005a9e;
+  box-shadow: 0 0 0 2px rgba(0, 90, 158, 0.2);
+  outline: none;
+}
+
+/* Khi là ô đang hiển thị ở cột bên trái (Active / Đang xem) */
 .tickerItemActive {
   background: #f0f7ff !important;
   border-color: #005a9e !important;
-  box-shadow: 0 4px 14px rgba(0, 90, 158, 0.14) !important;
-  transform: translateX(3px);
+  box-shadow: 0 3px 12px rgba(0, 90, 158, 0.12) !important;
 }
 
 /* 1. Khối nội dung ở giữa: Badge + Ngày & Tiêu đề */
@@ -384,8 +387,8 @@
 }
 
 .itemBadge {
-  font-size: 10.5px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   color: #005a9e;
   background: #eaf3fc;
@@ -398,18 +401,18 @@
 }
 
 .itemDate {
-  font-size: 11.5px;
-  color: #64748b;
+  font-size: 12px;
+  color: #475569;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .nowPlayingTag {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: #005a9e;
   background: #e0f2fe;
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: 4px;
   letter-spacing: 0.2px;
   display: inline-flex;
@@ -420,12 +423,12 @@
 }
 
 .featuredLink {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
-  line-height: 1.35;
-  color: #0f3d64;
+  line-height: 1.38;
+  color: #0f2942;
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: color 0.18s ease;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -439,7 +442,7 @@
 }
 
 .featuredLinkActive {
-  color: #005a9e !important;
+  color: #003e73 !important;
 }
 
 /* 2. Nút tròn mũi tên bên phải */
@@ -549,7 +552,7 @@
     min-height: 220px;
   }
   .tickerViewport {
-    height: 402px; /* 5 bài * 74px + 4 * 8px = 402px */
+    height: 406px; /* 5 bài * 74px + 4 * 8px = 402px + 4px padding */
   }
 }
 
@@ -562,8 +565,8 @@
     border-radius: 12px;
   }
   .featuredLink {
-    font-size: 12.5px;
-    line-height: 1.3;
+    font-size: 13px;
+    line-height: 1.35;
   }
   .itemArrow {
     width: 24px;
@@ -571,7 +574,7 @@
     min-width: 24px;
   }
   .tickerViewport {
-    height: 382px; /* 5 bài * 70px + 4 * 8px = 382px */
+    height: 386px; /* 5 bài * 70px + 4 * 8px = 382px + 4px padding */
   }
 }
 
