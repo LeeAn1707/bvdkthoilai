@@ -451,15 +451,15 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
   // 4. Sử dụng token Cloudflare testing chính thức (1x0000000000000000000000000000000AA)
   const turnstileToken = process.env.STAGING_TURNSTILE_TOKEN || '1x0000000000000000000000000000000AA'
 
-  // 5. Gửi 20 requests đồng thời tới staging API
+  // 5. Gửi requests đồng thời tới staging API (mặc định 20, có thể cấu hình tới 100 qua CONCURRENCY_REQUESTS)
+  const numRequests = Number(process.env.CONCURRENCY_REQUESTS || 20)
   const cleanStagingUrl = stagingUrl.replace(/\/$/, '')
-  const tasks = Array.from({ length: 20 }, async (_, idx) => {
+  const tasks = Array.from({ length: numRequests }, async (_, idx) => {
     try {
       const res = await fetch(`${cleanStagingUrl}/api/appointments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-forwarded-for': `203.0.113.${100 + idx}`,
         },
         body: JSON.stringify({
           fullName: `Bệnh nhân Staging ${idx + 1}`,
@@ -494,7 +494,7 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
 
   // Tiêu chí nghiêm ngặt: KHÔNG đánh dấu PASS khi tất cả HTTP request đều bị 429
   if (okResults.length === 0 && rateLimitedResults.length === results.length) {
-    assert.fail('Tất cả 20 HTTP request đều bị HTTP 429 (Rate Limit chặn 100% request, chưa có phiếu hẹn nào được tạo trong database). Không được đánh dấu PASS.')
+    assert.fail(`Tất cả ${numRequests} HTTP request đều bị HTTP 429 (Rate Limit chặn 100% request, chưa có phiếu hẹn nào được tạo trong database). Không được đánh dấu PASS.`)
   }
 
   assert.ok(
@@ -502,9 +502,19 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
     'Mọi request gửi tới staging phải nhận được phản hồi nghiệp vụ hợp lệ (200/201 hoặc 429)'
   )
 
-  // 8. BẮT BUỘC xác minh mã ghi thực tế trong PostgreSQL thông qua TEST_DATABASE_URL
+  // 8. BẮT BUỘC xác minh tính DUY NHẤT và khớp dữ liệu thực tế trong PostgreSQL thông qua TEST_DATABASE_URL
   if (okResults.length > 0) {
     const codes = okResults.map((r) => r.data.code)
+    
+    // 8.1 Kiểm tra tính duy nhất ở tầng response API
+    const distinctCodes = new Set(codes)
+    assert.equal(
+      distinctCodes.size,
+      codes.length,
+      `Tất cả ${codes.length} mã lịch hẹn trả về từ API staging phải hoàn toàn duy nhất (phát hiện chỉ có ${distinctCodes.size} mã duy nhất, bị trùng lặp ${codes.length - distinctCodes.size} mã)!`
+    )
+
+    // 8.2 Kiểm tra tồn tại và duy nhất ở tầng database PostgreSQL
     const pool = new pg.Pool({ connectionString: testDbUrl, connectionTimeoutMillis: 5000 })
     try {
       const dbRes = await pool.query('SELECT code FROM appointments WHERE code = ANY($1)', [codes])
@@ -512,6 +522,28 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
         dbRes.rows.length,
         codes.length,
         `Tất cả ${codes.length} mã lịch hẹn thành công trả về từ API staging phải tồn tại thực tế trong cơ sở dữ liệu PostgreSQL`
+      )
+
+      // Kiểm tra GROUP BY HAVING COUNT(*) > 1 (không cho phép bất kỳ mã trùng nào trong DB)
+      const dupCheck = await pool.query(
+        'SELECT code, COUNT(*) as cnt FROM appointments WHERE code = ANY($1) GROUP BY code HAVING COUNT(*) > 1',
+        [codes]
+      )
+      assert.equal(
+        dupCheck.rows.length,
+        0,
+        `Phát hiện mã bị trùng lặp trong cơ sở dữ liệu PostgreSQL: ${JSON.stringify(dupCheck.rows)}`
+      )
+
+      // Xác minh COUNT(DISTINCT code) == số request thành công
+      const distinctDbRes = await pool.query(
+        'SELECT COUNT(DISTINCT code) as distinct_cnt FROM appointments WHERE code = ANY($1)',
+        [codes]
+      )
+      assert.equal(
+        Number(distinctDbRes.rows[0].distinct_cnt),
+        codes.length,
+        `Số lượng mã phân biệt trong PostgreSQL (${distinctDbRes.rows[0].distinct_cnt}) phải đúng bằng ${codes.length}`
       )
     } finally {
       await pool.end()
@@ -686,12 +718,11 @@ await runAsyncTest('TC-PRIV-05B', 'Kiểm thử HTTP 409 và 429 thực tế qua
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-forwarded-for': '203.0.113.10',
         },
         body: JSON.stringify({
           fullName: `Spam Tester ${i + 1}`,
           phone: spamPhone,
-          appointmentDate: futureDate,
+          appointmentDate: new Date(Date.now() + 86400000 * (5 + i)).toISOString().slice(0, 10),
           timeSlot: 'morning',
           'cf-turnstile-response': turnstileToken,
         }),
@@ -737,7 +768,6 @@ await runAsyncTest('TC-PRIV-05B', 'Kiểm thử HTTP 409 và 429 thực tế qua
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-forwarded-for': '203.0.113.20',
       },
       body: JSON.stringify(dupPayload),
       signal: AbortSignal.timeout(6000),
@@ -756,7 +786,6 @@ await runAsyncTest('TC-PRIV-05B', 'Kiểm thử HTTP 409 và 429 thực tế qua
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-forwarded-for': '203.0.113.20',
       },
       body: JSON.stringify(dupPayload),
       signal: AbortSignal.timeout(6000),
@@ -769,7 +798,6 @@ await runAsyncTest('TC-PRIV-05B', 'Kiểm thử HTTP 409 và 429 thực tế qua
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-forwarded-for': '203.0.113.20',
         },
         body: JSON.stringify(dupPayload),
         signal: AbortSignal.timeout(6000),

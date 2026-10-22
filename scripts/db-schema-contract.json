@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "migrationId": "20261014_079_add_org_chart_image_styles",
-  "schemaSha256": "79511c524f8255353461eead7282ad7f69b957b6c89689a52e469e200373fce9"
+  "migrationId": "20261022_080_enforce_appointments_code_unique_and_counter",
+  "schemaSha256": "ad9137591df541e6e8a70034623e416164d5dcb4abe1bfd7d60afc4b9c71b238"
 }

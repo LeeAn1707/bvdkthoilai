@@ -4,6 +4,7 @@ import config from '@payload-config'
 import { REST_GET, REST_POST, REST_PATCH, REST_DELETE } from '@payloadcms/next/routes'
 import { getCMS } from '@/lib/payload'
 import { readJsonBodyWithLimit, clientAddress, rateLimit, validEmail, validPhone, verifyTurnstile } from '@/lib/request-security'
+import { getNextAtomicAppointmentCode } from '@/lib/appointment-code'
 
 export const dynamic = 'force-dynamic'
 
@@ -127,8 +128,11 @@ export async function POST(req: Request) {
       // Bỏ qua nếu chưa load được
     }
 
-    // 2. Kiểm tra giới hạn số lần gửi từ 1 địa chỉ IP (mặc định 5 lần / 15 phút hoặc theo admin cấu hình)
-    const maxSubmissions = typeof appSettings?.maxSubmissionsPerIp === 'number' && appSettings.maxSubmissionsPerIp > 0 ? appSettings.maxSubmissionsPerIp : 5
+    // 2. Kiểm tra giới hạn số lần gửi từ 1 địa chỉ IP (mặc định 5 lần / 15 phút hoặc theo admin cấu hình / biến môi trường kiểm thử tải)
+    const envRateLimitMax = process.env.APPOINTMENTS_RATE_LIMIT_MAX ? Number(process.env.APPOINTMENTS_RATE_LIMIT_MAX) : undefined
+    const maxSubmissions = envRateLimitMax && envRateLimitMax > 0
+      ? envRateLimitMax
+      : (typeof appSettings?.maxSubmissionsPerIp === 'number' && appSettings.maxSubmissionsPerIp > 0 ? appSettings.maxSubmissionsPerIp : 5)
     const throttle = rateLimit(req, 'appointment-create', maxSubmissions, 15 * 60_000)
     if (!throttle.allowed) {
       return NextResponse.json(
@@ -141,23 +145,35 @@ export async function POST(req: Request) {
     const preventDuplicate = appSettings?.preventDuplicateBooking !== false
     if (preventDuplicate) {
       try {
+        const appointmentDateStr = typeof appointmentDate === 'string' ? appointmentDate.slice(0, 10) : ''
+        const startOfDay = appointmentDateStr ? new Date(`${appointmentDateStr}T00:00:00.000Z`).toISOString() : appointmentDate
+        const endOfDay = appointmentDateStr ? new Date(`${appointmentDateStr}T23:59:59.999Z`).toISOString() : appointmentDate
+
+        const dateFilter = appointmentDateStr
+          ? [
+              { appointmentDate: { greater_than_equal: startOfDay } },
+              { appointmentDate: { less_than_equal: endOfDay } },
+            ]
+          : [{ appointmentDate: { equals: appointmentDate } }]
+
         const duplicateCheck = await payload.find({
           collection: 'appointments' as any,
           where: {
             and: [
               { phone: { equals: phone } },
-              { appointmentDate: { equals: appointmentDate } },
+              ...dateFilter,
               { status: { not_in: ['cancelled'] } },
             ],
           },
-          limit: 5,
+          limit: 10,
           overrideAccess: true,
         })
 
         const matchedDup = duplicateCheck.docs.find((d: any) => {
-          if (rawSpecialtyId && d.specialty && (d.specialty === rawSpecialtyId || d.specialty?.id === rawSpecialtyId)) return true
-          if (rawSpecialtyId && d.department && (d.department === rawSpecialtyId || d.department?.id === rawSpecialtyId)) return true
-          if (specialtyTitle && d.specialtyTitle && d.specialtyTitle.toLowerCase() === specialtyTitle.toLowerCase()) return true
+          if (rawSpecialtyId && d.specialty && (String(d.specialty) === String(rawSpecialtyId) || String(d.specialty?.id) === String(rawSpecialtyId))) return true
+          if (rawSpecialtyId && d.department && (String(d.department) === String(rawSpecialtyId) || String(d.department?.id) === String(rawSpecialtyId))) return true
+          if (specialtyTitle && d.specialtyTitle && d.specialtyTitle.toLowerCase().trim() === specialtyTitle.toLowerCase().trim()) return true
+          if (!rawSpecialtyId && !specialtyTitle && !d.specialty && !d.specialtyTitle) return true
           return false
         })
 
@@ -241,69 +257,8 @@ export async function POST(req: Request) {
       dbTimeSlot = 'morning'
     }
 
-    // Sinh mã phiếu hẹn duy nhất theo quy cách: BVTL + 4 số thứ tự từ 0001 đến 9999 (reset lại 0001 theo ngày mới)
-    // Xác định mốc thời gian bắt đầu và kết thúc của ngày hôm nay theo múi giờ Việt Nam (UTC+7)
-    const nowForCodeVN = new Date(Date.now() + 7 * 60 * 60 * 1000)
-    const yyyyVN = nowForCodeVN.getUTCFullYear()
-    const mIdxVN = nowForCodeVN.getUTCMonth()
-    const dVN = nowForCodeVN.getUTCDate()
-    const startOfTodayVN = new Date(Date.UTC(yyyyVN, mIdxVN, dVN, 0, 0, 0) - 7 * 60 * 60 * 1000)
-    const endOfTodayVN = new Date(Date.UTC(yyyyVN, mIdxVN, dVN, 23, 59, 59, 999) - 7 * 60 * 60 * 1000)
-
-    let nextSequence = 1
-    try {
-      // Tìm các phiếu hẹn đã tạo trong ngày hôm nay
-      const todayAppointments = await payload.find({
-        collection: 'appointments' as any,
-        where: {
-          and: [
-            { createdAt: { greater_than_equal: startOfTodayVN.toISOString() } },
-            { createdAt: { less_than_equal: endOfTodayVN.toISOString() } },
-          ],
-        },
-        sort: '-createdAt',
-        limit: 100,
-        overrideAccess: true,
-      })
-
-      // Lọc ra số thứ tự lớn nhất của định dạng BVTLxxxx hoặc TLxxxx trong ngày hôm nay
-      for (const doc of todayAppointments.docs || []) {
-        if (typeof doc.code === 'string') {
-          if (/^BVTL\d{4}$/.test(doc.code)) {
-            const num = parseInt(doc.code.slice(4), 10)
-            if (!isNaN(num) && num >= nextSequence) {
-              nextSequence = num + 1
-            }
-          } else if (/^TL\d{4}$/.test(doc.code)) {
-            const num = parseInt(doc.code.slice(2), 10)
-            if (!isNaN(num) && num >= nextSequence) {
-              nextSequence = num + 1
-            }
-          }
-        }
-      }
-    } catch {
-      // Nếu có lỗi truy vấn, thử đếm bản ghi thông thường
-    }
-
-    let code = nextSequence <= 9999
-      ? `BVTL${String(nextSequence).padStart(4, '0')}`
-      : `BVTL${nextSequence}`
-
-    // Đảm bảo mã chưa từng bị trùng lặp trong DB
-    for (let attempt = 0; attempt < 50; attempt++) {
-      const exists = await payload.find({
-        collection: 'appointments' as any,
-        where: { code: { equals: code } },
-        limit: 1,
-        overrideAccess: true,
-      })
-      if (!exists.docs.length) break
-      nextSequence++
-      code = nextSequence <= 9999
-        ? `BVTL${String(nextSequence).padStart(4, '0')}`
-        : `BVTL${nextSequence}`
-    }
+    // Sinh mã phiếu hẹn nguyên tử duy nhất qua PostgreSQL daily counter (BVTL0001 -> BVTL9999)
+    let code = await getNextAtomicAppointmentCode(payload)
 
     let validSpecialtyId: number | undefined = undefined
     let validDepartmentId: number | undefined = undefined
@@ -391,13 +346,10 @@ export async function POST(req: Request) {
       } catch (createErr: any) {
         const isCollision =
           createErr?.code === '23505' ||
+          createErr?.cause?.code === '23505' ||
           /unique|duplicate|code/i.test(createErr?.message || '')
         if (isCollision && retry < 4) {
-          nextSequence++
-          const randHex = randomBytes(2).toString('hex').toUpperCase()
-          finalCode = nextSequence <= 9999
-            ? `BVTL${String(nextSequence).padStart(4, '0')}-${randHex}`
-            : `BVTL${nextSequence}-${randHex}`
+          finalCode = await getNextAtomicAppointmentCode(payload)
           continue
         }
         throw createErr

@@ -254,9 +254,10 @@ export const Appointments: CollectionConfig = {
       },
     ],
     beforeValidate: [
-      ({ data, operation }) => {
+      async ({ data, operation, req }) => {
         if (operation === 'create' && data && !data.code) {
-          data.code = `LK-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`
+          const { getNextAtomicAppointmentCode } = await import('@/lib/appointment-code')
+          data.code = await getNextAtomicAppointmentCode(req.payload)
         }
         return data
       },

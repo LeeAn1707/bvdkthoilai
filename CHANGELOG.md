@@ -1,6 +1,13 @@
 # CHANGELOG
 
-## 2026-10-22 — Hoàn Tất Nghiệm Thu Tích Hợp Toàn Diện Staging & Railway PostgreSQL
+## 2026-10-22 — Khắc Phục P0 Trùng Mã Lịch Khám & Thiết Lập Bộ Đếm Nguyên Tử PostgreSQL
+
+- **Xác định nguyên nhân gốc rễ:** Phát hiện `appointments.code` chưa có UNIQUE constraint/index trong PostgreSQL; endpoint tạo lịch kiểm tra trùng lặp trong bộ nhớ gặp race condition (TOCTOU) khi có nhiều request đồng thời, khiến nhiều request sinh cùng mã `BVTL0001`.
+- **Sao lưu & Dọn dẹp an toàn:** Sao lưu nguyên vẹn 22 bản ghi cũ vào bảng `appointments_backup_20261022`, resequence các mã test trùng lặp để đảm bảo tính toàn vẹn 100%, không xóa bất kỳ dữ liệu nào.
+- **Migration 080 & Unique Index:** Tạo bảng `appointment_daily_counters` cho atomic counter và thiết lập `UNIQUE INDEX appointments_code_idx ON appointments (code)`. Seal DB schema contract cho migration 080.
+- **Bộ sinh mã nguyên tử (Atomic Counter):** Tạo `src/lib/appointment-code.ts` sử dụng lệnh PostgreSQL UPSERT nguyên tử trả về `current_val` (`BVTL0001` - `BVTL9999` và tự động mở rộng `BVTL10000+`). Áp dụng đồng bộ cho cả `/api/appointments` và hook `beforeValidate` của collection `Appointments`.
+- **Xử lý va chạm & Tách biệt Concurrency/Rate Limit:** Thêm cơ chế retry bắt mã lỗi `23505` (`unique_violation`); tách biệt kiểm thử concurrency khỏi rate limit thông qua `APPOINTMENTS_RATE_LIMIT_MAX`; loại bỏ IP spoofing.
+- **Nghiệm thu SQL & Concurrency:** Kiểm thử 20 và 100 HTTP request đồng thời đều đạt 100% mã duy nhất. Truy vấn PostgreSQL thực tế xác nhận: `COUNT(*) = 178`, `COUNT(DISTINCT code) = 178`, `GROUP BY code HAVING COUNT(*) > 1` trả về 0 dòng. Toàn bộ test suites P0, P1, `validate:all`, `typecheck` và `build` đều PASS.
 
 - **Cơ chế bảo vệ nâng cấp TC-APPT-05A & Nguyên tắc đặc quyền tối thiểu:** Bổ sung cơ chế fail-closed bắt buộc `CONFIRM_TEST_INSTANCE=true` và `RAILWAY_TEST_PROJECT_ID` (phải khác `RAILWAY_PROD_PROJECT_ID`), không mặc định mọi host `proxy.rlwy.net` là test DB. Kiểm tra cảnh báo tài khoản superuser PostgreSQL và yêu cầu cờ `ALLOW_SUPERUSER_TEST=true`.
 - **Thực thi TC-APPT-05B & Xác minh PostgreSQL:** 20 HTTP POST thực tế đồng thời gửi tới `/api/appointments` với Cloudflare Turnstile testing keys; xác minh và đối chiếu đúng 20 mã phiếu hẹn được tạo và lưu trữ an toàn trong bảng `appointments` của PostgreSQL Railway TEST.

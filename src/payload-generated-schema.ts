@@ -15,9 +15,9 @@ import {
   integer,
   varchar,
   serial,
-  timestamp,
   type AnyPgColumn,
   boolean,
+  timestamp,
   numeric,
   jsonb,
   text,
@@ -2352,34 +2352,6 @@ export const users_permissions = pgTable(
       columns: [columns["_parentID"]],
       foreignColumns: [users.id],
       name: "users_permissions_parent_id_fk",
-    }).onDelete("cascade"),
-  ],
-);
-
-export const users_sessions = pgTable(
-  "users_sessions",
-  {
-    _order: integer("_order").notNull(),
-    _parentID: integer("_parent_id").notNull(),
-    id: varchar("id").primaryKey(),
-    createdAt: timestamp("created_at", {
-      mode: "string",
-      withTimezone: true,
-      precision: 3,
-    }),
-    expiresAt: timestamp("expires_at", {
-      mode: "string",
-      withTimezone: true,
-      precision: 3,
-    }).notNull(),
-  },
-  (columns) => [
-    index("users_sessions_order_idx").on(columns._order),
-    index("users_sessions_parent_id_idx").on(columns._parentID),
-    foreignKey({
-      columns: [columns["_parentID"]],
-      foreignColumns: [users.id],
-      name: "users_sessions_parent_id_fk",
     }).onDelete("cascade"),
   ],
 );
@@ -19800,16 +19772,6 @@ export const relations_users_permissions = relations(
     }),
   }),
 );
-export const relations_users_sessions = relations(
-  users_sessions,
-  ({ one }) => ({
-    _parentID: one(users, {
-      fields: [users_sessions._parentID],
-      references: [users.id],
-      relationName: "sessions",
-    }),
-  }),
-);
 export const relations_users = relations(users, ({ one, many }) => ({
   department: one(departments, {
     fields: [users.department],
@@ -19818,9 +19780,6 @@ export const relations_users = relations(users, ({ one, many }) => ({
   }),
   permissions: many(users_permissions, {
     relationName: "permissions",
-  }),
-  sessions: many(users_sessions, {
-    relationName: "sessions",
   }),
 }));
 export const relations_media = relations(media, ({ one }) => ({
@@ -25623,7 +25582,6 @@ type DatabaseSchema = {
   enum_vaccination_settings_content_block_text_align: typeof enum_vaccination_settings_content_block_text_align;
   users_permissions_actions: typeof users_permissions_actions;
   users_permissions: typeof users_permissions;
-  users_sessions: typeof users_sessions;
   users: typeof users;
   media: typeof media;
   news_attachments: typeof news_attachments;
@@ -25976,7 +25934,6 @@ type DatabaseSchema = {
   vaccination_settings: typeof vaccination_settings;
   relations_users_permissions_actions: typeof relations_users_permissions_actions;
   relations_users_permissions: typeof relations_users_permissions;
-  relations_users_sessions: typeof relations_users_sessions;
   relations_users: typeof relations_users;
   relations_media: typeof relations_media;
   relations_news_attachments: typeof relations_news_attachments;
