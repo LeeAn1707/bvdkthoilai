@@ -1,6 +1,13 @@
 # CHANGELOG
 
-## 2026-10-22 — Hoàn Tất Nghiệm Thu Staging Thực Tế (PR #1): Đóng 4 Khoảng Trống Nghiệm Thu Vận Hành
+## 2026-10-22 — Chốt An Toàn Bộ Script Nghiệm Thu & Diễn Tập Khôi Phục (PR #1)
+
+- **An toàn tuyệt đối drill khôi phục (scripts/drill-disposable-restore.mjs):** Cấm đọc `DATABASE_URL` từ `.env`; bắt buộc `TEST_ADMIN_DATABASE_URL` trên test instance độc lập. Sử dụng runId ngẫu nhiên duy nhất, chỉ drop database do chính phiên hiện tại tạo ra (kiểm tra quyền sở hữu). Tương thích đa phiên bản PostgreSQL, yêu cầu `pg_restore` exit code 0, phân biệt rõ thời gian mẫu vs RTO ước lượng toàn hệ thống.
+- **Loại bỏ fallback TC-APPT-05A:** Bỏ hoàn toàn fallback từ `DATABASE_URL` chính; bắt buộc `TEST_DATABASE_URL` với cơ chế fail-closed chống kết nối production; tạo bảng tạm duy nhất và dọn dẹp an toàn.
+- **Tách bạch TC-PRIV-05A & TC-PRIV-05B:** Tách riêng logic in-memory (`TC-PRIV-05A`) và HTTP mạng thực tế (`TC-PRIV-05B`); không nuốt lỗi mạng; báo BLOCKED minh bạch khi thiếu `STAGING_API_URL`.
+- **Hoàn thiện TC-ACL-10B:** Kiểm thử đầy đủ 5 thao tác READ, CREATE, UPDATE, DELETE và EXPORT giữa Khoa A và Khoa B trên staging với tài khoản test và dọn dẹp dữ liệu an toàn.
+- **Xác thực commit từ máy chủ qua HTTP:** Route `/api/health` trả về header `X-Server-Commit` và trường `commit`; smoke test đọc trực tiếp phản hồi từ máy chủ để đối chiếu commit mục tiêu nghiệm thu.
+
 
 - **Phân quyền & REST API (TC-ACL-10, TC-PRIV-05):** Tách `TC-ACL-10A` (Access Control Hooks logic) và `TC-ACL-10B` (REST API thật với Payload CMS). Báo BLOCKED minh bạch khi staging DB thiếu tài khoản Khoa A / Khoa B; không tự sinh dữ liệu giả trong operational DB. Kiểm thử trực tiếp HTTP 429 thực tế qua mạng, xác minh header `Retry-After` và JSON error.
 - **PostgreSQL & Concurrency (TC-APPT-05A, TC-APPT-05B):** `TC-APPT-05A` chạy thực tế trên PostgreSQL disposable database (`bvdk_disposable_test`), 20 workers song song, xử lý va chạm 23505 tự động, kiểm chứng SQL `total: 20`, `unique_codes: 20`. `TC-APPT-05B` bắt buộc Staging Allowlist, loại bỏ `X-Forwarded-For` giả mạo, cấm PASS khi tất cả request bị 429, kiểm chứng mã phiếu bằng truy vấn SQL thực.

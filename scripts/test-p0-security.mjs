@@ -491,7 +491,8 @@ await runAsyncTest('TC-ACL-10B', 'Kiểm thử thực tế qua REST API Payload 
     assert.notEqual(docDeptId, deptB_Id, 'Khoa A tuyệt đối không được đọc bất kỳ bản ghi nào thuộc Khoa B')
   }
 
-  // 4. THAO TÁC TẠO (CREATE): Khoa A cố tình tạo lịch cho Khoa B -> PHẢI BỊ CHẶN (HTTP 403)
+  // 4. THAO TÁC TẠO (CREATE):
+  // 4.1 Khoa A cố tình tạo lịch cho Khoa B -> PHẢI BỊ CHẶN (HTTP 403)
   const createMaliciousRes = await fetch(`${cleanBase}/api/appointments`, {
     method: 'POST',
     headers: {
@@ -508,7 +509,105 @@ await runAsyncTest('TC-ACL-10B', 'Kiểm thử thực tế qua REST API Payload 
   })
   assert.equal(createMaliciousRes.status, 403, 'Khoa A tạo lịch gán cho Khoa B bắt buộc phải bị từ chối với HTTP 403')
 
-  // 5. THAO TÁC XUẤT EXCEL (EXPORT): Khoa A xuất dữ liệu lịch hẹn
+  // 4.2 Khoa A tạo lịch hợp lệ thuộc đúng Khoa A -> CHO PHÉP (HTTP 200 / 201)
+  let createdApptAId = null
+  const createValidRes = await fetch(`${cleanBase}/api/appointments`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `JWT ${tokenA}`,
+    },
+    body: JSON.stringify({
+      fullName: 'TEST-STAGING-APPT-A',
+      phone: '0912345999',
+      appointmentDate: new Date(Date.now() + 86400000 * 5).toISOString().slice(0, 10),
+      timeSlot: 'morning',
+      department: deptA_Id,
+    }),
+  })
+  assert.ok(createValidRes.status === 200 || createValidRes.status === 201, 'Khoa A tạo lịch thuộc Khoa A phải thành công (200/201)')
+  const createValidData = await createValidRes.json()
+  createdApptAId = createValidData?.doc?.id || createValidData?.id
+
+  try {
+    // 5. THAO TÁC SỬA (UPDATE):
+    if (createdApptAId) {
+      // 5.1 Khoa B cố tình sửa lịch hẹn của Khoa A -> PHẢI BỊ CHẶN (HTTP 403 hoặc 404 do filter che khuất)
+      const updateByKhoaBRes = await fetch(`${cleanBase}/api/appointments/${createdApptAId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `JWT ${tokenB}`,
+        },
+        body: JSON.stringify({ status: 'confirmed' }),
+      })
+      assert.ok(
+        updateByKhoaBRes.status === 403 || updateByKhoaBRes.status === 404,
+        'Khoa B cố tình sửa lịch của Khoa A phải bị chặn (HTTP 403 hoặc 404)'
+      )
+
+      // 5.2 Khoa A cố tình đổi trường department sang Khoa B -> PHẢI BỊ CHẶN (HTTP 403)
+      const updateDeptMaliciousRes = await fetch(`${cleanBase}/api/appointments/${createdApptAId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `JWT ${tokenA}`,
+        },
+        body: JSON.stringify({ department: deptB_Id }),
+      })
+      assert.ok(
+        updateDeptMaliciousRes.status === 403 || updateDeptMaliciousRes.status === 400,
+        'Khoa A không được phép thay đổi trường department sang khoa khác'
+      )
+
+      // 5.3 Khoa A sửa hợp lệ ghi chú của lịch hẹn thuộc Khoa A -> CHO PHÉP (HTTP 200)
+      const updateValidRes = await fetch(`${cleanBase}/api/appointments/${createdApptAId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `JWT ${tokenA}`,
+        },
+        body: JSON.stringify({ symptoms: 'Cập nhật triệu chứng test hợp lệ' }),
+      })
+      assert.equal(updateValidRes.status, 200, 'Khoa A cập nhật lịch hẹn của Khoa A phải thành công (HTTP 200)')
+    }
+
+    // 6. THAO TÁC XÓA (DELETE):
+    if (createdApptAId) {
+      // 6.1 Khoa B cố tình xóa lịch hẹn của Khoa A -> PHẢI BỊ CHẶN (HTTP 403 hoặc 404)
+      const deleteByKhoaBRes = await fetch(`${cleanBase}/api/appointments/${createdApptAId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `JWT ${tokenB}` },
+      })
+      assert.ok(
+        deleteByKhoaBRes.status === 403 || deleteByKhoaBRes.status === 404,
+        'Khoa B cố tình xóa lịch của Khoa A phải bị chặn (HTTP 403 hoặc 404)'
+      )
+
+      // 6.2 Khoa A xóa lịch hẹn do chính mình quản lý -> CHO PHÉP (HTTP 200)
+      const deleteByKhoaARes = await fetch(`${cleanBase}/api/appointments/${createdApptAId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `JWT ${tokenA}` },
+      })
+      assert.ok(
+        deleteByKhoaARes.status === 200 || deleteByKhoaARes.status === 204,
+        'Khoa A xóa lịch hẹn của Khoa A phải thành công (HTTP 200/204)'
+      )
+      createdApptAId = null // Đã xóa xong an toàn
+    }
+  } finally {
+    // Dọn dẹp an toàn nếu bản ghi test chưa được xóa
+    if (createdApptAId) {
+      try {
+        await fetch(`${cleanBase}/api/appointments/${createdApptAId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `JWT ${tokenA}` },
+        })
+      } catch {}
+    }
+  }
+
+  // 7. THAO TÁC XUẤT EXCEL (EXPORT): Khoa A xuất dữ liệu lịch hẹn
   const exportResA = await fetch(`${cleanBase}/api/appointments-export`, {
     headers: { Authorization: `JWT ${tokenA}` },
   })

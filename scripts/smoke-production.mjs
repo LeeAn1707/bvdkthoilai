@@ -19,18 +19,30 @@ if (!VERIFIED_STAGING_ALLOWLIST.includes(parsedUrl.hostname.toLowerCase())) {
   process.exit(1)
 }
 
-// 2. Xác minh commit triển khai (mục tiêu commit 078ed03)
-let currentCommit = process.env.DEPLOYED_COMMIT_SHA || ''
-if (!currentCommit) {
-  try {
-    currentCommit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
-  } catch {}
-}
+// 2. Xác minh commit thực sự được máy chủ đang chạy cung cấp qua HTTP (thay vì chỉ đọc Git local)
+const expectedCommit = (process.env.EXPECTED_COMMIT_SHA || process.env.DEPLOYED_COMMIT_SHA || '078ed03').trim().slice(0, 7)
+let serverReportedCommit = null
+
+try {
+  const probeHealth = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(8000) })
+  if (probeHealth.ok) {
+    serverReportedCommit = probeHealth.headers.get('x-server-commit')
+    const healthData = await probeHealth.json().catch(() => null)
+    if (!serverReportedCommit && healthData?.commit) {
+      serverReportedCommit = healthData.commit
+    }
+  }
+} catch {}
 
 console.log('====================================================================')
 console.log('🩺 BẮT ĐẦU SMOKE TEST NGHIỆM THU MÔI TRƯỜNG STAGING')
 console.log(`🌐 Staging Base URL: ${base}`)
-console.log(`📌 Commit triển khai: ${currentCommit || 'N/A'} (Mục tiêu nghiệm thu: 078ed03)`)
+console.log(`📌 Commit mục tiêu nghiệm thu: ${expectedCommit}`)
+if (serverReportedCommit) {
+  console.log(`📡 Commit xác thực từ máy chủ qua HTTP: ${serverReportedCommit}`)
+} else {
+  console.log('📡 Commit máy chủ: Chưa cung cấp (máy chủ local dev hoặc chưa set DEPLOYED_COMMIT_SHA trên host)')
+}
 console.log('====================================================================\n')
 
 const coreRoutes = [
@@ -68,6 +80,17 @@ for (const path of coreRoutes) {
       if (!data || data.status !== 'ok' || data.checks?.database !== 'ok') {
         failed++
         console.log('FAIL     /api/health không xác nhận database=ok')
+      }
+      const remoteCommit = res.headers.get('x-server-commit') || data?.commit
+      if (remoteCommit) {
+        const c = String(remoteCommit).trim().slice(0, 7)
+        if (expectedCommit && c !== expectedCommit) {
+          failed++
+          console.log(`FAIL     /api/health server commit [${c}] không khớp mục tiêu [${expectedCommit}]`)
+        } else {
+          passed++
+          console.log(`PASS     /api/health server commit [${c}] khớp chính xác mục tiêu nghiệm thu`)
+        }
       }
     }
   } catch (e) {

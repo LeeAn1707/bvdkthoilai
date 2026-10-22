@@ -66,11 +66,26 @@ export async function GET(req: Request) {
     const detailKey = process.env.HEALTH_DETAIL_KEY
     const detailed = Boolean(detailKey && req.headers.get('x-health-key') === detailKey)
 
+    const serverCommit = (
+      process.env.RAILWAY_GIT_COMMIT_SHA ||
+      process.env.DEPLOYED_COMMIT_SHA ||
+      process.env.NEXT_PUBLIC_COMMIT_SHA ||
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      ''
+    ).trim().slice(0, 7)
+
+    const responseHeaders: Record<string, string> = {
+      'Cache-Control': 'no-store, max-age=0',
+    }
+    if (serverCommit) {
+      responseHeaders['X-Server-Commit'] = serverCommit
+    }
+
     return NextResponse.json(
       detailed
-        ? { status: 'ok', checks: { database: checks.database, storage: checks.storage }, time: new Date().toISOString() }
-        : { status: 'ok', checks },
-      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+        ? { status: 'ok', checks: { database: checks.database, storage: checks.storage }, commit: serverCommit || undefined, time: new Date().toISOString() }
+        : { status: 'ok', checks, commit: serverCommit || undefined },
+      { headers: responseHeaders }
     )
   } catch (error) {
     console.error('[HealthCheck] Lỗi kiểm tra trạng thái hệ thống:', error)
