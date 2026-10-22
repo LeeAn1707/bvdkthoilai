@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { getCMS } from '@/lib/payload'
-import { bodyIsTooLarge, clientAddress, rateLimit, validEmail, validPhone, verifyTurnstile } from '@/lib/request-security'
+import { readJsonBodyWithLimit, clientAddress, rateLimit, validEmail, validPhone, verifyTurnstile } from '@/lib/request-security'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,11 +9,11 @@ const generateAppointmentCode = () => `LK-${new Date().getFullYear()}-${randomBy
 
 export async function POST(req: Request) {
   try {
-    if (bodyIsTooLarge(req, 20_000)) {
-      return NextResponse.json({ error: 'Dữ liệu gửi lên vượt quá dung lượng cho phép.' }, { status: 413 })
+    const parsed = await readJsonBodyWithLimit(req, 25_000)
+    if (parsed.error) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 })
     }
-
-    const body = await req.json()
+    const body = parsed.data || {}
 
     // Honeypot: nếu bot điền trường website ẩn thì âm thầm trả về giả lập thành công
     if (body.website) {
@@ -249,13 +249,11 @@ export async function POST(req: Request) {
       // Nếu có lỗi truy vấn, thử đếm bản ghi thông thường
     }
 
-    if (nextSequence > 9999) {
-      nextSequence = 1 // Vòng lặp an toàn nếu vượt quá 9999 trong 1 ngày
-    }
+    let code = nextSequence <= 9999
+      ? `BVTL${String(nextSequence).padStart(4, '0')}`
+      : `BVTL${nextSequence}`
 
-    let code = `BVTL${String(nextSequence).padStart(4, '0')}`
-
-    // Đảm bảo mã chưa từng bị trùng lặp
+    // Đảm bảo mã chưa từng bị trùng lặp trong DB
     for (let attempt = 0; attempt < 50; attempt++) {
       const exists = await payload.find({
         collection: 'appointments' as any,
@@ -265,8 +263,9 @@ export async function POST(req: Request) {
       })
       if (!exists.docs.length) break
       nextSequence++
-      if (nextSequence > 9999) nextSequence = 1
-      code = `BVTL${String(nextSequence).padStart(4, '0')}`
+      code = nextSequence <= 9999
+        ? `BVTL${String(nextSequence).padStart(4, '0')}`
+        : `BVTL${nextSequence}`
     }
 
     let validSpecialtyId: number | undefined = undefined
@@ -318,38 +317,59 @@ export async function POST(req: Request) {
       }
     }
 
-    const created: any = await payload.create({
-      collection: 'appointments' as any,
-      data: {
-        code,
-        fullName,
-        phone,
-        email: email || undefined,
-        address: address || undefined,
-        dob: dob || undefined,
-        gender,
-        insuranceNumber: insuranceNumber || undefined,
-        specialty: validSpecialtyId,
-        department: validDepartmentId,
-        specialtyTitle: specialtyTitle || undefined,
-        appointmentDate,
-        timeSlot: dbTimeSlot,
-        timeSlotLabel: finalTimeSlotLabel,
-        doctor: parsedDoctor || undefined,
-        symptoms: symptoms || undefined,
-        status: 'new',
-        source: 'website',
-        submittedAt: submittedAtDate.toISOString(),
-        ipAddress: clientIp,
-        userAgent: userAgent,
-        customData: Object.keys(customData).length > 0 ? customData : undefined,
-      },
-      overrideAccess: true,
-    })
+    // Cơ chế retry an toàn xử lý va chạm mã khi có nhiều request đồng thời (Concurrency)
+    let created: any = null
+    let finalCode = code
+    for (let retry = 0; retry < 5; retry++) {
+      try {
+        created = await payload.create({
+          collection: 'appointments' as any,
+          data: {
+            code: finalCode,
+            fullName,
+            phone,
+            email: email || undefined,
+            address: address || undefined,
+            dob: dob || undefined,
+            gender,
+            insuranceNumber: insuranceNumber || undefined,
+            specialty: validSpecialtyId,
+            department: validDepartmentId,
+            specialtyTitle: specialtyTitle || undefined,
+            appointmentDate,
+            timeSlot: dbTimeSlot,
+            timeSlotLabel: finalTimeSlotLabel,
+            doctor: parsedDoctor || undefined,
+            symptoms: symptoms || undefined,
+            status: 'new',
+            source: 'website',
+            submittedAt: submittedAtDate.toISOString(),
+            ipAddress: clientIp,
+            userAgent: userAgent,
+            customData: Object.keys(customData).length > 0 ? customData : undefined,
+          },
+          overrideAccess: true,
+        })
+        break
+      } catch (createErr: any) {
+        const isCollision =
+          createErr?.code === '23505' ||
+          /unique|duplicate|code/i.test(createErr?.message || '')
+        if (isCollision && retry < 4) {
+          nextSequence++
+          const randHex = randomBytes(2).toString('hex').toUpperCase()
+          finalCode = nextSequence <= 9999
+            ? `BVTL${String(nextSequence).padStart(4, '0')}-${randHex}`
+            : `BVTL${nextSequence}-${randHex}`
+          continue
+        }
+        throw createErr
+      }
+    }
 
     return NextResponse.json({
       ok: true,
-      code,
+      code: finalCode,
       id: created.id,
       appointmentDate,
       timeSlot: dbTimeSlot,
@@ -358,8 +378,16 @@ export async function POST(req: Request) {
       message: 'Đăng ký đặt lịch khám thành công! Bệnh viện sẽ liên hệ xác nhận trong thời gian sớm nhất.',
     })
   } catch (error: any) {
+    const errorId = `ERR-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`
+    console.error(`[AppointmentAPI][${errorId}] Lỗi tạo lịch hẹn:`, {
+      message: error?.message,
+      code: error?.code,
+    })
     return NextResponse.json(
-      { error: 'Không thể xử lý yêu cầu đặt lịch khám: ' + (error?.message || 'Lỗi hệ thống') },
+      {
+        error: 'Không thể xử lý yêu cầu đặt lịch khám vào lúc này. Quý khách vui lòng thử lại sau ít phút hoặc liên hệ trực tiếp tổng đài bệnh viện.',
+        errorId,
+      },
       { status: 500 }
     )
   }

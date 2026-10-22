@@ -1,11 +1,37 @@
 const buckets = new Map<string, { count: number; resetAt: number }>()
 
-// In production the app port is bound to 127.0.0.1 and Nginx overwrites these
-// headers, so they cannot be supplied directly by an Internet client.
-export function clientAddress(req: Request) {
-  return req.headers.get('x-real-ip')?.trim()
-    || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || 'unknown'
+const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+const IPV6_REGEX = /^[a-fA-F0-9:]{2,39}$/
+
+function sanitizeIp(ip: string | null | undefined): string | null {
+  if (!ip) return null
+  const cleaned = ip.trim().split(':')[0] === '::ffff' ? ip.trim().replace(/^::ffff:/, '') : ip.trim()
+  if (IPV4_REGEX.test(cleaned) || IPV6_REGEX.test(cleaned)) {
+    return cleaned
+  }
+  return null
+}
+
+// In production the app port is bound to 127.0.0.1 and Nginx/Cloudflare sets these
+// headers. Ưu tiên cf-connecting-ip từ Cloudflare, sau đó là x-real-ip từ reverse proxy.
+export function clientAddress(req: Request): string {
+  const cfIp = sanitizeIp(req.headers.get('cf-connecting-ip'))
+  if (cfIp) return cfIp
+
+  const realIp = sanitizeIp(req.headers.get('x-real-ip'))
+  if (realIp) return realIp
+
+  const forwarded = req.headers.get('x-forwarded-for')
+  if (forwarded) {
+    // Lấy IP từ chuỗi forwarded, lọc qua validator an toàn
+    const parts = forwarded.split(',').map((p) => p.trim())
+    for (const part of parts) {
+      const valid = sanitizeIp(part)
+      if (valid && valid !== '127.0.0.1' && valid !== '::1') return valid
+    }
+  }
+
+  return 'unknown'
 }
 
 export function rateLimit(req: Request, namespace: string, limit: number, windowMs: number) {
@@ -26,6 +52,34 @@ export function rateLimit(req: Request, namespace: string, limit: number, window
 export function bodyIsTooLarge(req: Request, maxBytes: number) {
   const length = Number(req.headers.get('content-length') || 0)
   return Number.isFinite(length) && length > maxBytes
+}
+
+/**
+ * Đọc body JSON với cơ chế đếm byte thực tế (chống bypass bằng chunked transfer / fake Content-Length)
+ */
+export async function readJsonBodyWithLimit<T = any>(
+  req: Request,
+  maxBytes: number,
+): Promise<{ data?: T; error?: string; status?: number }> {
+  // 1. Kiểm tra nhanh Content-Length nếu có
+  if (bodyIsTooLarge(req, maxBytes)) {
+    return { error: 'Dữ liệu gửi lên vượt quá dung lượng cho phép.', status: 413 }
+  }
+
+  try {
+    const rawText = await req.text()
+    const byteLength = Buffer.byteLength(rawText, 'utf8')
+    if (byteLength > maxBytes) {
+      return { error: 'Dữ liệu gửi lên vượt quá dung lượng cho phép.', status: 413 }
+    }
+    if (!rawText.trim()) {
+      return { data: {} as T }
+    }
+    const parsed = JSON.parse(rawText)
+    return { data: parsed }
+  } catch (err: any) {
+    return { error: 'Dữ liệu yêu cầu không đúng định dạng JSON.', status: 400 }
+  }
 }
 
 export async function verifyTurnstile(req: Request, token: unknown) {

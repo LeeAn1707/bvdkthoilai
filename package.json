@@ -49,6 +49,8 @@
     "deploy:check": "npm run validate:all && npm run preflight:production && npm run typecheck && npm run build",
     "validate:production-security": "node scripts/validate-production-security-v430.mjs",
     "test:security-p0": "tsx scripts/test-p0-security.mjs",
+    "test:security-p1": "tsx scripts/test-p1-security.mjs",
+    "test:security": "npm run test:security-p0 && npm run test:security-p1",
     "validate:content-consistency": "node scripts/validate-content-consistency.mjs",
     "validate:smart-links": "node scripts/validate-smart-links.mjs",
     "audit:legacy": "node scripts/migrate-legacy-data.mjs",
