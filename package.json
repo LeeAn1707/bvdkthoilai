@@ -48,6 +48,7 @@
     "smoke:production": "node scripts/smoke-production.mjs",
     "deploy:check": "npm run validate:all && npm run preflight:production && npm run typecheck && npm run build",
     "validate:production-security": "node scripts/validate-production-security-v430.mjs",
+    "test:security-p0": "tsx scripts/test-p0-security.mjs",
     "validate:content-consistency": "node scripts/validate-content-consistency.mjs",
     "validate:smart-links": "node scripts/validate-smart-links.mjs",
     "audit:legacy": "node scripts/migrate-legacy-data.mjs",

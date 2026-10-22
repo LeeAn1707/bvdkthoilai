@@ -69,6 +69,11 @@ for (const name of ['PAYLOAD_SECRET', 'PREVIEW_SECRET']) {
   if (/CHANGE_ME|development-only|password|secret/i.test(value)) errors.push(`${name} còn giá trị mẫu/yếu`)
 }
 
+for (const name of ['TURNSTILE_SECRET_KEY', 'NEXT_PUBLIC_TURNSTILE_SITE_KEY']) {
+  const value = need(name)
+  if (value && /CHANGE_ME|dummy|example/i.test(value)) errors.push(`${name} còn mang giá trị mẫu/yếu`)
+}
+
 if (process.env.SEED_ADMIN_PASSWORD && process.env.SEED_ADMIN_PASSWORD.length < 12) warnings.push('SEED_ADMIN_PASSWORD nên có ít nhất 12 ký tự nếu dùng seed')
 
 for (const line of ok) console.log(`PASS - ${line}`)

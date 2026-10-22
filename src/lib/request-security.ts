@@ -29,21 +29,47 @@ export function bodyIsTooLarge(req: Request, maxBytes: number) {
 }
 
 export async function verifyTurnstile(req: Request, token: unknown) {
-  const secret = process.env.TURNSTILE_SECRET_KEY?.trim()
-  if (!secret) return true // Optional until keys are configured on VPS.
+  const isProduction = process.env.NODE_ENV === 'production'
+  const isTest = process.env.NODE_ENV === 'test' || process.env.MOCK_TURNSTILE === 'true'
   const responseToken = String(token || '').trim()
-  if (!responseToken || responseToken.length > 4096) return false
+
+  // 1. Token rỗng hoặc vượt quá độ dài tối đa cho phép luôn bị từ chối
+  if (!responseToken || responseToken.length > 4096) {
+    return false
+  }
+
+  // 2. Cho phép token giả lập hợp lệ trong môi trường kiểm thử tự động
+  if (isTest && responseToken === 'cf-mock-valid-token') {
+    return true
+  }
+
+  const secret = process.env.TURNSTILE_SECRET_KEY?.trim()
+  if (!secret) {
+    if (isProduction || isTest) {
+      console.error('[Security] TURNSTILE_SECRET_KEY chưa được cấu hình. Từ chối yêu cầu (Fail-closed).')
+      return false
+    }
+    // Môi trường dev địa phương chưa cấu hình keys thì cảnh báo nhưng cho phép để lập trình viên kiểm thử UI
+    return true
+  }
+
   try {
     const form = new URLSearchParams({ secret, response: responseToken })
     const ip = clientAddress(req)
     if (ip && ip !== 'unknown') form.set('remoteip', ip)
     const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form, cache: 'no-store',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
     })
     if (!response.ok) return false
     const result = await response.json() as { success?: boolean }
     return result.success === true
-  } catch { return false }
+  } catch {
+    return false
+  }
 }
 
 export const validPhone = (value: string) => /^(?:\+?84|0)[0-9\s.-]{8,14}$/.test(value)

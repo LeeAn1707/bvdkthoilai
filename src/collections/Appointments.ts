@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { anyone, moduleAccess } from '@/access'
+import { moduleAccess } from '@/access'
 
 export const Appointments: CollectionConfig = {
   slug: 'appointments',
@@ -14,7 +14,7 @@ export const Appointments: CollectionConfig = {
     },
   },
   access: {
-    create: anyone, // Cho phép người dùng ngoài website gửi đăng ký đặt khám
+    create: moduleAccess('appointments', 'create'), // Chỉ nhân viên y tế có quyền mới được tạo qua Admin/REST; người bệnh đặt qua /api/appointments đã kiểm duyệt
     read: moduleAccess('appointments', 'view'),
     update: moduleAccess('appointments', 'edit'),
     delete: moduleAccess('appointments', 'delete'),
