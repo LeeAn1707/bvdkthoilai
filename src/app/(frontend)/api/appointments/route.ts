@@ -157,7 +157,7 @@ export async function POST(req: Request) {
         if (matchedDup) {
           return NextResponse.json(
             {
-              error: `Số điện thoại này đã có lịch hẹn đăng ký khám ngày ${appointmentDate.split('-').reverse().join('/')}. Quý khách vui lòng không đăng ký trùng lặp hoặc liên hệ trực tiếp tổng đài bệnh viện để điều chỉnh thông tin.`,
+              error: 'Yêu cầu đặt lịch khám chưa thể thực hiện do thông tin đăng ký trùng khớp với lịch hẹn đã có trên hệ thống. Quý khách vui lòng kiểm tra lại hoặc liên hệ trực tiếp tổng đài bệnh viện để được hỗ trợ.',
             },
             { status: 409 }
           )

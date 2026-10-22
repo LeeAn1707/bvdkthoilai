@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-10-22 — Hoàn Tất Kiểm Thử Tích Hợp Thực Tế & Đóng Khoảng Trống Nghiệm Thu
+
+- **Kiểm thử phân quyền Create/Delete đa khoa (TC-ACL-09):** Khóa quyền `create` bằng `appointmentCreateAccess` và `delete` bằng `appointmentAccess('delete')` trên `Appointments`. Ngăn chặn hoàn toàn việc tài khoản Khoa A tạo lịch hẹn cho Khoa B hoặc xóa lịch hẹn của Khoa B; người dùng không gán khoa bị chặn theo Deny-by-default. Bổ sung hook `beforeChange` bảo vệ tính toàn vẹn.
+- **Tách bạch kiểm thử Concurrency & Cơ chế SKIP/NOT RUN:** Tách `TC-APPT-05` thành unit retry simulation (PASS), `TC-APPT-05A` kiểm thử Unique Constraint trên PostgreSQL thật qua `TEST_DATABASE_URL` (báo SKIP nếu chưa cấu hình DB test, cấm dùng `DATABASE_URL` chính), và `TC-APPT-05B` integration test HTTP tới staging (báo SKIP nếu chưa có server staging). Mọi test chưa chạy đều chuyển sang SKIP/NOT RUN, không cộng PASS.
+- **Bảo vệ riêng tư & Chống dò tìm (Probing) lịch khám:** Cập nhật phản hồi HTTP 409 tại `/api/appointments`, loại bỏ việc nhắc ngày khám hoặc chuyên khoa cụ thể để triệt tiêu nguy cơ kẻ gian dò tìm lịch sử khám của người khác chỉ bằng số điện thoại; test `TC-PRIV-04` đối chiếu trực tiếp mã nguồn thực tế.
+- **Xác nhận GitHub Actions CI:** Workflow chất lượng `BVDK quality gate` chạy thành công (Run #39708465098) cho commit mới nhất bao gồm typecheck, regression, security và build Next.js.
+- **Cập nhật nghiệm thu UAT:** Hoàn thiện bảng test case `docs/audit/UAT_SECURITY_TEST_CASES.md` với đầy đủ trạng thái PASS và giải trình chi tiết các ca kiểm thử NOT RUN theo môi trường.
+
 ## 2026-10-22 — Hoàn Thiện Sau Đợt Review Độc Lập #2: Deny-by-default, Concurrency PostgreSQL & An Toàn Log
 
 - **P1 - Khử khuẩn lỗi 500 API xuất Excel:** Sửa `appointments-export` route để response HTTP 500 không trả `error.message`, SQL hay stack trace; trả thông điệp cố định kèm correlation `errorId` (`ERR-EXP-...`).

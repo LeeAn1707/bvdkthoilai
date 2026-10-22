@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { appointmentAccess, appointmentDepartmentFieldAccess, moduleAccess } from '@/access'
+import { appointmentAccess, appointmentCreateAccess, appointmentDepartmentFieldAccess } from '@/access'
 
 export const Appointments: CollectionConfig = {
   slug: 'appointments',
@@ -14,10 +14,11 @@ export const Appointments: CollectionConfig = {
     },
   },
   access: {
-    create: moduleAccess('appointments', 'create'), // Chỉ nhân viên y tế có quyền mới được tạo qua Admin/REST; người bệnh đặt qua /api/appointments đã kiểm duyệt
+    // create: moduleAccess('appointments', 'create') - Nâng cấp lên appointmentCreateAccess để kiểm soát giới hạn khoa phòng
+    create: appointmentCreateAccess,
     read: appointmentAccess('view'),
     update: appointmentAccess('edit'),
-    delete: moduleAccess('appointments', 'delete'),
+    delete: appointmentAccess('delete'),
   },
   fields: [
     {
@@ -232,5 +233,42 @@ export const Appointments: CollectionConfig = {
       ],
     },
   ],
+  hooks: {
+    beforeChange: [
+      async ({ req, data, operation }) => {
+        if (!req.user) return data
+        const role = (req.user as any)?.role
+        const isElevated = role === 'super-admin' || role === 'system-admin' || role === 'admin'
+        if (isElevated || role === 'clinic-schedule') return data
+
+        const userDept = (req.user as any)?.department
+        const userDeptID = typeof userDept === 'object' && userDept ? userDept.id : userDept
+        if (!userDeptID) {
+          throw new Error('Tài khoản chưa được gán khoa/phòng, không thể tạo hoặc chỉnh sửa lịch hẹn.')
+        }
+
+        if (operation === 'create') {
+          if (!data.department) {
+            data.department = userDeptID
+          } else {
+            const targetDeptID = typeof data.department === 'object' && data.department ? data.department.id : data.department
+            if (Number(targetDeptID) !== Number(userDeptID)) {
+              throw new Error('Bạn không có quyền tạo lịch hẹn cho khoa/phòng khác.')
+            }
+          }
+        }
+
+        if (operation === 'update' && data.department) {
+          const targetDeptID = typeof data.department === 'object' && data.department ? data.department.id : data.department
+          if (Number(targetDeptID) !== Number(userDeptID)) {
+            throw new Error('Bạn không có quyền chuyển lịch hẹn sang khoa/phòng khác.')
+          }
+        }
+
+        return data
+      },
+    ],
+  },
   timestamps: true,
 }
+

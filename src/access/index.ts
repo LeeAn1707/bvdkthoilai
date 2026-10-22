@@ -204,6 +204,30 @@ export const appointmentDepartmentFieldAccess: FieldAccess = ({ req }) => {
   return isElevatedRole(role) || role === 'clinic-schedule'
 }
 
+export const appointmentCreateAccess: Access = async ({ req, data }: any) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (!isActiveUser(user)) return false
+  const role = roleOf(user)
+  if (isElevatedRole(role) || role === 'clinic-schedule') return true
+  if (!hasModulePermission(user, 'appointments', 'create')) return false
+
+  // Nguyên tắc Deny-by-default: Người dùng bắt buộc phải gắn với một khoa cụ thể
+  const department = (user as any)?.department
+  const userDeptID = typeof department === 'object' && department ? department.id : department
+  if (!userDeptID) return false
+
+  // Ngăn chặn tài khoản khoa A tạo lịch khám cho khoa B:
+  if (data?.department) {
+    const targetDeptID = typeof data.department === 'object' && data.department ? data.department.id : data.department
+    if (targetDeptID && Number(targetDeptID) !== Number(userDeptID)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+
 export const departmentScopedAccess = (module: string, action: PermissionAction, departmentField = 'department'): Access => ({ req }) => {
   if (!isActiveUser(req.user)) return false
   if (isElevatedRole(roleOf(req.user))) return true

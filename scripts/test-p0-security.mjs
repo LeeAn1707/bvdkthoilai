@@ -5,7 +5,7 @@
  */
 
 import assert from 'node:assert/strict'
-import { roleHasModulePermission, hasModulePermission, appointmentAccess, appointmentDepartmentFieldAccess } from '../src/access/index.ts'
+import { roleHasModulePermission, hasModulePermission, appointmentAccess, appointmentDepartmentFieldAccess, appointmentCreateAccess } from '../src/access/index.ts'
 import { verifyTurnstile } from '../src/lib/request-security.ts'
 import { Appointments } from '../src/collections/Appointments.ts'
 
@@ -15,10 +15,20 @@ console.log('====================================================\n')
 
 let passCount = 0
 let failCount = 0
+let skipCount = 0
+
+function skipTest(testId, name, reason) {
+  console.log(`⚠️ [SKIP / NOT RUN] ${testId} — ${name}: ${reason}`)
+  skipCount++
+}
 
 function runTest(testId, name, fn) {
   try {
-    fn()
+    const res = fn()
+    if (res && res.skip) {
+      skipTest(testId, name, res.reason)
+      return
+    }
     console.log(`✅ [PASS] ${testId} — ${name}`)
     passCount++
   } catch (err) {
@@ -29,7 +39,11 @@ function runTest(testId, name, fn) {
 
 async function runAsyncTest(testId, name, fn) {
   try {
-    await fn()
+    const res = await fn()
+    if (res && res.skip) {
+      skipTest(testId, name, res.reason)
+      return
+    }
     console.log(`✅ [PASS] ${testId} — ${name}`)
     passCount++
   } catch (err) {
@@ -222,8 +236,86 @@ await runAsyncTest('TC-ACL-08', 'Khóa quyền lịch hẹn theo Deny-by-default
   assert.equal(appointmentDepartmentFieldAccess({ req: { user: mockUsers.clinicSchedule } }), true)
 })
 
+await runAsyncTest('TC-ACL-09', 'Kiểm soát quyền create và delete của Appointments theo khoa, ngăn khoa A tạo/xóa lịch khoa B', async () => {
+  // 1. Quản lý Khoa A (department: 10) có quyền create và delete
+  const userA = {
+    id: 501,
+    role: 'department-manager',
+    status: 'active',
+    department: 10,
+    useCustomPermissions: true,
+    permissions: [{ module: 'appointments', actions: ['view', 'create', 'edit', 'delete'] }],
+  }
+
+  // 1.1 Tạo lịch: Khoa A cố tình gán department: 20 (Khoa B) -> PHẢI BỊ CHẶN (false)
+  const createForB = await appointmentCreateAccess({
+    req: { user: userA },
+    data: { department: 20, fullName: 'Test Patient', phone: '0901234567' },
+  })
+  assert.equal(createForB, false, 'Khoa A tuyệt đối không được tạo lịch khám gán cho Khoa B')
+
+  // 1.2 Tạo lịch: Khoa A gán đúng department: 10 (Khoa A) -> CHO PHÉP (true)
+  const createForA = await appointmentCreateAccess({
+    req: { user: userA },
+    data: { department: 10, fullName: 'Test Patient', phone: '0901234567' },
+  })
+  assert.equal(createForA, true, 'Khoa A được phép tạo lịch khám thuộc đúng Khoa A')
+
+  // 1.3 Tạo lịch: User có custom permissions create nhưng KHÔNG gán khoa -> PHẢI BỊ CHẶN (false - Deny by default)
+  const userNoDept = {
+    id: 502,
+    role: 'editor',
+    status: 'active',
+    department: null,
+    useCustomPermissions: true,
+    permissions: [{ module: 'appointments', actions: ['create'] }],
+  }
+  const createNoDept = await appointmentCreateAccess({
+    req: { user: userNoDept },
+    data: { department: 10 },
+  })
+  assert.equal(createNoDept, false, 'User có quyền create nhưng không gán khoa phải bị từ chối (Deny by default)')
+
+  // 2. Quyền xóa: Kiểm tra Appointments.access.delete (đã áp dụng appointmentAccess('delete'))
+  const deleteAccessFn = Appointments.access.delete
+  assert.ok(typeof deleteAccessFn === 'function', 'Appointments.access.delete phải là hàm kiểm soát')
+
+  // 2.1 Xóa: Khoa A gọi delete -> Chỉ nhận filter where { department: { equals: 10 } }
+  // (Không thể xóa bất kỳ bản ghi nào thuộc Khoa B)
+  const deleteFilterA = await deleteAccessFn({ req: { user: userA } })
+  assert.deepEqual(deleteFilterA, { department: { equals: 10 } }, 'Khoa A chỉ có thể xóa các bản ghi thuộc Khoa A')
+
+  // 2.2 Xóa: User có quyền delete nhưng KHÔNG gán khoa -> DENY (false)
+  const userDeleteNoDept = {
+    id: 503,
+    role: 'editor',
+    status: 'active',
+    department: null,
+    useCustomPermissions: true,
+    permissions: [{ module: 'appointments', actions: ['delete'] }],
+  }
+  const deleteNoDept = await deleteAccessFn({ req: { user: userDeleteNoDept } })
+  assert.equal(deleteNoDept, false, 'User có quyền delete nhưng không có khoa phải bị từ chối xóa')
+
+  // 2.3 Xóa: User Khoa A nhưng KHÔNG có quyền delete module appointments -> DENY (false)
+  const userANoDelete = {
+    id: 504,
+    role: 'department-manager',
+    status: 'active',
+    department: 10,
+    useCustomPermissions: true,
+    permissions: [{ module: 'appointments', actions: ['view', 'edit'] }], // Không có 'delete'
+  }
+  const deleteNotPermitted = await deleteAccessFn({ req: { user: userANoDelete } })
+  assert.equal(deleteNotPermitted, false, 'User không có action delete phải bị từ chối xóa')
+
+  // 2.4 Xóa: Super admin được xóa toàn viện (true)
+  const deleteSuperAdmin = await deleteAccessFn({ req: { user: mockUsers.superAdmin } })
+  assert.equal(deleteSuperAdmin, true, 'Super Admin được quyền xóa toàn viện')
+})
+
 console.log('\n====================================================')
-console.log(`📊 KẾT QUẢ KIỂM THỬ P0: ${passCount} PASS / ${failCount} FAIL`)
+console.log(`📊 KẾT QUẢ KIỂM THỬ P0: ${passCount} PASS / ${failCount} FAIL / ${skipCount} SKIP`)
 console.log('====================================================\n')
 
 if (failCount > 0) {

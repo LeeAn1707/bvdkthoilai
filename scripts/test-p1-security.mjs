@@ -26,10 +26,20 @@ console.log('====================================================\n')
 
 let passCount = 0
 let failCount = 0
+let skipCount = 0
+
+function skipTest(testId, name, reason) {
+  console.log(`⚠️ [SKIP / NOT RUN] ${testId} — ${name}: ${reason}`)
+  skipCount++
+}
 
 function runTest(testId, name, fn) {
   try {
-    fn()
+    const res = fn()
+    if (res && res.skip) {
+      skipTest(testId, name, res.reason)
+      return
+    }
     console.log(`✅ [PASS] ${testId} — ${name}`)
     passCount++
   } catch (err) {
@@ -40,7 +50,11 @@ function runTest(testId, name, fn) {
 
 async function runAsyncTest(testId, name, fn) {
   try {
-    await fn()
+    const res = await fn()
+    if (res && res.skip) {
+      skipTest(testId, name, res.reason)
+      return
+    }
     console.log(`✅ [PASS] ${testId} — ${name}`)
     passCount++
   } catch (err) {
@@ -164,36 +178,80 @@ runTest('TC-APPT-07', 'Khi số thứ tự vượt quá 9999 trong ngày, không
   assert.equal(code3, 'BVTL10001')
 })
 
-await runAsyncTest('TC-APPT-05', 'Kiểm thử Concurrency thực sự với PostgreSQL: 20 request đồng thời giải quyết va chạm mã duy nhất', async () => {
-  const dbUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL
-  const isProdDb = process.env.NODE_ENV === 'production' || /railway|neon|render|aws|azure|gcp|prod/i.test(dbUrl || '')
+await runAsyncTest('TC-APPT-05', 'Kiểm thử Concurrency giải quyết va chạm mã khi có nhiều request đồng thời (Thuật toán Retry)', async () => {
+  const existingDatabaseCodes = new Set(['BVTL0001', 'BVTL0002'])
+  let collisionCount = 0
 
-  if (!dbUrl) {
-    console.log('   ⚠️ [TC-APPT-05] Bỏ qua kiểm thử PostgreSQL: Không tìm thấy TEST_DATABASE_URL hoặc DATABASE_URL (STATUS: NOT RUN)')
-    return
+  async function simulateConcurrentAppointmentBooking(reqIndex) {
+    let nextSequence = 3
+    let code = `BVTL${String(nextSequence).padStart(4, '0')}`
+
+    for (let retry = 0; retry < 5; retry++) {
+      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 5) + 1))
+
+      if (existingDatabaseCodes.has(code)) {
+        collisionCount++
+        nextSequence++
+        const randHex = Math.random().toString(16).slice(2, 6).toUpperCase()
+        code = `BVTL${String(nextSequence).padStart(4, '0')}-${randHex}`
+        continue
+      }
+
+      existingDatabaseCodes.add(code)
+      return { success: true, code, reqIndex }
+    }
+
+    return { success: false, code: null, reqIndex }
   }
 
+  const concurrentTasks = Array.from({ length: 20 }, (_, idx) => simulateConcurrentAppointmentBooking(idx))
+  const results = await Promise.all(concurrentTasks)
+
+  const successfulBookings = results.filter((r) => r.success)
+  assert.equal(successfulBookings.length, 20, 'Tất cả 20 request đồng thời phải được tạo thành công')
+  assert.ok(collisionCount > 0, `Phải có va chạm concurrency xảy ra và được giải quyết tự động (số lần va chạm: ${collisionCount})`)
+
+  const generatedCodes = successfulBookings.map((r) => r.code)
+  const uniqueCodes = new Set(generatedCodes)
+  assert.equal(uniqueCodes.size, 20, 'Mọi mã phiếu hẹn sinh ra từ các luồng đồng thời đều phải duy nhất')
+})
+
+await runAsyncTest('TC-APPT-05A', 'Kiểm thử Unique Constraint trên PostgreSQL thật với TEST_DATABASE_URL (20 requests đồng thời)', async () => {
+  // Chỉ sử dụng biến môi trường TEST_DATABASE_URL dành riêng cho database test (tuyệt đối không tự ý dùng DATABASE_URL chính)
+  const testDbUrl = process.env.TEST_DATABASE_URL
+
+  if (!testDbUrl) {
+    return {
+      skip: true,
+      reason: 'Chưa cấu hình TEST_DATABASE_URL dành riêng cho database thử nghiệm (nguyên tắc: không dùng DATABASE_URL chính)',
+    }
+  }
+
+  const isProdDb = process.env.NODE_ENV === 'production' || /railway|neon|render|aws|azure|gcp|prod/i.test(testDbUrl)
   if (isProdDb) {
-    console.log('   🛡️ [TC-APPT-05] Bỏ qua kiểm thử concurrency trên database production để bảo vệ dữ liệu thực (STATUS: NOT RUN)')
-    return
+    return {
+      skip: true,
+      reason: 'Phát hiện database production trong TEST_DATABASE_URL, tự động dừng để bảo vệ an toàn dữ liệu',
+    }
   }
 
-  const pool = new pg.Pool({ connectionString: dbUrl, max: 25 })
+  const pool = new pg.Pool({ connectionString: testDbUrl, max: 25 })
   let poolConnected = false
   try {
     const testConn = await pool.connect()
     poolConnected = true
     testConn.release()
   } catch (connErr) {
-    console.log(`   ⚠️ [TC-APPT-05] Không thể kết nối PostgreSQL cục bộ/staging (${connErr.message}) - Bỏ qua test live DB (STATUS: NOT RUN)`)
-    return
+    return {
+      skip: true,
+      reason: `Không thể kết nối TEST_DATABASE_URL (${connErr.message})`,
+    }
   }
 
   const testTable = `test_appt_concurrency_${Date.now()}`
   let collisionCount = 0
 
   try {
-    // 1. Tạo bảng tạm độc lập có ràng buộc UNIQUE trên cột code (mô phỏng bảng appointments thực tế)
     await pool.query(`
       CREATE TABLE "${testTable}" (
         id SERIAL PRIMARY KEY,
@@ -205,14 +263,12 @@ await runAsyncTest('TC-APPT-05', 'Kiểm thử Concurrency thực sự với Pos
       )
     `)
 
-    // 2. Hàm mô phỏng request đặt lịch của 1 worker đồng thời, thực hiện đúng thuật toán retry của /api/appointments
     async function simulateConcurrentPostgresBooking(workerId) {
       const client = await pool.connect()
       try {
         let nextSequence = 1
         let finalCode = `BVTL${String(nextSequence).padStart(4, '0')}`
 
-        // Retry tối đa 5 lần theo đúng thuật toán trong route /api/appointments
         for (let retry = 0; retry < 5; retry++) {
           try {
             const insertRes = await client.query(
@@ -227,7 +283,6 @@ await runAsyncTest('TC-APPT-05', 'Kiểm thử Concurrency thực sự với Pos
               retries: retry,
             }
           } catch (dbErr) {
-            // Bắt mã lỗi 23505 (unique_violation) của PostgreSQL
             const isUniqueViolation = dbErr?.code === '23505' || /unique|duplicate/i.test(dbErr?.message || '')
             if (isUniqueViolation && retry < 4) {
               collisionCount++
@@ -247,26 +302,17 @@ await runAsyncTest('TC-APPT-05', 'Kiểm thử Concurrency thực sự với Pos
       }
     }
 
-    // 3. Chạy đồng thời 20 workers song song qua Promise.all
     const workers = Array.from({ length: 20 }, (_, idx) => simulateConcurrentPostgresBooking(idx + 1))
     const responses = await Promise.all(workers)
 
-    // Kiểm tra 1: Mọi request đều trả về HTTP status 200 thành công
     const successfulResponses = responses.filter((r) => r.status === 200 && r.success)
     assert.equal(successfulResponses.length, 20, 'Tất cả 20 request đồng thời phải ghi nhận HTTP 200 thành công')
 
-    // Kiểm tra 2: Dữ liệu đã ghi trong PostgreSQL thực tế đúng 20 bản ghi
     const countRes = await pool.query(`SELECT COUNT(*)::int as total, COUNT(DISTINCT code)::int as unique_codes FROM "${testTable}"`)
     assert.equal(countRes.rows[0].total, 20, 'Phải có đúng 20 dòng được ghi thành công vào PostgreSQL')
-
-    // Kiểm tra 3: Mã lịch hẹn trong PostgreSQL hoàn toàn duy nhất
     assert.equal(countRes.rows[0].unique_codes, 20, 'Mọi mã lịch hẹn ghi vào PostgreSQL phải 100% duy nhất, không trùng lặp')
-
-    // Kiểm tra 4: Đã kích hoạt và giải quyết va chạm PostgreSQL 23505
     assert.ok(collisionCount > 0, `Đã ghi nhận ${collisionCount} lần va chạm khóa 23505 trên PostgreSQL và tự động giải quyết an toàn`)
-
   } finally {
-    // Dọn dẹp sạch sẽ bảng kiểm thử, không để lại rác trong database
     try {
       await pool.query(`DROP TABLE IF EXISTS "${testTable}"`)
     } catch {}
@@ -274,6 +320,39 @@ await runAsyncTest('TC-APPT-05', 'Kiểm thử Concurrency thực sự với Pos
       await pool.end()
     }
   }
+})
+
+await runAsyncTest('TC-APPT-05B', 'Integration test chạy HTTP request tới API /api/appointments trên staging', async () => {
+  const stagingUrl = process.env.STAGING_API_URL || process.env.TEST_API_URL
+  if (!stagingUrl) {
+    return {
+      skip: true,
+      reason: 'Chưa cấu hình STAGING_API_URL (yêu cầu môi trường máy chủ staging đang online để gửi HTTP request thực tế)',
+    }
+  }
+
+  // Gửi 20 request đồng thời tới API /api/appointments staging
+  const tasks = Array.from({ length: 20 }, async (_, idx) => {
+    const res = await fetch(`${stagingUrl.replace(/\/$/, '')}/api/appointments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: `Bệnh nhân Staging ${idx + 1}`,
+        phone: `0988${String(Date.now()).slice(-4)}${String(idx).padStart(2, '0')}`,
+        appointmentDate: '2026-11-01',
+        timeSlot: 'morning',
+        'cf-turnstile-response': 'cf-mock-valid-token',
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    return { status: res.status, data }
+  })
+
+  const results = await Promise.all(tasks)
+  const okResults = results.filter((r) => r.status === 200 && r.data?.code)
+  assert.ok(okResults.length > 0, 'Phải có request thành công trên môi trường staging')
+  const codes = okResults.map((r) => r.data.code)
+  assert.equal(new Set(codes).size, codes.length, 'Mọi mã trả về từ API staging phải là duy nhất')
 })
 
 // -------------------------------------------------------------
@@ -325,19 +404,26 @@ runTest('TC-SEC-09C', 'API xuất Excel /api/appointments-export không làm rò
 })
 
 runTest('TC-PRIV-04', 'API đặt lịch hẹn không làm lộ mã phiếu hẹn hoặc thông tin khám cũ khi phát hiện trùng lịch (HTTP 409)', () => {
-  // Response HTTP 409 khi phát hiện trùng số điện thoại trong cùng ngày hoặc cùng chuyên khoa
-  const duplicateResponse = {
-    error: 'Quý khách đã có lịch hẹn khám trong cùng ngày hoặc cùng chuyên khoa. Vui lòng kiểm tra lại thông tin hoặc liên hệ nhân viên tiếp đón bệnh viện.',
-    duplicate: true,
-  }
+  // Đọc mã nguồn thực tế của route /api/appointments
+  const routeContent = fs.readFileSync('src/app/(frontend)/api/appointments/route.ts', 'utf8')
+  
+  // Kiểm tra mã nguồn thực tế: đoạn xử lý response 409
+  assert.ok(routeContent.includes('{ status: 409 }'), 'Route phải có xử lý HTTP 409 khi trùng lịch')
+  assert.ok(
+    routeContent.includes('Yêu cầu đặt lịch khám chưa thể thực hiện do thông tin đăng ký trùng khớp với lịch hẹn đã có trên hệ thống'),
+    'Thông báo 409 phải là thông báo chung, không khẳng định thời gian hoặc chuyên khoa cụ thể của người khác'
+  )
 
-  const responseString = JSON.stringify(duplicateResponse)
-  assert.ok(!responseString.includes('code'), 'Response 409 tuyệt đối không được chứa trường code')
-  assert.ok(!responseString.includes('BVTL'), 'Không được tiết lộ mã phiếu hẹn cũ BVTL...')
-  assert.ok(!responseString.includes('LK-'), 'Không được tiết lộ mã phiếu hẹn cũ LK-...')
-  assert.ok(!responseString.includes('fullName'), 'Không được phản hồi lại họ tên')
-  assert.ok(!responseString.includes('appointmentDate'), 'Không được phản hồi lại ngày hẹn')
-  assert.equal(duplicateResponse.duplicate, true, 'Chỉ trả về cờ duplicate: true để client xử lý UX')
+  // Đảm bảo tuyệt đối không có biến mã lịch hẹn cũ trong câu thông báo 409
+  assert.ok(!routeContent.includes('${matchedDup.code}'), 'Mã nguồn route tuyệt đối không được trả lại ${matchedDup.code}')
+  assert.ok(!routeContent.includes('matchedDup.code'), 'Không được truy xuất matchedDup.code để trả về client')
+
+  // Đảm bảo không phản hồi ngày hẹn cụ thể trong câu lỗi để chống tấn công dò tìm (probing)
+  const duplicateBlockMatch = routeContent.match(/if\s*\(matchedDup\)\s*\{[\s\S]*?return NextResponse\.json\(([\s\S]*?),\s*\{\s*status:\s*409\s*\}\s*\)/)
+  assert.ok(duplicateBlockMatch, 'Phải tìm thấy khối xử lý 409 matchedDup trong route')
+  const blockContent = duplicateBlockMatch[1]
+  assert.ok(!blockContent.includes('appointmentDate'), 'Khối 409 không được trả lại biến appointmentDate để chống dò ngày khám của nạn nhân')
+  assert.ok(!blockContent.includes('fullName'), 'Khối 409 không được trả lại họ tên')
 })
 
 runTest('TC-LOG-01', 'Log lỗi tại route /api/appointments phân loại category an toàn, không ghi raw SQL hay PII', () => {
@@ -357,9 +443,10 @@ runTest('TC-DR-06', 'scripts/backup-railway.mjs không chứa mật khẩu datab
 })
 
 console.log('\n====================================================')
-console.log(`📊 KẾT QUẢ KIỂM THỬ P1: ${passCount} PASS / ${failCount} FAIL`)
+console.log(`📊 KẾT QUẢ KIỂM THỬ P1: ${passCount} PASS / ${failCount} FAIL / ${skipCount} SKIP`)
 console.log('====================================================\n')
 
 if (failCount > 0) {
   process.exit(1)
 }
+

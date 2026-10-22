@@ -1,20 +1,29 @@
-# CURRENT TASK — Khắc Phục 6 Vấn Đề Review Độc Lập #2 (Commit ee9755b)
+# CURRENT TASK — Hoàn Tất Kiểm Thử Tích Hợp Thực Tế & Đóng Khoảng Trống Nghiệm Thu (Commit c9af8c3)
 
-## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE TOÀN DIỆN, BUILD PASS & ĐẨY LÊN GITHUB
+## Trạng thái: HOÀN THÀNH — ĐÃ VALIDATE TOÀN DIỆN, BUILD PASS & PUSH LÊN GITHUB
 
 ## 1. Nội dung đã thực hiện theo yêu cầu
-- [x] **1. P1 (Rò rỉ lỗi xuất Excel):** Sửa `src/app/(frontend)/api/appointments-export/route.ts` response 500 không trả `error.message`. Trả thông báo cố định kèm correlation `errorId` (`ERR-EXP-...`).
-- [x] **2. P1 (Kiểm thử Concurrency PostgreSQL thực sự):** Nâng cấp `TC-APPT-05` trong `scripts/test-p1-security.mjs` sử dụng connection pool kết nối PostgreSQL staging/local, tạo bảng tạm có ràng buộc `UNIQUE (code)`, chạy 20 workers song song qua `Promise.all`. Bắt mã lỗi 23505, kích hoạt retry và xác minh 100% mã duy nhất, HTTP 200, 20 dòng ghi DB. Tự động drop bảng; an toàn bỏ qua nếu gặp DB production.
-- [x] **3. P1 (Deny-by-default & Bảo vệ Department):** Rà soát `appointmentAccess` trong `src/access/index.ts`, tài khoản có custom permissions nhưng không gán khoa mặc định trả về `false` (fail-closed). Thêm `appointmentDepartmentFieldAccess` trong `src/collections/Appointments.ts` bảo vệ trường `department` khi cập nhật, kiểm thử bằng `TC-ACL-08`.
-- [x] **4. P1 (An toàn log production):** Chuyển đổi log lỗi tại `src/app/(frontend)/api/appointments/route.ts` thành category có cấu trúc (`DATABASE_UNIQUE_VIOLATION`, `DATABASE_FOREIGN_KEY_VIOLATION`, v.v.). Loại bỏ hoàn toàn raw SQL queries và PII người bệnh ra console (TC-LOG-01).
-- [x] **5. P1 (Bảo vệ riêng tư API đặt lịch):** Sửa response HTTP 409 trùng lịch, loại bỏ hoàn toàn mã lịch khám cũ (`code`), họ tên và ngày hẹn. Người chỉ biết SĐT không thể tra cứu thông tin phiếu hẹn cũ của người khác (TC-PRIV-04).
-- [x] **6. Hoàn thiện CI & Nghiệm thu:**
-  - Bổ sung `npm run build` vào `.github/workflows/quality-gate.yml`.
-  - Cập nhật bộ UAT test cases `docs/audit/UAT_SECURITY_TEST_CASES.md` (chuyển TC-ACL-08, TC-APPT-05 sang PASS, bổ sung TC-SEC-09C, TC-PRIV-04, TC-LOG-01; giải trình chi tiết các ca NOT RUN).
-  - Cập nhật `CHANGELOG.md`.
+- [x] **1. Sửa hệ thống đếm kết quả `test:security`:** Thêm `skipCount` và `skipTest`. Mọi bài test không chạy (thiếu môi trường cấu hình) đều được báo `SKIP / NOT RUN`, tuyệt đối không cộng vào `PASS`. Nghiêm cấm tự động dùng `DATABASE_URL` chính cho các bài test ghi/xóa dữ liệu, chỉ dùng `TEST_DATABASE_URL` riêng biệt.
+- [x] **2. Tách TC-APPT-05 thành các phần độc lập:**
+  - `TC-APPT-05`: Unit simulation thuật toán retry sinh mã duy nhất trong 20 luồng đồng thời `Promise.all` (PASS).
+  - `TC-APPT-05A`: Kiểm thử Unique Constraint trên PostgreSQL thật với `TEST_DATABASE_URL` (20 requests đồng thời, bắt lỗi 23505, ghi nhận đúng 20 dòng và 100% mã duy nhất). Báo SKIP/NOT RUN nếu chưa cấu hình `TEST_DATABASE_URL` riêng.
+  - `TC-APPT-05B`: Integration test gửi 20 HTTP requests tới API `/api/appointments` trên staging. Báo SKIP/NOT RUN nếu chưa cấu hình `STAGING_API_URL`.
+- [x] **3. Rà soát quyền `create` và `delete` của collection Appointments:**
+  - Tạo `appointmentCreateAccess`: Ngăn tài khoản Khoa A tạo lịch hẹn gán cho Khoa B; người dùng không gán khoa bị chặn theo Deny-by-default.
+  - Cập nhật `access.delete` dùng `appointmentAccess('delete')`: Giới hạn phạm vi xóa chỉ trong khoa của người dùng qua WHERE clause; người dùng không gán khoa bị từ chối xóa hoàn toàn.
+  - Thêm hook `beforeChange` trên `Appointments` tự động gán và kiểm tra tính toàn vẹn khoa tiếp nhận.
+  - Bổ sung test tự động `TC-ACL-09` trong `scripts/test-p0-security.mjs` (PASS).
+- [x] **4. Kiểm thử response HTTP 409 thực tế & chống dò tìm lịch khám:**
+  - Sửa `src/app/(frontend)/api/appointments/route.ts` phản hồi thông điệp lỗi chung, không tiết lộ mã phiếu hẹn cũ (`code`) và không trả lại ngày hẹn cụ thể để triệt tiêu nguy cơ dò tìm (probing) lịch khám người khác.
+  - Cập nhật test `TC-PRIV-04` trong `scripts/test-p1-security.mjs` đối chiếu trực tiếp mã nguồn route thực tế.
+- [x] **5. Kiểm tra GitHub Actions CI:**
+  - Xác nhận Run ID `39708465098` cho commit `c9af8c3` đã tự động chạy và đạt trạng thái `SUCCESS` trên toàn bộ các bước: TypeScript check, Security checks, Regression checks, và Next.js build.
+- [x] **6. Báo cáo & Nghiệm thu:**
+  - Cập nhật [docs/audit/UAT_SECURITY_TEST_CASES.md](file:///f:/20.9%20web/bvdkthoilai-main/docs/audit/UAT_SECURITY_TEST_CASES.md) với chi tiết trạng thái PASS, FAIL, SKIP/NOT RUN và căn cứ thực tế.
+  - Cập nhật [CHANGELOG.md](file:///f:/20.9%20web/bvdkthoilai-main/CHANGELOG.md).
 
 ## 2. Kết quả kiểm tra nghiệm thu
-- `npm run test:security`: 24/24 PASS (P0: 11/11, P1: 13/13).
+- `npm run test:security`: 25 PASS, 0 FAIL, 2 SKIP (P0: 12 PASS / 0 FAIL / 0 SKIP; P1: 13 PASS / 0 FAIL / 2 SKIP).
 - `npm run typecheck`: PASS (0 lỗi).
 - `npm run validate:all`: PASS (11/11 modules).
-- `npm run build`: PASS (Biên dịch thành công 48 routes).
+- `npm run build`: PASS (Biên dịch Turbopack thành công, prerender 48 routes).
