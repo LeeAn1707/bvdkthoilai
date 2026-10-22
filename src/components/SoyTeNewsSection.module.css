@@ -62,9 +62,11 @@
   transition: color 0.2s ease;
 }
 
-.leadTitleLink:hover {
+.leadTitleLink:hover,
+.leadTitleLink:focus,
+.leadTitleLink:active {
   color: #005a9e;
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .leadMeta {
@@ -437,12 +439,21 @@
   margin: 0;
 }
 
+.featuredLink:hover,
+.featuredLink:focus,
+.featuredLink:active {
+  color: #005a9e;
+  text-decoration: none;
+}
+
 .tickerItem:hover .featuredLink {
   color: #005a9e;
+  text-decoration: none;
 }
 
 .featuredLinkActive {
   color: #003e73 !important;
+  text-decoration: none;
 }
 
 /* 2. Nút tròn mũi tên bên phải */
