@@ -271,12 +271,40 @@ await runAsyncTest('TC-APPT-05A', 'Kiểm thử Unique Constraint trên PostgreS
     }
   }
 
-  // Cơ chế bảo vệ fail-closed chống truy cập nhầm database production
-  const isProdDb = process.env.NODE_ENV === 'production' || /railway|neon|render|aws|azure|gcp|prod/i.test(testDbUrl)
-  if (isProdDb) {
+  // Cơ chế bảo vệ fail-closed: Chống truy cập nhầm database production
+  let parsedDbUrl
+  try {
+    parsedDbUrl = new URL(testDbUrl)
+  } catch {
     return {
       blocked: true,
-      reason: 'Phát hiện database production trong TEST_DATABASE_URL, tự động dừng để bảo vệ an toàn dữ liệu.',
+      reason: 'TEST_DATABASE_URL không đúng định dạng URL hợp lệ.',
+    }
+  }
+
+  const dbHost = parsedDbUrl.hostname.toLowerCase()
+  const dbName = parsedDbUrl.pathname.replace(/^\//, '').toLowerCase()
+
+  // 1. Chặn tuyệt đối nếu môi trường là production hoặc có từ khóa production rõ ràng
+  const hasProdKeyword = /production|prod-db|live-db|bvdkthoilai-prod/i.test(testDbUrl) || dbName === 'production' || dbName.startsWith('prod_')
+  if (process.env.NODE_ENV === 'production' || hasProdKeyword) {
+    return {
+      blocked: true,
+      reason: 'Phát hiện chỉ dấu database production trong TEST_DATABASE_URL hoặc NODE_ENV=production. Dừng khẩn cấp để bảo vệ dữ liệu vận hành.',
+    }
+  }
+
+  // 2. Xác minh máy chủ cơ sở dữ liệu thử nghiệm:
+  // - Chấp nhận máy chủ nội bộ (localhost, 127.0.0.1, ::1)
+  // - Chấp nhận instance Railway TEST đã được xác minh (không chứa từ khóa production, host dạng *.proxy.rlwy.net hoặc railway)
+  const isLocalTest = ['localhost', '127.0.0.1', '::1'].includes(dbHost)
+  const isRailwayTest = /rlwy\.net|railway/i.test(dbHost)
+  const isExplicitVerified = process.env.CONFIRM_TEST_INSTANCE === 'true' || process.env.ALLOW_RAILWAY_TEST === 'true'
+
+  if (!isLocalTest && !isRailwayTest && !isExplicitVerified) {
+    return {
+      blocked: true,
+      reason: `Máy chủ database (${dbHost}) không nằm trong danh sách máy chủ test được xác minh (localhost, Railway test). Để sử dụng, cần xác nhận qua biến môi trường CONFIRM_TEST_INSTANCE=true.`,
     }
   }
 
