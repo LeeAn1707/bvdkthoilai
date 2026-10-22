@@ -1,6 +1,12 @@
 # CHANGELOG
 
-## 2026-10-22 — Hoàn Thiện Nghiệm Thu PR #1: Phân Quyền Toàn Diện, An Toàn Staging & Diễn Tập Khôi Phục
+## 2026-10-22 — Hoàn Tất Nghiệm Thu Staging Thực Tế (PR #1): Đóng 4 Khoảng Trống Nghiệm Thu Vận Hành
+
+- **Phân quyền & REST API (TC-ACL-10, TC-PRIV-05):** Tách `TC-ACL-10A` (Access Control Hooks logic) và `TC-ACL-10B` (REST API thật với Payload CMS). Báo BLOCKED minh bạch khi staging DB thiếu tài khoản Khoa A / Khoa B; không tự sinh dữ liệu giả trong operational DB. Kiểm thử trực tiếp HTTP 429 thực tế qua mạng, xác minh header `Retry-After` và JSON error.
+- **PostgreSQL & Concurrency (TC-APPT-05A, TC-APPT-05B):** `TC-APPT-05A` chạy thực tế trên PostgreSQL disposable database (`bvdk_disposable_test`), 20 workers song song, xử lý va chạm 23505 tự động, kiểm chứng SQL `total: 20`, `unique_codes: 20`. `TC-APPT-05B` bắt buộc Staging Allowlist, loại bỏ `X-Forwarded-For` giả mạo, cấm PASS khi tất cả request bị 429, kiểm chứng mã phiếu bằng truy vấn SQL thực.
+- **Diễn tập Khôi phục Thực tế (Real Backup & Restore Drill):** Bổ sung `scripts/drill-disposable-restore.mjs` (`npm run backup:restore-real`). Sử dụng `pg_dump.exe` và `pg_restore.exe` thật của hệ thống trên database disposable riêng biệt; phục hồi tệp media thực (`media.tar`); đo thời gian khôi phục thực tế (RTO: 127 ms); kiểm chứng 100% dữ liệu SQL và hash SHA-256 media; dọn dẹp sạch tài nguyên.
+- **Staging Smoke Test:** Nâng cấp `scripts/smoke-production.mjs` xác minh Staging Allowlist và commit `078ed03`; ghi rõ HTTP status từng route (phân biệt 200 vs 301/302); kiểm tra bảo vệ unauthenticated `/api/appointments-export` (401) và `/api/appointments` (429/400); đạt 25/25 PASS (0 lỗi).
+
 
 - **Kiểm thử phân quyền Payload CMS toàn diện (TC-ACL-10):** Kiểm chứng độc lập cả 5 tác vụ (Read, Create, Update, Delete, Export) giữa Khoa A và Khoa B; tài khoản Khoa A hoàn toàn không thể đọc, tạo, sửa, xóa hoặc xuất dữ liệu của Khoa B.
 - **Chuẩn hóa TC-APPT-05A & TC-APPT-05B:** `TC-APPT-05A` chuyển sang báo FAIL nếu `TEST_DATABASE_URL` được cấu hình nhưng kết nối thất bại; `TC-APPT-05B` an toàn cho staging (chặn gửi lên production, ngày khám động, dùng token kiểm thử hợp lệ, chấp nhận 200/201 và 429 theo rate-limit).

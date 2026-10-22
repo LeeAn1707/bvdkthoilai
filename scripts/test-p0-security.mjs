@@ -16,15 +16,25 @@ console.log('====================================================\n')
 let passCount = 0
 let failCount = 0
 let skipCount = 0
+let blockedCount = 0
 
 function skipTest(testId, name, reason) {
   console.log(`⚠️ [SKIP / NOT RUN] ${testId} — ${name}: ${reason}`)
   skipCount++
 }
 
+function blockTest(testId, name, reason) {
+  console.log(`⛔ [BLOCKED / NOT RUN] ${testId} — ${name}: ${reason}`)
+  blockedCount++
+}
+
 function runTest(testId, name, fn) {
   try {
     const res = fn()
+    if (res && res.blocked) {
+      blockTest(testId, name, res.reason)
+      return
+    }
     if (res && res.skip) {
       skipTest(testId, name, res.reason)
       return
@@ -40,6 +50,10 @@ function runTest(testId, name, fn) {
 async function runAsyncTest(testId, name, fn) {
   try {
     const res = await fn()
+    if (res && res.blocked) {
+      blockTest(testId, name, res.reason)
+      return
+    }
     if (res && res.skip) {
       skipTest(testId, name, res.reason)
       return
@@ -314,7 +328,7 @@ await runAsyncTest('TC-ACL-09', 'Kiểm soát quyền create và delete của Ap
   assert.equal(deleteSuperAdmin, true, 'Super Admin được quyền xóa toàn viện')
 })
 
-await runAsyncTest('TC-ACL-10', 'Integration test phân quyền Payload CMS: tài khoản Khoa A không được đọc, tạo, sửa, xóa hay xuất lịch hẹn Khoa B', async () => {
+await runAsyncTest('TC-ACL-10A', 'Logic Access Control nội bộ (Access Control Hooks): Phân quyền phân lập đa khoa (Khoa A vs Khoa B) cho các thao tác read, create, update, delete, export', async () => {
   const managerA = {
     id: 601,
     role: 'department-manager',
@@ -395,8 +409,119 @@ await runAsyncTest('TC-ACL-10', 'Integration test phân quyền Payload CMS: tà
   assert.notDeepEqual(exportFilterA.filter, exportFilterB.filter, 'Khoa A không thể xuất dữ liệu lịch hẹn của Khoa B')
 })
 
+await runAsyncTest('TC-ACL-10B', 'Kiểm thử thực tế qua REST API Payload (/api/appointments, /api/appointments-export) bằng tài khoản thật Khoa A và Khoa B trên Staging', async () => {
+  const stagingUrl = process.env.STAGING_API_URL || process.env.TEST_API_URL
+  const deptAEmail = process.env.STAGING_USER_DEPT_A_EMAIL
+  const deptAPass = process.env.STAGING_USER_DEPT_A_PASSWORD
+  const deptBEmail = process.env.STAGING_USER_DEPT_B_EMAIL
+  const deptBPass = process.env.STAGING_USER_DEPT_B_PASSWORD
+
+  // Quy tắc an toàn: Không tự tạo bằng chứng mô phỏng, nếu thiếu staging hoặc tài khoản thật phải báo BLOCKED rõ ràng
+  if (!stagingUrl) {
+    return {
+      blocked: true,
+      reason: 'Chưa cấu hình STAGING_API_URL (yêu cầu máy chủ staging chạy với cơ sở dữ liệu thử nghiệm để kiểm thử REST API thực tế).',
+    }
+  }
+
+  // Xác minh Staging Allowlist (không chỉ dựa vào danh sách chặn production)
+  const VERIFIED_STAGING_ALLOWLIST = ['localhost', '127.0.0.1', 'staging.bvdkthoilai.vn', 'test.bvdkthoilai.vn']
+  let parsedUrl
+  try {
+    parsedUrl = new URL(stagingUrl)
+  } catch {
+    throw new Error(`STAGING_API_URL không hợp lệ: ${stagingUrl}`)
+  }
+
+  if (!VERIFIED_STAGING_ALLOWLIST.includes(parsedUrl.hostname.toLowerCase())) {
+    throw new Error(`CẢNH BÁO BẢO MẬT: STAGING_API_URL (${parsedUrl.hostname}) không nằm trong danh sách Allowlist được xác minh (${VERIFIED_STAGING_ALLOWLIST.join(', ')})`)
+  }
+
+  if (!deptAEmail || !deptAPass || !deptBEmail || !deptBPass) {
+    return {
+      blocked: true,
+      reason: 'Chưa cung cấp biến môi trường tài khoản thật cho Khoa A (STAGING_USER_DEPT_A_EMAIL, STAGING_USER_DEPT_A_PASSWORD) và Khoa B (STAGING_USER_DEPT_B_EMAIL, STAGING_USER_DEPT_B_PASSWORD) trên database staging. Theo quy tắc an toàn: không tự tạo dữ liệu giả trong operational DB hoặc tự cấp PASS khi chưa có tài khoản thực tế.',
+    }
+  }
+
+  const cleanBase = stagingUrl.replace(/\/$/, '')
+
+  // 1. Đăng nhập tài khoản Khoa A qua REST API
+  const loginResA = await fetch(`${cleanBase}/api/users/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: deptAEmail, password: deptAPass }),
+  })
+  if (!loginResA.ok) {
+    throw new Error(`Đăng nhập tài khoản Khoa A thất bại (HTTP ${loginResA.status})`)
+  }
+  const loginDataA = await loginResA.json()
+  const tokenA = loginDataA.token
+  assert.ok(tokenA, 'Phải nhận được JWT token sau khi đăng nhập Khoa A')
+
+  // 2. Đăng nhập tài khoản Khoa B qua REST API
+  const loginResB = await fetch(`${cleanBase}/api/users/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: deptBEmail, password: deptBPass }),
+  })
+  if (!loginResB.ok) {
+    throw new Error(`Đăng nhập tài khoản Khoa B thất bại (HTTP ${loginResB.status})`)
+  }
+  const loginDataB = await loginResB.json()
+  const tokenB = loginDataB.token
+  assert.ok(tokenB, 'Phải nhận được JWT token sau khi đăng nhập Khoa B')
+
+  const deptA_Id = loginDataA.user?.department?.id || loginDataA.user?.department
+  const deptB_Id = loginDataB.user?.department?.id || loginDataB.user?.department
+
+  assert.ok(deptA_Id, 'Tài khoản Khoa A phải được liên kết với một khoa cụ thể')
+  assert.ok(deptB_Id, 'Tài khoản Khoa B phải được liên kết với một khoa cụ thể')
+  assert.notEqual(deptA_Id, deptB_Id, 'Khoa A và Khoa B phải là hai khoa độc lập khác nhau')
+
+  // 3. THAO TÁC ĐỌC (READ): Khoa A truy vấn danh sách lịch hẹn
+  const readResA = await fetch(`${cleanBase}/api/appointments?limit=100`, {
+    headers: { Authorization: `JWT ${tokenA}` },
+  })
+  assert.equal(readResA.status, 200, 'Tài khoản Khoa A đọc danh sách lịch hẹn phải trả về HTTP 200')
+  const readDataA = await readResA.json()
+  for (const doc of readDataA.docs || []) {
+    const docDeptId = doc.department?.id || doc.department
+    assert.equal(docDeptId, deptA_Id, 'Mọi bản ghi đọc được bởi Khoa A bắt buộc phải thuộc Khoa A')
+    assert.notEqual(docDeptId, deptB_Id, 'Khoa A tuyệt đối không được đọc bất kỳ bản ghi nào thuộc Khoa B')
+  }
+
+  // 4. THAO TÁC TẠO (CREATE): Khoa A cố tình tạo lịch cho Khoa B -> PHẢI BỊ CHẶN (HTTP 403)
+  const createMaliciousRes = await fetch(`${cleanBase}/api/appointments`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `JWT ${tokenA}`,
+    },
+    body: JSON.stringify({
+      fullName: 'Bệnh nhân Test Khoa B',
+      phone: '0912345678',
+      appointmentDate: new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
+      timeSlot: 'morning',
+      department: deptB_Id,
+    }),
+  })
+  assert.equal(createMaliciousRes.status, 403, 'Khoa A tạo lịch gán cho Khoa B bắt buộc phải bị từ chối với HTTP 403')
+
+  // 5. THAO TÁC XUẤT EXCEL (EXPORT): Khoa A xuất dữ liệu lịch hẹn
+  const exportResA = await fetch(`${cleanBase}/api/appointments-export`, {
+    headers: { Authorization: `JWT ${tokenA}` },
+  })
+  assert.equal(exportResA.status, 200, 'Tài khoản Khoa A xuất Excel phải trả về HTTP 200')
+  const contentType = exportResA.headers.get('content-type') || ''
+  assert.ok(
+    contentType.includes('spreadsheet') || contentType.includes('excel') || contentType.includes('octet-stream'),
+    'Phản hồi export phải là định dạng bảng tính Excel'
+  )
+})
+
 console.log('\n====================================================')
-console.log(`📊 KẾT QUẢ KIỂM THỬ P0: ${passCount} PASS / ${failCount} FAIL / ${skipCount} SKIP`)
+console.log(`📊 KẾT QUẢ KIỂM THỬ P0: ${passCount} PASS / ${failCount} FAIL / ${skipCount} SKIP / ${blockedCount} BLOCKED`)
 console.log('====================================================\n')
 
 if (failCount > 0) {

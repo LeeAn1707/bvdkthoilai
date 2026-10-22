@@ -62,7 +62,8 @@
     "audit:users-schema": "node scripts/repair-users-schema.mjs",
     "repair:users-schema": "node scripts/repair-users-schema.mjs",
     "backup:railway": "node scripts/backup-railway.mjs",
-    "backup:rehearse": "node scripts/rehearse-backup-restore.mjs"
+    "backup:rehearse": "node scripts/rehearse-backup-restore.mjs",
+    "backup:restore-real": "node scripts/drill-disposable-restore.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1128.0",

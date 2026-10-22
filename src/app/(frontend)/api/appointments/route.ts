@@ -20,6 +20,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, code: 'LK-BOT' })
     }
 
+    // Kiểm tra giới hạn IP sớm nhằm chống tấn công DoS và cạn kiệt quota Turnstile
+    const ipThrottle = rateLimit(req, 'appointment-create', 5, 15 * 60_000)
+    if (!ipThrottle.allowed) {
+      return NextResponse.json(
+        { error: `Bạn đã thao tác đặt lịch quá nhiều lần (tối đa 5 lần trong 15 phút). Vui lòng thử lại sau ${ipThrottle.retryAfter} giây.` },
+        { status: 429, headers: { 'Retry-After': String(ipThrottle.retryAfter) } }
+      )
+    }
+
     // Cloudflare Turnstile verification
     if (!(await verifyTurnstile(req, body['cf-turnstile-response']))) {
       return NextResponse.json({ error: 'Xác thực an toàn (Turnstile) không thành công. Vui lòng thử lại.' }, { status: 400 })
