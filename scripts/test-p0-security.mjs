@@ -518,6 +518,7 @@ await runAsyncTest('TC-ACL-10B', 'Kiểm thử thực tế qua REST API Payload 
       Authorization: `JWT ${tokenA}`,
     },
     body: JSON.stringify({
+      code: 'CUSTOM_TAMPER_CODE_123',
       fullName: 'TEST-STAGING-APPT-A',
       phone: '0912345999',
       appointmentDate: new Date(Date.now() + 86400000 * 5).toISOString().slice(0, 10),
@@ -528,6 +529,17 @@ await runAsyncTest('TC-ACL-10B', 'Kiểm thử thực tế qua REST API Payload 
   assert.ok(createValidRes.status === 200 || createValidRes.status === 201, 'Khoa A tạo lịch thuộc Khoa A phải thành công (200/201)')
   const createValidData = await createValidRes.json()
   createdApptAId = createValidData?.doc?.id || createValidData?.id
+  const assignedCode = createValidData?.doc?.code || createValidData?.code
+  assert.notEqual(
+    assignedCode,
+    'CUSTOM_TAMPER_CODE_123',
+    'Tài khoản thường gửi kèm mã tự tạo (CUSTOM_TAMPER_CODE_123) phải bị bỏ qua, hệ thống bắt buộc tự cấp mã nguyên tử quy chuẩn'
+  )
+  assert.match(
+    assignedCode,
+    /^BVTL\d+$/,
+    `Mã phiếu hẹn cấp cho tài khoản thường (${assignedCode}) phải tuân thủ nghiêm ngặt định dạng BVTLxxxx`
+  )
 
   try {
     // 5. THAO TÁC SỬA (UPDATE):
@@ -558,6 +570,20 @@ await runAsyncTest('TC-ACL-10B', 'Kiểm thử thực tế qua REST API Payload 
       assert.ok(
         updateDeptMaliciousRes.status === 403 || updateDeptMaliciousRes.status === 400,
         'Khoa A không được phép thay đổi trường department sang khoa khác'
+      )
+
+      // 5.2b Khoa A cố tình thay đổi mã phiếu hẹn (code) -> PHẢI BỊ CHẶN (HTTP 403)
+      const updateCodeMaliciousRes = await fetch(`${cleanBase}/api/appointments/${createdApptAId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `JWT ${tokenA}`,
+        },
+        body: JSON.stringify({ code: 'BVTL9999_TAMPERED' }),
+      })
+      assert.ok(
+        updateCodeMaliciousRes.status === 403 || updateCodeMaliciousRes.status === 400,
+        'Tài khoản thường cố tình thay đổi mã phiếu hẹn đã cấp bắt buộc phải bị từ chối với HTTP 403'
       )
 
       // 5.3 Khoa A sửa hợp lệ ghi chú của lịch hẹn thuộc Khoa A -> CHO PHÉP (HTTP 200)

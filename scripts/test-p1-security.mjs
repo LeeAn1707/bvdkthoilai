@@ -647,6 +647,114 @@ await runAsyncTest('TC-APPT-08', 'Kiểm thử chuyển ngày mới (Rollover), 
   }
 })
 
+await runAsyncTest('TC-MIG-081', 'Kiểm thử Migration 081: Chạy lần đầu, chạy lại (idempotent), sequence lớn hơn mã lưu và không làm lùi sequence', async () => {
+  const testDbUrl = process.env.TEST_DATABASE_URL
+  if (!testDbUrl) {
+    return {
+      blocked: true,
+      reason: 'Chưa cấu hình TEST_DATABASE_URL độc lập để kiểm thử logic Migration 081 trên PostgreSQL thực tế.',
+    }
+  }
+
+  const pool = new pg.Pool({ connectionString: testDbUrl, connectionTimeoutMillis: 5000 })
+  const testPrefix = `test_mig_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`
+  const testTable = `${testPrefix}_appts`
+  const testSeq = `${testPrefix}_seq`
+
+  try {
+    // 1. Chuẩn bị bảng và sequence thử nghiệm độc lập
+    await pool.query(`
+      CREATE TABLE "${testTable}" (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(50) NOT NULL
+      );
+      CREATE SEQUENCE "${testSeq}" START WITH 1 INCREMENT BY 1 MINVALUE 1;
+    `)
+
+    // Chèn các mã mẫu: BVTL0010, BVTL0020, BVTL0050
+    await pool.query(`
+      INSERT INTO "${testTable}" (code) VALUES ('BVTL0010'), ('BVTL0020'), ('BVTL0050');
+    `)
+
+    // Hàm thực thi logic khởi tạo sequence của Migration 081 trên bảng/sequence thử nghiệm
+    async function executeMigrationInitLogic() {
+      await pool.query(`
+        DO $$
+        DECLARE
+          max_val BIGINT;
+          curr_seq_val BIGINT;
+          seq_called BOOLEAN;
+          target_val BIGINT;
+        BEGIN
+          LOCK TABLE "${testTable}" IN EXCLUSIVE MODE;
+
+          SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM 5) AS BIGINT)), 0)
+          INTO max_val
+          FROM "${testTable}"
+          WHERE code ~ '^BVTL[0-9]+$';
+
+          SELECT last_value, is_called INTO curr_seq_val, seq_called 
+          FROM "${testSeq}";
+
+          IF seq_called THEN
+            target_val := GREATEST(max_val, curr_seq_val);
+            PERFORM setval('${testSeq}', target_val, true);
+          ELSE
+            IF max_val > 0 THEN
+              PERFORM setval('${testSeq}', max_val, true);
+            ELSE
+              PERFORM setval('${testSeq}', 1, false);
+            END IF;
+          END IF;
+        END $$;
+      `)
+    }
+
+    // 2. KỊCH BẢN 1: Chạy lần đầu (First-time initialization)
+    await executeMigrationInitLogic()
+    const state1 = (await pool.query(`SELECT last_value, is_called FROM "${testSeq}"`)).rows[0]
+    assert.equal(Number(state1.last_value), 50, 'Lần đầu chạy: sequence phải được đặt bằng mã lớn nhất (50)')
+    assert.equal(Boolean(state1.is_called), true, 'Lần đầu chạy: is_called phải là true')
+
+    // Lần gọi nextval kế tiếp phải sinh đúng 51
+    const next1 = Number((await pool.query(`SELECT nextval('${testSeq}') as val`)).rows[0].val)
+    assert.equal(next1, 51, 'nextval() sau lần chạy đầu phải trả về 51')
+
+    // 3. KỊCH BẢN 2: Chạy lại khi sequence đã được dùng (Idempotency / Re-run)
+    // Lúc này sequence đang ở 51, mã lớn nhất trong bảng vẫn là 50
+    await executeMigrationInitLogic()
+    const state2 = (await pool.query(`SELECT last_value, is_called FROM "${testSeq}"`)).rows[0]
+    assert.equal(Number(state2.last_value), 51, 'Chạy lại migration: sequence TUYỆT ĐỐI KHÔNG bị lùi về 50 mà phải giữ nguyên 51')
+
+    const next2 = Number((await pool.query(`SELECT nextval('${testSeq}') as val`)).rows[0].val)
+    assert.equal(next2, 52, 'nextval() sau khi chạy lại migration phải tiếp tục tiến lên 52')
+
+    // 4. KỊCH BẢN 3: Trường hợp sequence lớn hơn nhiều so với mã đã lưu (ví dụ sequence đã tăng đến 500)
+    await pool.query(`SELECT setval('${testSeq}', 500, true);`)
+    // Chạy lại migration 081 khi bảng chỉ có max là 50 nhưng sequence là 500
+    await executeMigrationInitLogic()
+    const state3 = (await pool.query(`SELECT last_value, is_called FROM "${testSeq}"`)).rows[0]
+    assert.equal(
+      Number(state3.last_value),
+      500,
+      'Trường hợp sequence lớn hơn mã lưu trong DB: sequence TUYỆT ĐỐI KHÔNG bị lùi về 50 mà phải giữ nguyên 500'
+    )
+
+    const next3 = Number((await pool.query(`SELECT nextval('${testSeq}') as val`)).rows[0].val)
+    assert.equal(next3, 501, 'nextval() phải sinh tiếp 501, bảo vệ toàn vẹn tuyệt đối')
+
+    // 5. KỊCH BẢN 4: Xác minh hàm verify() của migration 081 trên database thật
+    const migration081 = await import('./db-migrations/20261022_081_create_global_appointment_code_sequence.mjs')
+    await migration081.verify({ client: pool })
+  } finally {
+    // Dọn dẹp tài nguyên test
+    try {
+      await pool.query(`DROP TABLE IF EXISTS "${testTable}"; DROP SEQUENCE IF EXISTS "${testSeq}";`)
+    } catch {}
+    await pool.end()
+  }
+})
+
 // -------------------------------------------------------------
 // NHÓM 4: BẢO VỆ THÔNG TIN TRONG LỖI 500 & KHÔNG RÒ RỈ SECRET (P1-04, P1-08)
 // -------------------------------------------------------------

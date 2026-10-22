@@ -358,7 +358,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      code: finalCode,
+      code: created?.code || finalCode,
       id: created.id,
       appointmentDate,
       timeSlot: dbTimeSlot,

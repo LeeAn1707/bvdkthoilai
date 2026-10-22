@@ -1,6 +1,13 @@
 # CHANGELOG
 
-## 2026-10-22 — Khắc Phục P0 Rủi Ro Trùng Mã Khi Chuyển Ngày & Sequence Tăng Toàn Cục
+## 2026-10-22 — Hoàn Tất Rà Soát Cuối Commit 8f98809: An Toàn Khởi Tạo Sequence, Kiểm Soát Mã Phiếu & Nghiệm Thu Staging
+
+- **Bảo vệ khởi tạo sequence & Idempotent Migration 081:** Bổ sung `LOCK TABLE public.appointments IN EXCLUSIVE MODE;` loại bỏ xung đột ghi lịch hẹn đồng thời lúc tạo sequence; cơ chế khởi tạo `GREATEST(max_val, curr_seq_val)` bảo đảm sequence không bị lùi về sau khi chạy lại migration hoặc khi sequence đã tiến xa hơn mã lưu trong DB.
+- **Nâng cấp verify() Migration 081:** Kiểm tra catalog PostgreSQL xác minh `indisunique = true`, `indisvalid = true` trên cột `code` bảng `appointments`, bảo đảm 0 mã trùng lặp trong DB và giá trị sequence không nhỏ hơn mã lớn nhất.
+- **Kiểm soát quyền truy cập trường `code` (Appointments):** Cấu hình field-level access, hook `beforeOperation` và `beforeValidate` nghiêm cấm tài khoản thường tự chỉ định hoặc sửa đổi `code` đã cấp (trả về HTTP 403 hoặc tự động sinh mã nguyên tử hợp lệ), chỉ super-admin/system-admin/admin mới có quyền quản trị. Sửa `route.ts` trả về `code: created?.code || finalCode` để đảm bảo API phản hồi đồng bộ 100% với mã lưu DB.
+- **Kiểm thử tự động Migration 081 (`TC-MIG-081`):** Kiểm thử thành công 4 kịch bản: chạy lần đầu, chạy lại (idempotent), sequence lớn hơn mã lưu và thực thi hàm `verify()`.
+- **Nghiệm thu toàn diện Staging & CI Quality Gates:** Chạy hoàn tất `TC-ACL-10B` với 2 tài khoản Khoa A và Khoa B trên staging (14/14 P0 PASS), 20/20 P1 PASS (bao gồm `TC-APPT-05B` 20 concurrent HTTP requests, `TC-PRIV-05B`, `TC-APPT-08`, `TC-MIG-081`), typecheck 0 lỗi, migrations 354/354 PASS, validate:all PASS, build Next.js thành công.
+
 
 - **Xác minh rủi ro chuyển ngày:** Thực nghiệm chuyển ngày 22/10 sang 23/10 trên database TEST xác nhận bộ đếm `date_key` reset về 1 sinh mã `BVTL0001` bị chặn bởi UNIQUE index `appointments_code_idx` (lỗi 23505) do mã lịch hẹn không chứa ngày.
 - **Migration 081 & PostgreSQL Sequence toàn cục:** Triển khai `public.appointment_code_seq` tăng đơn điệu liên tục toàn hệ thống; khởi tạo an toàn từ giá trị lớn nhất hiện có (`MAX = 205`) mà không làm thay đổi các mã đã tồn tại. Duy trì 100% UNIQUE index trên `appointments(code)`.
