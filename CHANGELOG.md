@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-10-22 — Khắc Phục Lỗ Hổng Bảo Mật P0 & P1 Theo Báo Cáo Đánh Giá Toàn Diện
+
+- **P0 - Bảo mật lịch khám & RBAC:** Khóa trực tiếp quyền tạo của collection `Appointments` (`moduleAccess('appointments', 'create')`), chuyển toàn bộ luồng công khai qua endpoint kiểm soát `/api/appointments`; thu hồi quyền truy cập lịch khám của các vai trò ngoài chuyên môn (`editor`, `hr`, `finance`, `procurement`); siết chặt quyền xóa và xuất dữ liệu.
+- **P0 - Cloudflare Turnstile:** Cập nhật `verifyTurnstile` cơ chế Fail-Closed trên môi trường production khi thiếu `TURNSTILE_SECRET_KEY`; bổ sung kiểm tra preflight bắt buộc trước khi triển khai.
+- **P1 - Chống DoS & Bảo vệ API:** Chuẩn hóa nhận diện IP an toàn qua `cf-connecting-ip`, giới hạn rate limit và kiểm soát dung lượng payload stream thô qua `readJsonBodyWithLimit` (chống bypass chunked/Content-Length).
+- **P1 - Sinh mã lịch hẹn & Xử lý lỗi:** Cải tiến thuật toán sinh mã phiếu hẹn không quay vòng khi vượt quá 9999/ngày; bổ sung cơ chế retry bắt lỗi `unique_violation` khi có yêu cầu đồng thời; ẩn thông báo lỗi chi tiết ở phản hồi HTTP 500, sinh `errorId` tra cứu và không log dữ liệu định danh bệnh nhân.
+- **P1 - R2 Health Probe & Vệ sinh bí mật:** Nâng cấp health check kiểm tra thực tế Cloudflare R2 qua `HeadBucketCommand` với bộ nhớ đệm 30s; loại bỏ hoàn toàn chuỗi kết nối chứa mật khẩu cơ sở dữ liệu hardcoded trong `scripts/backup-railway.mjs`.
+- Bổ sung bộ kiểm thử tự động `test:security-p0` và `test:security-p1` (16/16 test case PASS).
+
 ## 2026-10-14 — Tùy Chọn Kiểu Hiển Thị Ảnh Ban Lãnh Đạo & Thứ Tự Ưu Tiên Ảnh Sơ Đồ Tổ Chức
 
 - Bổ sung tùy chọn kiểu hiển thị ảnh cho Ban Lãnh đạo trong **Sơ đồ tổ chức** (`src/globals/OrganizationChart.ts`), hỗ trợ 5 kiểu dáng: Tràn viền thẻ (`full-cover`), Khung phủ kín (`cover-box`), Vừa vặn (`contain-box`), Bo góc lọt lòng (`rounded-inset`), và Hình tròn (`circle`).
