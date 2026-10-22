@@ -294,17 +294,38 @@ await runAsyncTest('TC-APPT-05A', 'Kiểm thử Unique Constraint trên PostgreS
     }
   }
 
-  // 2. Xác minh máy chủ cơ sở dữ liệu thử nghiệm:
-  // - Chấp nhận máy chủ nội bộ (localhost, 127.0.0.1, ::1)
-  // - Chấp nhận instance Railway TEST đã được xác minh (không chứa từ khóa production, host dạng *.proxy.rlwy.net hoặc railway)
+  // 2. Xác minh máy chủ cơ sở dữ liệu thử nghiệm (Nguyên tắc: Không mặc định mọi hostname *.proxy.rlwy.net là test database):
   const isLocalTest = ['localhost', '127.0.0.1', '::1'].includes(dbHost)
-  const isRailwayTest = /rlwy\.net|railway/i.test(dbHost)
-  const isExplicitVerified = process.env.CONFIRM_TEST_INSTANCE === 'true' || process.env.ALLOW_RAILWAY_TEST === 'true'
 
-  if (!isLocalTest && !isRailwayTest && !isExplicitVerified) {
+  if (!isLocalTest) {
+    const isConfirmed = process.env.CONFIRM_TEST_INSTANCE === 'true'
+    const testProjectId = (process.env.RAILWAY_TEST_PROJECT_ID || process.env.VERIFIED_TEST_PROJECT_ID || '').trim()
+    const prodProjectId = (process.env.RAILWAY_PROD_PROJECT_ID || process.env.VERIFIED_PROD_PROJECT_ID || '').trim()
+
+    if (!isConfirmed || !testProjectId) {
+      return {
+        blocked: true,
+        reason: 'Chưa xác nhận Railway Project ID / Environment ID / Service ID của cơ sở dữ liệu TEST độc lập với production (nguyên tắc an toàn: cấm mặc định mọi hostname proxy.rlwy.net là test database; yêu cầu CONFIRM_TEST_INSTANCE=true và RAILWAY_TEST_PROJECT_ID).',
+      }
+    }
+
+    if (prodProjectId && testProjectId === prodProjectId) {
+      return {
+        blocked: true,
+        reason: `CẢNH BÁO NGUY HIỂM: RAILWAY_TEST_PROJECT_ID trùng với RAILWAY_PROD_PROJECT_ID (${testProjectId}). Dừng khẩn cấp để bảo vệ database production!`,
+      }
+    }
+  }
+
+  // 3. Kiểm tra nguyên tắc đặc quyền tối thiểu: Khuyến nghị không dùng tài khoản superuser (postgres/root) cho test
+  const dbUser = parsedDbUrl.username.toLowerCase()
+  const isSuperuserAccount = dbUser === 'postgres' || dbUser === 'root'
+  const allowSuperuser = process.env.ALLOW_SUPERUSER_TEST === 'true'
+
+  if (isSuperuserAccount && !allowSuperuser) {
     return {
       blocked: true,
-      reason: `Máy chủ database (${dbHost}) không nằm trong danh sách máy chủ test được xác minh (localhost, Railway test). Để sử dụng, cần xác nhận qua biến môi trường CONFIRM_TEST_INSTANCE=true.`,
+      reason: `Đang kết nối bằng tài khoản superuser (${dbUser}). Theo nguyên tắc đặc quyền tối thiểu: khuyến nghị sử dụng role giới hạn quyền (không có SUPERUSER/CREATEDB/CREATEROLE) cho test, hoặc khai báo biến ALLOW_SUPERUSER_TEST=true nếu chấp nhận sử dụng tài khoản hiện tại cho phiên test này.`,
     }
   }
 
@@ -438,6 +459,7 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-forwarded-for': `203.0.113.${100 + idx}`,
         },
         body: JSON.stringify({
           fullName: `Bệnh nhân Staging ${idx + 1}`,
@@ -662,7 +684,10 @@ await runAsyncTest('TC-PRIV-05B', 'Kiểm thử HTTP 409 và 429 thực tế qua
     try {
       const res = await fetch(`${cleanTarget}/api/appointments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-forwarded-for': '203.0.113.10',
+        },
         body: JSON.stringify({
           fullName: `Spam Tester ${i + 1}`,
           phone: spamPhone,
@@ -710,7 +735,10 @@ await runAsyncTest('TC-PRIV-05B', 'Kiểm thử HTTP 409 và 429 thực tế qua
     // Lần 1: Tạo lịch hẹn hợp lệ ban đầu
     await fetch(`${cleanTarget}/api/appointments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-forwarded-for': '203.0.113.20',
+      },
       body: JSON.stringify(dupPayload),
       signal: AbortSignal.timeout(6000),
     })
@@ -726,7 +754,10 @@ await runAsyncTest('TC-PRIV-05B', 'Kiểm thử HTTP 409 và 429 thực tế qua
     // Lần 2: Gửi lại chính xác thông tin (cùng SĐT + cùng Ngày + cùng Chuyên khoa)
     let secondRes = await fetch(`${cleanTarget}/api/appointments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-forwarded-for': '203.0.113.20',
+      },
       body: JSON.stringify(dupPayload),
       signal: AbortSignal.timeout(6000),
     })
@@ -736,7 +767,10 @@ await runAsyncTest('TC-PRIV-05B', 'Kiểm thử HTTP 409 và 429 thực tế qua
       await new Promise((resolve) => setTimeout(resolve, 3000))
       secondRes = await fetch(`${cleanTarget}/api/appointments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-forwarded-for': '203.0.113.20',
+        },
         body: JSON.stringify(dupPayload),
         signal: AbortSignal.timeout(6000),
       })

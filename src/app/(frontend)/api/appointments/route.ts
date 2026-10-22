@@ -137,37 +137,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // 3. Kiểm tra khoảng thời gian chờ giữa 2 lần đặt của cùng SĐT (chống click đúp / spam liên tiếp)
-    const minSeconds = typeof appSettings?.minSecondsBetweenSubmissions === 'number' && appSettings.minSecondsBetweenSubmissions >= 0 ? appSettings.minSecondsBetweenSubmissions : 60
-    if (minSeconds > 0) {
-      try {
-        const recentByPhone = await payload.find({
-          collection: 'appointments' as any,
-          where: {
-            phone: { equals: phone },
-          },
-          sort: '-createdAt',
-          limit: 1,
-          overrideAccess: true,
-        })
-
-        if (recentByPhone.docs.length > 0) {
-          const lastCreated = new Date(recentByPhone.docs[0].createdAt).getTime()
-          const diffSeconds = Math.floor((Date.now() - lastCreated) / 1000)
-          if (diffSeconds < minSeconds) {
-            const waitTime = minSeconds - diffSeconds
-            return NextResponse.json(
-              { error: `Hệ thống vừa tiếp nhận yêu cầu từ số điện thoại này. Vui lòng chờ ${waitTime} giây trước khi gửi thêm lịch hẹn mới.` },
-              { status: 429 }
-            )
-          }
-        }
-      } catch {
-        // Tiếp tục nếu lỗi truy vấn kiểm tra
-      }
-    }
-
-    // 4. Kiểm tra chặn đặt trùng (Cùng SĐT + Cùng ngày khám + Cùng chuyên khoa)
+    // 3. Kiểm tra chặn đặt trùng (Cùng SĐT + Cùng ngày khám + Cùng chuyên khoa -> HTTP 409 Conflict)
     const preventDuplicate = appSettings?.preventDuplicateBooking !== false
     if (preventDuplicate) {
       try {
@@ -201,6 +171,36 @@ export async function POST(req: Request) {
         }
       } catch {
         // Tiếp tục nếu lỗi truy vấn
+      }
+    }
+
+    // 4. Kiểm tra khoảng thời gian chờ giữa 2 lần đặt của cùng SĐT (chống click đúp / spam liên tiếp -> HTTP 429)
+    const minSeconds = typeof appSettings?.minSecondsBetweenSubmissions === 'number' && appSettings.minSecondsBetweenSubmissions >= 0 ? appSettings.minSecondsBetweenSubmissions : 60
+    if (minSeconds > 0) {
+      try {
+        const recentByPhone = await payload.find({
+          collection: 'appointments' as any,
+          where: {
+            phone: { equals: phone },
+          },
+          sort: '-createdAt',
+          limit: 1,
+          overrideAccess: true,
+        })
+
+        if (recentByPhone.docs.length > 0) {
+          const lastCreated = new Date(recentByPhone.docs[0].createdAt).getTime()
+          const diffSeconds = Math.floor((Date.now() - lastCreated) / 1000)
+          if (diffSeconds < minSeconds) {
+            const waitTime = minSeconds - diffSeconds
+            return NextResponse.json(
+              { error: `Hệ thống vừa tiếp nhận yêu cầu từ số điện thoại này. Vui lòng chờ ${waitTime} giây trước khi gửi thêm lịch hẹn mới.` },
+              { status: 429 }
+            )
+          }
+        }
+      } catch {
+        // Tiếp tục nếu lỗi truy vấn kiểm tra
       }
     }
 

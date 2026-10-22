@@ -1,4 +1,5 @@
-import type { CollectionConfig } from 'payload'
+import { randomBytes } from 'node:crypto'
+import { APIError, type CollectionConfig } from 'payload'
 import { appointmentAccess, appointmentCreateAccess, appointmentDepartmentFieldAccess } from '@/access'
 
 export const Appointments: CollectionConfig = {
@@ -234,6 +235,32 @@ export const Appointments: CollectionConfig = {
     },
   ],
   hooks: {
+    beforeOperation: [
+      ({ args, operation, req }) => {
+        if (operation === 'update' && (args as any)?.data?.department !== undefined) {
+          const user = (req as any)?.user
+          if (user) {
+            const role = user.role
+            const isElevated = role === 'super-admin' || role === 'system-admin' || role === 'admin'
+            if (!isElevated && role !== 'clinic-schedule') {
+              const userDept = typeof user.department === 'object' ? user.department?.id : user.department
+              const targetDept = typeof (args as any).data.department === 'object' ? (args as any).data.department?.id : (args as any).data.department
+              if (Number(targetDept) !== Number(userDept)) {
+                throw new APIError('Bạn không có quyền chuyển lịch hẹn sang khoa/phòng khác.', 403)
+              }
+            }
+          }
+        }
+      },
+    ],
+    beforeValidate: [
+      ({ data, operation }) => {
+        if (operation === 'create' && data && !data.code) {
+          data.code = `LK-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`
+        }
+        return data
+      },
+    ],
     beforeChange: [
       async ({ req, data, operation }) => {
         if (!req.user) return data
@@ -244,7 +271,7 @@ export const Appointments: CollectionConfig = {
         const userDept = (req.user as any)?.department
         const userDeptID = typeof userDept === 'object' && userDept ? userDept.id : userDept
         if (!userDeptID) {
-          throw new Error('Tài khoản chưa được gán khoa/phòng, không thể tạo hoặc chỉnh sửa lịch hẹn.')
+          throw new APIError('Tài khoản chưa được gán khoa/phòng, không thể tạo hoặc chỉnh sửa lịch hẹn.', 403)
         }
 
         if (operation === 'create') {
@@ -253,7 +280,7 @@ export const Appointments: CollectionConfig = {
           } else {
             const targetDeptID = typeof data.department === 'object' && data.department ? data.department.id : data.department
             if (Number(targetDeptID) !== Number(userDeptID)) {
-              throw new Error('Bạn không có quyền tạo lịch hẹn cho khoa/phòng khác.')
+              throw new APIError('Bạn không có quyền tạo lịch hẹn cho khoa/phòng khác.', 403)
             }
           }
         }
@@ -261,7 +288,7 @@ export const Appointments: CollectionConfig = {
         if (operation === 'update' && data.department) {
           const targetDeptID = typeof data.department === 'object' && data.department ? data.department.id : data.department
           if (Number(targetDeptID) !== Number(userDeptID)) {
-            throw new Error('Bạn không có quyền chuyển lịch hẹn sang khoa/phòng khác.')
+            throw new APIError('Bạn không có quyền chuyển lịch hẹn sang khoa/phòng khác.', 403)
           }
         }
 

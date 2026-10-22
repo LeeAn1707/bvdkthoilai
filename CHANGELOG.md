@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-10-22 — Hoàn Tất Nghiệm Thu Tích Hợp Toàn Diện Staging & Railway PostgreSQL
+
+- **Cơ chế bảo vệ nâng cấp TC-APPT-05A & Nguyên tắc đặc quyền tối thiểu:** Bổ sung cơ chế fail-closed bắt buộc `CONFIRM_TEST_INSTANCE=true` và `RAILWAY_TEST_PROJECT_ID` (phải khác `RAILWAY_PROD_PROJECT_ID`), không mặc định mọi host `proxy.rlwy.net` là test DB. Kiểm tra cảnh báo tài khoản superuser PostgreSQL và yêu cầu cờ `ALLOW_SUPERUSER_TEST=true`.
+- **Thực thi TC-APPT-05B & Xác minh PostgreSQL:** 20 HTTP POST thực tế đồng thời gửi tới `/api/appointments` với Cloudflare Turnstile testing keys; xác minh và đối chiếu đúng 20 mã phiếu hẹn được tạo và lưu trữ an toàn trong bảng `appointments` của PostgreSQL Railway TEST.
+- **Thực thi TC-PRIV-05B (HTTP 429 & 409 riêng biệt):** Hoán đổi thứ tự kiểm tra trùng lặp lên trước cooldown SĐT tại route `/api/appointments`; xác minh thành công HTTP 429 (với `retry-after`) và HTTP 409 Conflict riêng biệt mà không để lộ mã phiếu hẹn hoặc dữ liệu PII.
+- **Chuẩn bị tài khoản & Thực thi TC-ACL-10B:** Cấu hình 2 tài khoản thử nghiệm độc lập Khoa A (ID 6) và Khoa B (ID 7) với custom permissions; thiết lập `auth.useSessions: false` trên Users collection; kiểm thử thành công qua REST API toàn bộ 5 thao tác Read, Create, Update, Delete và Export mà không ảnh hưởng dữ liệu người bệnh thật.
+- **Kết quả nghiệm thu:** 32/32 bài test đạt 100% PASS (14/14 P0 PASS, 18/18 P1 PASS, 0 FAIL, 0 SKIP, 0 BLOCKED).
+
 ## 2026-10-22 — Hoàn Tất Bản Vá Các Phát Hiện Cuối Trước Nghiệm Thu Staging (PR #1)
 
 - **Sửa đếm quota hai lần & TC-SEC-05B:** Xóa bỏ lệnh gọi `rateLimit()` trùng lặp ở đầu route `/api/appointments`; chỉ kích hoạt duy nhất một lần tại bước kiểm tra chính sách với `maxSubmissions` cấu hình từ admin. Thêm test `TC-SEC-05B` xác minh chỉ gọi 1 lần và kiểm tra chính xác số lượt cho phép trước 429.

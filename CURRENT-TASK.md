@@ -1,26 +1,23 @@
-# CURRENT TASK — Xác Minh Railway Test Database & Thực Thi TC-APPT-05A
+# CURRENT TASK — Nghiệm Thu Tích Hợp Toàn Diện Bảo Mật Staging & Concurrency
 
-## Trạng thái: HOÀN THÀNH — TC-APPT-05A ĐẠT 100% TRÊN RAILWAY TEST POSTGRESQL
+## Trạng thái: HOÀN TẤT 100% — 32/32 TEST PASS TRÊN STAGING & RAILWAY POSTGRESQL
 
-## 1. Các hạng mục đã hoàn tất
-- [x] **1. Kiểm tra DATABASE_URL và TEST_DATABASE_URL:**
-  - Nạp an toàn từ `.env`, kiểm tra cấu trúc URL, không in mật khẩu ra log/terminal.
-  - Cả hai biến cùng trỏ tới instance PostgreSQL thử nghiệm trên Railway (`altaria.proxy.rlwy.net:58194/railway`).
-- [x] **2. Truy vấn chỉ đọc và xác minh database TEST độc lập:**
-  - Kết nối thành công tới PostgreSQL 18.6 Debian.
-  - Bảng `appointments` hoàn toàn trống (0 bản ghi, không chứa bất kỳ dữ liệu bệnh nhân thật nào).
-  - Bảng `users` chỉ có 1 tài khoản admin; hệ thống không chứa dữ liệu vận hành sản xuất.
-- [x] **3. Cập nhật cơ chế bảo vệ TC-APPT-05A:**
-  - Chấp nhận PostgreSQL test instance trên Railway (`*.proxy.rlwy.net`) khi không chứa từ khóa production và `NODE_ENV !== 'production'`.
-  - Tiếp tục chặn đứng mọi database production (từ khóa `production`, `prod-db`, `live-db`).
-- [x] **4. Thực thi kiểm thử Concurrency 20 workers đồng thời:**
-  - Không DROP DATABASE, không reset/xóa dữ liệu hệ thống.
-  - Tạo bảng kiểm thử riêng biệt `test_appt_concurrency_<timestamp>_<hex>`.
-  - 20 workers chạy đồng thời gửi request với cùng mã khởi đầu `BVTL0001`.
-  - Đã kích hoạt và xử lý thành công va chạm khóa unique `23505` trên PostgreSQL thực tế.
-  - Xác minh SQL: `total = 20`, `unique_codes = 20` (100% duy nhất, không trùng lặp).
-  - Tự động dọn dẹp sạch sẽ bảng kiểm thử trong `finally`.
+## 1. Kết quả nghiệm thu thực tế (32 PASS / 0 FAIL / 0 SKIP / 0 BLOCKED)
+- **test:security-p0 (14/14 PASS):**
+  - TC-ACL-01 đến TC-ACL-10A: Phân quyền nội bộ, bảo vệ collection Appointments deny-by-default, kiểm soát create/delete theo khoa phòng.
+  - **TC-ACL-10B (PASS):** Kiểm thử tích hợp REST API qua `http://localhost:3000` bằng 2 tài khoản thực tế Khoa A (ID 6) và Khoa B (ID 7). Đọc đúng phạm vi khoa phòng, chặn Khoa A tạo/sửa lịch gán cho Khoa B (HTTP 403), tạo thành công lịch đúng khoa (HTTP 201), xóa/dọn dẹp dữ liệu an toàn.
+- **test:security-p1 (18/18 PASS):**
+  - **TC-APPT-05A (PASS):** Concurrency 20 worker đồng thời trên PostgreSQL Railway TEST (`altaria.proxy.rlwy.net:58194`). Ghi nhận và xử lý va chạm mã trùng lặp mã 23505 qua cơ chế retry; 20/20 bản ghi có mã duy nhất. Cơ chế bảo vệ fail-closed kiểm tra `CONFIRM_TEST_INSTANCE`, `RAILWAY_TEST_PROJECT_ID` khác production và nguyên tắc đặc quyền tối thiểu.
+  - **TC-APPT-05B (PASS):** 20 HTTP POST đồng thời qua mạng tới staging endpoint `/api/appointments` sử dụng Cloudflare Turnstile testing keys (`1x000000...`). Tạo thành công và đối chiếu đúng 20 mã trong bảng `appointments` của PostgreSQL.
+  - **TC-PRIV-05B (PASS):** Kiểm thử riêng biệt HTTP 429 (Rate Limit / Cooldown SĐT với `retry-after`) và HTTP 409 (Trùng lặp SĐT + Ngày + Khoa). Không làm lộ PII hay mã lịch hẹn cũ trong body lỗi.
+  - TC-LOG-01, TC-DR-06, TC-SEC-05/06/07/08/09: Khử khuẩn log, giới hạn kích thước body (413), phòng vệ stream, không hardcode thông tin nhạy cảm.
 
-## 2. Kết quả kiểm tra
-- `npm run test:security`: P0: 13 PASS, 0 FAIL, 1 BLOCKED; P1: 16 PASS, 0 FAIL, 2 BLOCKED (`TC-APPT-05A` chuyển sang **PASS**).
+## 2. Các điểm vá mã nguồn chính
+- `src/collections/Users.ts`: Thiết lập `auth.useSessions: false` cho kiến trúc stateless JWT đồng bộ giữa REST API và Access Control.
+- `src/collections/Appointments.ts`: Bổ sung hook `beforeValidate` tự động sinh mã `code` nếu thiếu; thêm hook `beforeOperation` ném `APIError(..., 403)` khi phát hiện nỗ lực sửa trường `department` trái phép.
+- `src/app/(frontend)/api/appointments/route.ts`: Hoán đổi thứ tự kiểm tra trùng lặp (HTTP 409) lên trước cooldown SĐT (HTTP 429), giúp trả về đúng ngữ cảnh xung đột lịch khám.
+- `scripts/test-p1-security.mjs`: Thắt chặt bảo vệ `TC-APPT-05A` chống nhầm lẫn DB production; bổ sung IP mô phỏng riêng biệt cho từng bài kiểm thử mạng.
+
+## 3. Xác minh kỹ thuật & An toàn
 - `npm run typecheck`: PASS (0 lỗi).
+- Cơ sở dữ liệu: Không DROP DATABASE, không restore, không sửa dữ liệu người bệnh thật.
