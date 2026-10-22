@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-10-22 — Hoàn Tất Bản Vá Các Phát Hiện Cuối Trước Nghiệm Thu Staging (PR #1)
+
+- **Sửa đếm quota hai lần & TC-SEC-05B:** Xóa bỏ lệnh gọi `rateLimit()` trùng lặp ở đầu route `/api/appointments`; chỉ kích hoạt duy nhất một lần tại bước kiểm tra chính sách với `maxSubmissions` cấu hình từ admin. Thêm test `TC-SEC-05B` xác minh chỉ gọi 1 lần và kiểm tra chính xác số lượt cho phép trước 429.
+- **Routing đa luồng cho TC-ACL-10B:** Route `/api/appointments` ủy quyền tự động về Payload REST API (`REST_POST`, `REST_GET`, `REST_PATCH`, `REST_DELETE`) khi có header `Authorization: JWT/Bearer`, cookie hoặc `x-payload-rest`. Request công khai của người dân từ `AppointmentBookingForm.tsx` (không auth) vẫn xử lý độc lập, không làm hỏng giao diện đặt lịch.
+- **Bảo vệ credentials & xác thực instance test (drill restore):** Khử khuẩn 100% mật khẩu bằng `sanitizeText`; cấm in URL hoặc mật khẩu ra terminal/CI. Yêu cầu `CONFIRM_TEST_INSTANCE=true` và kiểm tra Allowlist host (`ALLOWED_TEST_HOSTS` / `VERIFIED_TEST_HOST`) trước khi thực hiện thao tác tạo/xóa database.
+- **Bắt buộc commit máy chủ trong Smoke Test:** Bắt buộc `EXPECTED_COMMIT_SHA`; nếu thiếu hoặc máy chủ không trả về commit qua HTTP hoặc commit không khớp thì ghi nhận FAIL dứt khoát; xóa bỏ SHA cũ làm mặc định.
+- **Hoàn thiện TC-APPT-05B & TC-PRIV-05B:** `TC-APPT-05B` bắt buộc `TEST_DATABASE_URL`, đối chiếu mã ghi thực tế trong PostgreSQL và từ chối nếu có lỗi mạng chưa xử lý. `TC-PRIV-05B` kiểm tra độc lập và riêng biệt cả HTTP 429 và HTTP 409 bằng dữ liệu kiểm thử phù hợp, không cho phép dùng một mã bất kỳ thay thế cho nhau.
+
 ## 2026-10-22 — Chốt An Toàn Bộ Script Nghiệm Thu & Diễn Tập Khôi Phục (PR #1)
 
 - **An toàn tuyệt đối drill khôi phục (scripts/drill-disposable-restore.mjs):** Cấm đọc `DATABASE_URL` từ `.env`; bắt buộc `TEST_ADMIN_DATABASE_URL` trên test instance độc lập. Sử dụng runId ngẫu nhiên duy nhất, chỉ drop database do chính phiên hiện tại tạo ra (kiểm tra quyền sở hữu). Tương thích đa phiên bản PostgreSQL, yêu cầu `pg_restore` exit code 0, phân biệt rõ thời gian mẫu vs RTO ước lượng toàn hệ thống.

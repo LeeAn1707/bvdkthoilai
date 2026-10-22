@@ -20,7 +20,7 @@ if (!VERIFIED_STAGING_ALLOWLIST.includes(parsedUrl.hostname.toLowerCase())) {
 }
 
 // 2. Xác minh commit thực sự được máy chủ đang chạy cung cấp qua HTTP (thay vì chỉ đọc Git local)
-const expectedCommit = (process.env.EXPECTED_COMMIT_SHA || process.env.DEPLOYED_COMMIT_SHA || '078ed03').trim().slice(0, 7)
+const expectedCommitRaw = (process.env.EXPECTED_COMMIT_SHA || '').trim()
 let serverReportedCommit = null
 
 try {
@@ -32,16 +32,18 @@ try {
       serverReportedCommit = healthData.commit
     }
   }
-} catch {}
+} catch (e) {
+  console.warn(`[Cảnh báo kết nối ban đầu tới /api/health]: ${e?.message}`)
+}
 
 console.log('====================================================================')
 console.log('🩺 BẮT ĐẦU SMOKE TEST NGHIỆM THU MÔI TRƯỜNG STAGING')
 console.log(`🌐 Staging Base URL: ${base}`)
-console.log(`📌 Commit mục tiêu nghiệm thu: ${expectedCommit}`)
+console.log(`📌 Commit mục tiêu nghiệm thu (EXPECTED_COMMIT_SHA): ${expectedCommitRaw || '(chưa cung cấp)'}`)
 if (serverReportedCommit) {
   console.log(`📡 Commit xác thực từ máy chủ qua HTTP: ${serverReportedCommit}`)
 } else {
-  console.log('📡 Commit máy chủ: Chưa cung cấp (máy chủ local dev hoặc chưa set DEPLOYED_COMMIT_SHA trên host)')
+  console.log('📡 Commit máy chủ: Không nhận diện được qua HTTP (/api/health)')
 }
 console.log('====================================================================\n')
 
@@ -56,7 +58,29 @@ let passed = 0
 let failed = 0
 let redirects = 0
 
-// 3. Kiểm tra từng route, phân biệt chính xác HTTP 200 vs 301/302 Redirect
+// 3. Kiểm tra xác thực commit của máy chủ trước khi kiểm thử route
+console.log('--- 0. XÁC MINH PHIÊN BẢN COMMIT MÁY CHỦ QUA HTTP ---')
+if (!expectedCommitRaw) {
+  failed++
+  console.log('FAIL [COMMIT-CHECK] Thiếu biến môi trường bắt buộc EXPECTED_COMMIT_SHA (không được sử dụng SHA cũ làm mặc định)')
+} else {
+  const targetShort = expectedCommitRaw.slice(0, 7)
+  const serverShort = serverReportedCommit ? serverReportedCommit.trim().slice(0, 7) : null
+
+  if (!serverShort) {
+    failed++
+    console.log(`FAIL [COMMIT-CHECK] Máy chủ không trả về commit xác thực qua HTTP (kỳ vọng: ${targetShort})`)
+  } else if (serverShort !== targetShort) {
+    failed++
+    console.log(`FAIL [COMMIT-CHECK] Commit máy chủ (${serverShort}) không khớp với EXPECTED_COMMIT_SHA (${targetShort})`)
+  } else {
+    passed++
+    console.log(`PASS [COMMIT-CHECK] Commit máy chủ xác thực qua HTTP khớp chuẩn: ${serverShort} == ${targetShort}`)
+  }
+}
+console.log('')
+
+// 4. Kiểm tra từng route, phân biệt chính xác HTTP 200 vs 301/302 Redirect
 console.log('--- 1. KIỂM TRA ROUTE GIAO DIỆN & API HỆ THỐNG ---')
 for (const path of coreRoutes) {
   try {

@@ -117,6 +117,35 @@ runTest('TC-SEC-05', 'rateLimit chặn request khi vượt quá số lượng qu
   assert.ok(blocked.retryAfter > 0, 'Phải có giá trị Retry-After')
 })
 
+runTest('TC-SEC-05B', 'Mỗi request chỉ tiêu thụ quota đúng 1 lần; xác minh chính xác số lượt cho phép trước HTTP 429 theo cấu hình', () => {
+  // 1. Kiểm tra mã nguồn src/app/(frontend)/api/appointments/route.ts đảm bảo chỉ gọi rateLimit với namespace 'appointment-create' đúng 1 lần
+  const routeContent = fs.readFileSync('src/app/(frontend)/api/appointments/route.ts', 'utf8')
+  const matches = [...routeContent.matchAll(/rateLimit\([^,]+,\s*['"]appointment-create['"]/g)]
+  assert.equal(
+    matches.length,
+    1,
+    `Trong route /api/appointments, rateLimit('appointment-create') chỉ được xuất hiện đúng 1 lần (hiện tại: ${matches.length} lần), không được đếm quota hai lần`
+  )
+
+  // 2. Xác minh chính xác số lượt cho phép trước HTTP 429 với cấu hình maxSubmissions (ví dụ: limit = 5)
+  const testIp = '103.20.100.99'
+  const req = new Request('http://localhost:3000/api/appointments', { headers: { 'x-real-ip': testIp } })
+  const testNamespace = `test-single-count-${Date.now()}`
+  const configuredLimit = 5
+  const windowMs = 15 * 60_000
+
+  // Thực hiện đúng 5 request -> cả 5 lượt đều phải được phép (allowed === true)
+  for (let i = 1; i <= configuredLimit; i++) {
+    const res = rateLimit(req, testNamespace, configuredLimit, windowMs)
+    assert.equal(res.allowed, true, `Lượt request thứ ${i}/${configuredLimit} phải được cho phép`)
+  }
+
+  // Request thứ 6 (vượt quá 5 lượt) -> Bắt buộc bị từ chối với status 429 và retryAfter hợp lệ
+  const blockedRes = rateLimit(req, testNamespace, configuredLimit, windowMs)
+  assert.equal(blockedRes.allowed, false, 'Lượt request thứ 6 bắt buộc bị chặn (HTTP 429 Too Many Requests)')
+  assert.ok(blockedRes.retryAfter > 0, 'Phải có giá trị Retry-After hợp lệ')
+})
+
 // -------------------------------------------------------------
 // NHÓM 2: BODY SIZE LIMIT & CHUNKED STREAMING (P1-02)
 // -------------------------------------------------------------
@@ -345,7 +374,16 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
     }
   }
 
-  // 1. Chỉ cho phép STAGING_API_URL nằm trong Allowlist được xác minh rõ ràng (không chỉ dùng danh sách chặn domain production)
+  // 1. BẮT BUỘC có TEST_DATABASE_URL để xác minh bản ghi thực tế trong PostgreSQL
+  const testDbUrl = process.env.TEST_DATABASE_URL
+  if (!testDbUrl) {
+    return {
+      blocked: true,
+      reason: 'Chưa cấu hình TEST_DATABASE_URL độc lập để đối chiếu bản ghi thực tế trong PostgreSQL (nguyên tắc: bắt buộc xác minh dữ liệu ghi thực).',
+    }
+  }
+
+  // 2. Chỉ cho phép STAGING_API_URL nằm trong Allowlist được xác minh rõ ràng (không chỉ dùng danh sách chặn domain production)
   const VERIFIED_STAGING_ALLOWLIST = ['localhost', '127.0.0.1', 'staging.bvdkthoilai.vn', 'test.bvdkthoilai.vn']
   let parsedUrl
   try {
@@ -358,13 +396,13 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
     throw new Error(`CẢNH BÁO BẢO MẬT: STAGING_API_URL (${parsedUrl.hostname}) không nằm trong Allowlist được xác minh (${VERIFIED_STAGING_ALLOWLIST.join(', ')})`)
   }
 
-  // 2. Không cố định ngày: tính ngày tương lai động (Hôm nay + 7 ngày YYYY-MM-DD)
+  // 3. Không cố định ngày: tính ngày tương lai động (Hôm nay + 7 ngày YYYY-MM-DD)
   const dynamicFutureDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
 
-  // 3. Sử dụng token Cloudflare testing chính thức (1x0000000000000000000000000000000AA)
+  // 4. Sử dụng token Cloudflare testing chính thức (1x0000000000000000000000000000000AA)
   const turnstileToken = process.env.STAGING_TURNSTILE_TOKEN || '1x0000000000000000000000000000000AA'
 
-  // 4. Không tin X-Forwarded-For do test client tự gán: gửi request bình thường không chèn fake IP header
+  // 5. Gửi 20 requests đồng thời tới staging API
   const cleanStagingUrl = stagingUrl.replace(/\/$/, '')
   const tasks = Array.from({ length: 20 }, async (_, idx) => {
     try {
@@ -390,7 +428,13 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
 
   const results = await Promise.all(tasks)
   
-  // Kiểm tra không có lỗi 500
+  // 6. TỪ CHỐI kết quả có lỗi mạng chưa xử lý
+  const networkErrors = results.filter((r) => r.status === 0 || r.error)
+  if (networkErrors.length > 0) {
+    assert.fail(`Phát hiện ${networkErrors.length} lỗi mạng chưa xử lý khi gửi request tới staging: ${JSON.stringify(networkErrors.map(e => e.error))}. Không thể đánh dấu PASS khi có lỗi kết nối mạng!`)
+  }
+
+  // 7. Kiểm tra không có lỗi 500
   const serverErrors = results.filter((r) => r.status >= 500)
   assert.equal(serverErrors.length, 0, `Staging server không được xảy ra lỗi 500 khi nhận tải: ${JSON.stringify(serverErrors)}`)
 
@@ -408,22 +452,19 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
     'Mọi request gửi tới staging phải nhận được phản hồi nghiệp vụ hợp lệ (200/201 hoặc 429)'
   )
 
-  // Kiểm chứng các mã phiếu bằng truy vấn dữ liệu thực (không dùng JavaScript Set làm bằng chứng tích hợp)
+  // 8. BẮT BUỘC xác minh mã ghi thực tế trong PostgreSQL thông qua TEST_DATABASE_URL
   if (okResults.length > 0) {
     const codes = okResults.map((r) => r.data.code)
-    const testDbUrl = process.env.TEST_DATABASE_URL
-    if (testDbUrl) {
-      const pool = new pg.Pool({ connectionString: testDbUrl, connectionTimeoutMillis: 4000 })
-      try {
-        const dbRes = await pool.query('SELECT code FROM appointments WHERE code = ANY($1)', [codes])
-        assert.equal(
-          dbRes.rows.length,
-          codes.length,
-          'Mọi mã lịch hẹn thành công trả về từ API staging phải tồn tại thực tế trong cơ sở dữ liệu PostgreSQL'
-        )
-      } finally {
-        await pool.end()
-      }
+    const pool = new pg.Pool({ connectionString: testDbUrl, connectionTimeoutMillis: 5000 })
+    try {
+      const dbRes = await pool.query('SELECT code FROM appointments WHERE code = ANY($1)', [codes])
+      assert.equal(
+        dbRes.rows.length,
+        codes.length,
+        `Tất cả ${codes.length} mã lịch hẹn thành công trả về từ API staging phải tồn tại thực tế trong cơ sở dữ liệu PostgreSQL`
+      )
+    } finally {
+      await pool.end()
     }
   }
 
@@ -579,38 +620,115 @@ await runAsyncTest('TC-PRIV-05B', 'Kiểm thử HTTP 409 và 429 thực tế qua
   }
 
   const cleanTarget = stagingUrl.replace(/\/$/, '')
+  const turnstileToken = process.env.STAGING_TURNSTILE_TOKEN || '1x0000000000000000000000000000000AA'
 
-  // Gửi request thực tế qua mạng - TUYỆT ĐỐI KHÔNG nuốt lỗi mạng hay lỗi kết nối
-  let testRes
+  // -------------------------------------------------------------
+  // PHẦN 1: KIỂM THỬ ĐỘC LẬP HTTP 429 (RATE LIMIT & COOLDOWN THỰC TẾ)
+  // -------------------------------------------------------------
+  let res429 = null
+  let hit429 = false
+  const spamPhone = `099${String(Date.now()).slice(-7)}`
+  const futureDate = new Date(Date.now() + 86400000 * 5).toISOString().slice(0, 10)
+
+  for (let i = 0; i < 8; i++) {
+    try {
+      const res = await fetch(`${cleanTarget}/api/appointments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: `Spam Tester ${i + 1}`,
+          phone: spamPhone,
+          appointmentDate: futureDate,
+          timeSlot: 'morning',
+          'cf-turnstile-response': turnstileToken,
+        }),
+        signal: AbortSignal.timeout(6000),
+      })
+      if (res.status === 429) {
+        res429 = res
+        hit429 = true
+        break
+      }
+    } catch (netErr) {
+      throw new Error(`Lỗi kết nối mạng trong quá trình kiểm thử HTTP 429 (${netErr.message}). Không thể đánh dấu PASS khi có lỗi mạng chưa xử lý.`)
+    }
+  }
+
+  assert.ok(hit429 && res429, 'Bắt buộc phải nhận được HTTP 429 thực tế từ máy chủ khi vượt ngưỡng rate limit hoặc cooldown')
+  assert.equal(res429.status, 429, 'Phản hồi giới hạn tần suất phải mang mã HTTP 429')
+  const retryAfter = res429.headers.get('retry-after')
+  const body429 = await res429.json().catch(() => ({}))
+  assert.ok(
+    body429.error && /quá nhiều lần|thử lại sau|vừa tiếp nhận/i.test(body429.error),
+    'Body HTTP 429 thực tế phải chứa thông báo rate limit/cooldown quy chuẩn'
+  )
+  assert.ok(!JSON.stringify(body429).includes('code') && !JSON.stringify(body429).includes('LK-'), 'Response 429 không được làm lộ mã lịch hẹn')
+
+  // -------------------------------------------------------------
+  // PHẦN 2: KIỂM THỬ ĐỘC LẬP HTTP 409 (CONFLICT / TRÙNG LỊCH THỰC TẾ)
+  // -------------------------------------------------------------
+  const dupPhone = `097${String(Date.now()).slice(-7)}`
+  const dupDate = new Date(Date.now() + 86400000 * 12).toISOString().slice(0, 10)
+  const dupPayload = {
+    fullName: 'Bệnh Nhân Kiểm Thử Trùng Lịch',
+    phone: dupPhone,
+    appointmentDate: dupDate,
+    timeSlot: 'morning',
+    specialtyTitle: 'Khoa Cấp Cứu',
+    'cf-turnstile-response': turnstileToken,
+  }
+
   try {
-    testRes = await fetch(`${cleanTarget}/api/appointments`, {
+    // Lần 1: Tạo lịch hẹn hợp lệ ban đầu
+    await fetch(`${cleanTarget}/api/appointments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName: 'Live Test Probe', phone: '0912345678' }),
-      signal: AbortSignal.timeout(5000),
+      body: JSON.stringify(dupPayload),
+      signal: AbortSignal.timeout(6000),
     })
   } catch (netErr) {
-    throw new Error(`Kết nối HTTP tới máy chủ staging thất bại (${netErr.message}). Không thể đánh dấu PASS khi request mạng bị lỗi!`)
+    throw new Error(`Lỗi mạng khi tạo lịch hẹn cơ sở để kiểm thử 409: ${netErr.message}`)
   }
 
-  // Xác minh HTTP response thật từ máy chủ (chấp nhận 429 nếu rate-limited, 400 nếu chặn Turnstile, 409 nếu conflict)
-  if (testRes.status === 429) {
-    const retryAfter = testRes.headers.get('retry-after')
-    assert.ok(retryAfter && Number(retryAfter) >= 0, 'Header Retry-After thực tế phải tồn tại trên phản hồi HTTP 429')
-    const body = await testRes.json().catch(() => ({}))
-    assert.ok(
-      body.error && /quá nhiều lần|thử lại sau|vừa tiếp nhận/i.test(body.error),
-      'Body HTTP 429 thực tế phải chứa thông báo rate limit an toàn'
-    )
-  } else if (testRes.status === 400) {
-    const body = await testRes.json().catch(() => ({}))
-    assert.ok(body.error && /turnstile|xác thực|an toàn|ngày/i.test(body.error), 'Body HTTP 400 phản hồi thông báo validation chuẩn')
-  } else if (testRes.status === 409) {
-    const body = await testRes.json().catch(() => ({}))
-    assert.ok(!JSON.stringify(body).includes('code'), 'Response 409 thực tế không được làm lộ mã lịch hẹn cũ')
-  } else {
-    assert.fail(`Máy chủ trả về HTTP status không hợp lệ trong kịch bản bảo vệ: nhận HTTP ${testRes.status}. Không thể đánh dấu PASS.`)
+  // Chờ ngắn để vượt qua phone cooldown
+  await new Promise((resolve) => setTimeout(resolve, 1500))
+
+  let finalConflictRes
+  try {
+    // Lần 2: Gửi lại chính xác thông tin (cùng SĐT + cùng Ngày + cùng Chuyên khoa)
+    let secondRes = await fetch(`${cleanTarget}/api/appointments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dupPayload),
+      signal: AbortSignal.timeout(6000),
+    })
+
+    // Nếu vướng cooldown (429), chờ 3 giây rồi gửi lại để kiểm tra đúng HTTP 409
+    if (secondRes.status === 429) {
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      secondRes = await fetch(`${cleanTarget}/api/appointments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dupPayload),
+        signal: AbortSignal.timeout(6000),
+      })
+    }
+    finalConflictRes = secondRes
+  } catch (netErr) {
+    throw new Error(`Lỗi mạng khi kiểm thử HTTP 409 xung đột lịch hẹn: ${netErr.message}`)
   }
+
+  assert.equal(
+    finalConflictRes.status,
+    409,
+    `Yêu cầu trùng lặp thông tin lịch hẹn (cùng SĐT, cùng ngày, cùng khoa) bắt buộc phải trả về HTTP 409 Conflict riêng biệt (nhận HTTP ${finalConflictRes.status}). Không chấp nhận mã khác thay thế.`
+  )
+  const body409 = await finalConflictRes.json().catch(() => ({}))
+  assert.ok(
+    body409.error && /trùng khớp|lịch hẹn đã có/i.test(body409.error),
+    'Body HTTP 409 phải chứa thông báo chống trùng lặp an toàn'
+  )
+  assert.ok(!JSON.stringify(body409).includes('LK-'), 'Phản hồi 409 tuyệt đối không làm lộ mã phiếu khám cũ')
 })
 
 runTest('TC-LOG-01', 'Log lỗi tại route /api/appointments phân loại category an toàn, không ghi raw SQL hay PII', () => {

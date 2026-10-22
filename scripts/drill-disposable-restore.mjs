@@ -77,25 +77,57 @@ if (!testAdminUrl) {
   process.exit(0)
 }
 
-// 3. Bảo vệ fail-closed chống kết nối nhầm vào production
-const isProductionTarget = process.env.NODE_ENV === 'production' || /railway|neon|render|aws|azure|gcp|prod/i.test(testAdminUrl)
-if (isProductionTarget) {
-  console.error('❌ [BLOCKED] Phát hiện chuỗi kết nối production trong TEST_ADMIN_DATABASE_URL. Tự động dừng khẩn cấp để bảo vệ an toàn dữ liệu!')
-  process.exit(1)
+// 3. Bảo vệ fail-closed và xác thực quyền sở hữu instance test của quản trị viên
+// 3.1 Bắt buộc quản trị viên phải xác nhận instance test an toàn qua biến môi trường
+const isConfirmedTestInstance = process.env.CONFIRM_TEST_INSTANCE === 'true' || process.env.VERIFIED_TEST_INSTANCE === 'true'
+if (!isConfirmedTestInstance) {
+  console.log('⛔ [BLOCKED / NOT RUN] Chưa xác nhận instance test độc lập (yêu cầu đặt biến môi trường CONFIRM_TEST_INSTANCE=true).')
+  console.log('Nguyên tắc an toàn: Thao tác tạo/xóa database diễn tập chỉ được phép thực thi trên instance đã được quản trị viên xác minh và cô lập hoàn toàn.')
+  process.exit(0)
 }
 
+// 3.2 Phân tích URL an toàn (tuyệt đối không in URL hoặc mật khẩu ra log/terminal nếu xảy ra lỗi)
 let parsedUrl
 try {
   parsedUrl = new URL(testAdminUrl)
 } catch {
-  console.error(`❌ [BLOCKED] TEST_ADMIN_DATABASE_URL không hợp lệ: ${testAdminUrl}`)
+  console.error('❌ [BLOCKED] TEST_ADMIN_DATABASE_URL không hợp lệ (lỗi cú pháp URL).')
   process.exit(1)
 }
 
 const dbUser = parsedUrl.username
-const dbPass = decodeURIComponent(parsedUrl.password)
+const dbPass = decodeURIComponent(parsedUrl.password || '')
 const dbHost = parsedUrl.hostname
 const dbPort = parsedUrl.port || '5432'
+
+// Hàm khử khuẩn chuỗi ký tự, ngăn chặn tuyệt đối việc in mật khẩu hoặc connection string ra terminal/CI
+function sanitizeText(str) {
+  if (!str) return ''
+  let text = String(str)
+  if (dbPass) {
+    text = text.replaceAll(dbPass, '******')
+  }
+  text = text.replace(/(postgres(?:ql)?:\/\/[^:]+:)([^@]+)(@)/gi, '$1******$3')
+  return text
+}
+
+// 3.3 Chặn đứng nếu phát hiện từ khóa production trong URL, NODE_ENV hoặc hostname
+const isProductionTarget = process.env.NODE_ENV === 'production' || /railway|neon|render|aws|azure|gcp|prod/i.test(testAdminUrl) || /prod/i.test(dbHost)
+if (isProductionTarget) {
+  console.error('❌ [BLOCKED] Phát hiện chỉ dấu production trong TEST_ADMIN_DATABASE_URL hoặc hostname. Tự động dừng khẩn cấp để bảo vệ an toàn dữ liệu!')
+  process.exit(1)
+}
+
+// 3.4 Không chỉ dựa vào từ khóa: Bắt buộc host nằm trong Allowlist máy chủ test an toàn hoặc được xác nhận cụ thể
+const ALLOWED_TEST_HOSTS = ['localhost', '127.0.0.1', '::1', 'test-postgres', 'staging-postgres', 'staging-db']
+const isAllowlistedHost = ALLOWED_TEST_HOSTS.includes(dbHost.toLowerCase()) ||
+  (process.env.VERIFIED_TEST_HOST && process.env.VERIFIED_TEST_HOST.toLowerCase() === dbHost.toLowerCase())
+
+if (!isAllowlistedHost) {
+  console.error(`❌ [BLOCKED] Hostname (${dbHost}) không nằm trong danh sách Allowlist máy chủ test an toàn (${ALLOWED_TEST_HOSTS.join(', ')}).`)
+  console.error('Hướng dẫn: Nếu đây là instance test hợp lệ của bệnh viện, vui lòng khai báo biến môi trường VERIFIED_TEST_HOST khớp với hostname này.')
+  process.exit(1)
+}
 
 // 4. Tạo RunId ngẫu nhiên duy nhất cho lần chạy hiện tại để đảm bảo tính cô lập và xác thực quyền sở hữu
 const uniqueSuffix = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`
@@ -372,6 +404,6 @@ async function runDrill() {
 }
 
 runDrill().catch((err) => {
-  console.error(`\n❌ [FAIL] Diễn tập khôi phục thất bại: ${err.message}`)
+  console.error(`\n❌ [FAIL] Diễn tập khôi phục thất bại: ${sanitizeText(err?.message || err)}`)
   process.exit(1)
 })

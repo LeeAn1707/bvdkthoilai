@@ -1,27 +1,26 @@
-# CURRENT TASK — Chốt An Toàn Script Nghiệm Thu Trước Khi Merge PR #1
+# CURRENT TASK — Sửa Các Phát Hiện Cuối Trước Khi Nghiệm Thu Staging PR #1
 
-## Trạng thái: HOÀN THÀNH — TOÀN BỘ RỦI RO SCRIPT ĐÃ ĐƯỢC KHÓA AN TOÀN
+## Trạng thái: HOÀN THÀNH — TẤT CẢ PHÁT HIỆN CUỐI ĐÃ ĐƯỢC XỬ LÝ TRIỆT ĐỂ
 
-## 1. Các hạng mục an toàn đã hoàn tất
-- [x] **1. Khóa an toàn tuyệt đối scripts/drill-disposable-restore.mjs:**
-  - Cấm đọc DATABASE_URL từ `.env`; bắt buộc dùng `TEST_ADMIN_DATABASE_URL` trên test instance riêng biệt.
-  - Sử dụng runId ngẫu nhiên duy nhất (`bvdk_drill_${Date.now()}_${randHex}`); kiểm tra không trùng tên; chỉ drop database do chính phiên hiện tại tạo ra (xác thực quyền sở hữu).
-  - Tự động phát hiện công cụ PostgreSQL (hỗ trợ PG_BIN_DIR, PATH, Windows v11-v17); yêu cầu pg_restore hoàn tất thành công với exit code 0; phân biệt rõ thời gian mẫu vs RTO ước lượng toàn hệ thống.
-- [x] **2. Chuẩn hóa TC-APPT-05A:**
-  - Loại bỏ hoàn toàn fallback từ `DATABASE_URL` chính; không tự tạo/xóa database cố định.
-  - Yêu cầu `TEST_DATABASE_URL` độc lập với cơ chế fail-closed chống kết nối production; dùng bảng tạm duy nhất `test_appt_concurrency_${Date.now()}_${randHex}`.
-- [x] **3. Tách bạch và chống nuốt lỗi TC-PRIV-05:**
-  - Tách thành `TC-PRIV-05A` (Unit/Logic: Rate limit, Cooldown, cấu trúc 409, phân tích probing) và `TC-PRIV-05B` (Live Network HTTP).
-  - `TC-PRIV-05B` tuyệt đối không nuốt lỗi mạng; bắt buộc nhận phản hồi bảo vệ chuẩn (429/400/409); báo BLOCKED nếu chưa cấu hình `STAGING_API_URL`.
-- [x] **4. Hoàn thiện TC-ACL-10B đầy đủ 5 thao tác CRUD + Export:**
-  - Kiểm tra thực tế READ (lọc theo khoa), CREATE (chặn khoa khác, cho phép đúng khoa), UPDATE (chặn đổi department, chặn khoa khác sửa), DELETE (chặn khoa khác xóa, cho phép đúng khoa xóa), EXPORT (chỉ xuất dữ liệu khoa mình).
-  - Tự động dọn dẹp an toàn các bản ghi test (tiền tố `TEST-STAGING-APPT-A`).
-- [x] **5. Nâng cấp Smoke Test xác thực commit máy chủ:**
-  - `/api/health` phát tín hiệu commit qua header `X-Server-Commit` và trường JSON `commit`.
-  - Smoke test đọc commit phản hồi thực tế từ máy chủ qua HTTP để đối chiếu commit mục tiêu nghiệm thu (`078ed03`).
+## 1. Các hạng mục đã hoàn tất
+- [x] **1. Khắc phục lỗi đếm quota hai lần tại `/api/appointments`:**
+  - Xóa bỏ lệnh gọi `rateLimit()` trùng lặp ở đầu route; chỉ kích hoạt duy nhất một lần tại bước kiểm tra chính sách với `maxSubmissions` cấu hình từ admin.
+  - Bổ sung test `TC-SEC-05B` xác minh mã nguồn chỉ gọi đúng 1 lần và kiểm chứng chính xác số lượt hợp lệ trước khi trả về HTTP 429.
+- [x] **2. Chuẩn hóa Routing API cho TC-ACL-10B:**
+  - Route `/api/appointments` hỗ trợ cả 2 luồng: nếu có header `Authorization: JWT/Bearer` hoặc cookie `payload-token` hoặc `x-payload-rest`, hệ thống tự động ủy quyền về Payload REST API (`REST_POST`, `REST_GET`, `REST_PATCH`, `REST_DELETE`).
+  - Request đặt lịch công khai của người dân từ `AppointmentBookingForm.tsx` (không auth) vẫn tiếp tục xử lý qua luồng công khai bình thường với Turnstile và LK-code.
+- [x] **3. Bảo vệ credentials và siết chặt kiểm tra instance test trong restore drill:**
+  - Khử khuẩn 100% mật khẩu và connection string thông qua `sanitizeText`; tuyệt đối không in mật khẩu hoặc URL thô ra terminal/CI.
+  - Bắt buộc quản trị viên xác nhận thông qua `CONFIRM_TEST_INSTANCE=true` mới cho phép chạy thao tác tạo/xóa database.
+  - Kiểm tra hostname bắt buộc nằm trong Allowlist máy chủ test an toàn hoặc được chỉ định qua `VERIFIED_TEST_HOST`.
+- [x] **4. Hoàn thiện xác thực commit máy chủ trong Smoke Test:**
+  - Bắt buộc biến môi trường `EXPECTED_COMMIT_SHA`; nếu thiếu hoặc máy chủ không trả về commit qua HTTP hoặc commit không khớp thì ghi nhận FAIL dứt khoát; xóa bỏ hoàn toàn SHA cũ làm mặc định.
+- [x] **5. Hoàn thiện hai bài integration test:**
+  - `TC-APPT-05B`: Yêu cầu bắt buộc `TEST_DATABASE_URL`, đối chiếu thực tế các mã phiếu ghi nhận trong PostgreSQL, từ chối mọi kết quả có lỗi mạng chưa xử lý.
+  - `TC-PRIV-05B`: Kiểm tra độc lập cả HTTP 429 (vượt ngưỡng tần suất/cooldown) và HTTP 409 (xung đột thông tin trùng lặp), không cho phép dùng một mã bất kỳ thay thế cho nhau.
 
 ## 2. Kết quả kiểm tra
-- `npm run test:security`: P0: 13 PASS, 0 FAIL, 1 BLOCKED; P1: 14 PASS, 0 FAIL, 3 BLOCKED (an toàn fail-closed khi thiếu biến môi trường test ngoài).
-- `npm run smoke:production`: 25 PASS, 0 FAIL, 0 REDIRECT.
-- `npm run validate:all`: 11/11 modules PASS (100%).
+- `npm run test:security`: P0: 13 PASS, 0 FAIL, 1 BLOCKED; P1: 15 PASS, 0 FAIL, 3 BLOCKED (an toàn fail-closed khi thiếu biến môi trường staging/test bên ngoài).
 - `npm run typecheck`: PASS (0 lỗi).
+- `npm run validate:all`: 11/11 modules PASS (100%).
+- `npm run build`: Thành công 100% với Next.js và Turbopack.

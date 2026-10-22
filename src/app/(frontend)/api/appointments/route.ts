@@ -1,13 +1,50 @@
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
+import config from '@payload-config'
+import { REST_GET, REST_POST, REST_PATCH, REST_DELETE } from '@payloadcms/next/routes'
 import { getCMS } from '@/lib/payload'
 import { readJsonBodyWithLimit, clientAddress, rateLimit, validEmail, validPhone, verifyTurnstile } from '@/lib/request-security'
 
 export const dynamic = 'force-dynamic'
 
+const restGet = REST_GET(config)
+const restPost = REST_POST(config)
+const restPatch = REST_PATCH(config)
+const restDelete = REST_DELETE(config)
+
 const generateAppointmentCode = () => `LK-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`
 
+// Ủy quyền GET /api/appointments về Payload REST API (kiểm tra access.read theo từng khoa)
+export async function GET(req: Request) {
+  return restGet(req, { params: Promise.resolve({ slug: ['appointments'] }) })
+}
+
+// Ủy quyền PATCH /api/appointments về Payload REST API
+export async function PATCH(req: Request) {
+  return restPatch(req, { params: Promise.resolve({ slug: ['appointments'] }) })
+}
+
+// Ủy quyền DELETE /api/appointments về Payload REST API
+export async function DELETE(req: Request) {
+  return restDelete(req, { params: Promise.resolve({ slug: ['appointments'] }) })
+}
+
 export async function POST(req: Request) {
+  // 1. Phân định routing: Nếu request có Authorization header (JWT/Bearer), cookie payload-token hoặc header x-payload-rest,
+  // đây là request từ Payload CMS REST API (admin/staff/integration test kiểm tra Access Control)
+  const authHeader = req.headers.get('authorization')
+  const cookieHeader = req.headers.get('cookie') || ''
+  const isPayloadRest = Boolean(
+    (authHeader && (authHeader.startsWith('JWT ') || authHeader.startsWith('Bearer '))) ||
+    cookieHeader.includes('payload-token=') ||
+    req.headers.get('x-payload-rest') === 'true'
+  )
+
+  if (isPayloadRest) {
+    return restPost(req, { params: Promise.resolve({ slug: ['appointments'] }) })
+  }
+
+  // 2. Ngược lại: đây là request đặt lịch khám công khai từ người dân (AppointmentBookingForm.tsx)
   try {
     const parsed = await readJsonBodyWithLimit(req, 25_000)
     if (parsed.error) {
@@ -18,15 +55,6 @@ export async function POST(req: Request) {
     // Honeypot: nếu bot điền trường website ẩn thì âm thầm trả về giả lập thành công
     if (body.website) {
       return NextResponse.json({ ok: true, code: 'LK-BOT' })
-    }
-
-    // Kiểm tra giới hạn IP sớm nhằm chống tấn công DoS và cạn kiệt quota Turnstile
-    const ipThrottle = rateLimit(req, 'appointment-create', 5, 15 * 60_000)
-    if (!ipThrottle.allowed) {
-      return NextResponse.json(
-        { error: `Bạn đã thao tác đặt lịch quá nhiều lần (tối đa 5 lần trong 15 phút). Vui lòng thử lại sau ${ipThrottle.retryAfter} giây.` },
-        { status: 429, headers: { 'Retry-After': String(ipThrottle.retryAfter) } }
-      )
     }
 
     // Cloudflare Turnstile verification
