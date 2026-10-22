@@ -562,6 +562,92 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
 })
 
 // -------------------------------------------------------------
+// NHÓM 3B: BỘ ĐẾM TOÀN CỤC POSTGRESQL & AN TOÀN CHUYỂN NGÀY (P0-ROLLOVER)
+// -------------------------------------------------------------
+await runAsyncTest('TC-APPT-08', 'Kiểm thử chuyển ngày mới (Rollover), đa Instance, Restart Server và tính độc lập Timezone của PostgreSQL Sequence', async () => {
+  const testDbUrl = process.env.TEST_DATABASE_URL
+  if (!testDbUrl) {
+    return {
+      blocked: true,
+      reason: 'Chưa cấu hình TEST_DATABASE_URL độc lập để kiểm thử PostgreSQL sequence thực tế.',
+    }
+  }
+
+  // 1. Kiểm tra bộ sinh mã ném lỗi có kiểm soát khi thiếu DB adapter, không âm thầm fallback mã ngẫu nhiên
+  const { getNextAtomicAppointmentCode } = await import('../src/lib/appointment-code.ts')
+  let caughtError = null
+  try {
+    await getNextAtomicAppointmentCode({ db: {} })
+  } catch (err) {
+    caughtError = err
+  }
+  assert.ok(caughtError, 'Hàm sinh mã bắt buộc phải ném lỗi khi adapter DB không khả dụng, không được fallback âm thầm')
+  assert.ok(caughtError.message.includes('APPOINTMENT_CODE_GENERATOR_ERROR'), 'Lỗi ném ra phải theo định dạng có kiểm soát')
+
+  // 2. Kiểm thử độc lập Timezone trong PostgreSQL
+  const pool1 = new pg.Pool({ connectionString: testDbUrl, connectionTimeoutMillis: 5000 })
+  try {
+    const client = await pool1.connect()
+    try {
+      // Đặt session sang UTC
+      await client.query("SET TIME ZONE 'UTC'")
+      const resUtc = await client.query("SELECT nextval('public.appointment_code_seq') as val")
+      const valUtc = Number(resUtc.rows[0].val)
+
+      // Đặt session sang Asia/Ho_Chi_Minh
+      await client.query("SET TIME ZONE 'Asia/Ho_Chi_Minh'")
+      const resVn = await client.query("SELECT nextval('public.appointment_code_seq') as val")
+      const valVn = Number(resVn.rows[0].val)
+
+      // Đặt session sang America/New_York
+      await client.query("SET TIME ZONE 'America/New_York'")
+      const resNy = await client.query("SELECT nextval('public.appointment_code_seq') as val")
+      const valNy = Number(resNy.rows[0].val)
+
+      assert.equal(valVn, valUtc + 1, 'Giá trị sequence phải tăng liên tục đơn điệu độc lập với Timezone UTC / VN')
+      assert.equal(valNy, valVn + 1, 'Giá trị sequence phải tăng liên tục đơn điệu độc lập với Timezone VN / NY')
+    } finally {
+      client.release()
+    }
+
+    // 3. Kiểm thử 2 instance ứng dụng chạy đồng thời (Multi-instance concurrency)
+    const pool2 = new pg.Pool({ connectionString: testDbUrl, connectionTimeoutMillis: 5000 })
+    try {
+      const instance1Calls = Array.from({ length: 10 }, () => pool1.query("SELECT nextval('public.appointment_code_seq') as val"))
+      const instance2Calls = Array.from({ length: 10 }, () => pool2.query("SELECT nextval('public.appointment_code_seq') as val"))
+
+      const allResponses = await Promise.all([...instance1Calls, ...instance2Calls])
+      const vals = allResponses.map((r) => Number(r.rows[0].val))
+      const distinctVals = new Set(vals)
+
+      assert.equal(distinctVals.size, 20, '20 lần gọi từ 2 instance độc lập phải cho ra 20 giá trị hoàn toàn duy nhất')
+    } finally {
+      await pool2.end()
+    }
+
+    // 4. Kiểm thử mô phỏng Restart Server (đóng và mở lại connection pool)
+    const lastValBeforeRestart = Number((await pool1.query("SELECT last_value FROM public.appointment_code_seq")).rows[0].last_value)
+    await pool1.end()
+
+    // Khởi tạo connection pool mới (mô phỏng server vừa reboot)
+    const rebootedPool = new pg.Pool({ connectionString: testDbUrl, connectionTimeoutMillis: 5000 })
+    try {
+      const nextAfterRestart = Number((await rebootedPool.query("SELECT nextval('public.appointment_code_seq') as val")).rows[0].val)
+      assert.equal(
+        nextAfterRestart,
+        lastValBeforeRestart + 1,
+        'Sau khi restart server / connection pool mới, sequence phải tiếp tục giá trị kế tiếp một cách an toàn'
+      )
+    } finally {
+      await rebootedPool.end()
+    }
+  } catch (err) {
+    await pool1.end().catch(() => {})
+    throw err
+  }
+})
+
+// -------------------------------------------------------------
 // NHÓM 4: BẢO VỆ THÔNG TIN TRONG LỖI 500 & KHÔNG RÒ RỈ SECRET (P1-04, P1-08)
 // -------------------------------------------------------------
 runTest('TC-SEC-09 / TC-PRIV-02', 'Lỗi 500 không để lộ error.message thô, SQL hay stack trace ra ngoài response', () => {

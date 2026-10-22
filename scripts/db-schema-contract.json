@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "migrationId": "20261022_080_enforce_appointments_code_unique_and_counter",
+  "migrationId": "20261022_081_create_global_appointment_code_sequence",
   "schemaSha256": "ad9137591df541e6e8a70034623e416164d5dcb4abe1bfd7d60afc4b9c71b238"
 }

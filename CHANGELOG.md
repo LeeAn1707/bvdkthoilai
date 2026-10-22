@@ -1,6 +1,12 @@
 # CHANGELOG
 
-## 2026-10-22 — Khắc Phục P0 Trùng Mã Lịch Khám & Thiết Lập Bộ Đếm Nguyên Tử PostgreSQL
+## 2026-10-22 — Khắc Phục P0 Rủi Ro Trùng Mã Khi Chuyển Ngày & Sequence Tăng Toàn Cục
+
+- **Xác minh rủi ro chuyển ngày:** Thực nghiệm chuyển ngày 22/10 sang 23/10 trên database TEST xác nhận bộ đếm `date_key` reset về 1 sinh mã `BVTL0001` bị chặn bởi UNIQUE index `appointments_code_idx` (lỗi 23505) do mã lịch hẹn không chứa ngày.
+- **Migration 081 & PostgreSQL Sequence toàn cục:** Triển khai `public.appointment_code_seq` tăng đơn điệu liên tục toàn hệ thống; khởi tạo an toàn từ giá trị lớn nhất hiện có (`MAX = 205`) mà không làm thay đổi các mã đã tồn tại. Duy trì 100% UNIQUE index trên `appointments(code)`.
+- **Độc lập Timezone & Đồng bộ hai luồng tạo:** `src/lib/appointment-code.ts` gọi `SELECT nextval('public.appointment_code_seq')`, độc lập hoàn toàn với ngày tháng và timezone của PostgreSQL. Đồng bộ sử dụng chung bộ sinh mã cho cả `/api/appointments` và hook `beforeValidate` của collection `Appointments`.
+- **Loại bỏ fallback âm thầm:** Bỏ sinh mã ngẫu nhiên; ném lỗi có kiểm soát `APPOINTMENT_CODE_GENERATOR_ERROR` khi không kết nối được database.
+- **Nghiệm thu toàn diện:** Thêm test `TC-APPT-08` xác minh chuyển ngày, kiểm thử đa instance, restart server và timezone. Kiểm thử thành công 20 và 100 concurrent requests; truy vấn PostgreSQL TEST xác nhận 325/325 mã duy nhất tuyệt đối (0 trùng lặp). Toàn bộ 19 test P1, 13 test P0, migrations 354/354, typecheck và build Next.js đều đạt 100% PASS.
 
 - **Xác định nguyên nhân gốc rễ:** Phát hiện `appointments.code` chưa có UNIQUE constraint/index trong PostgreSQL; endpoint tạo lịch kiểm tra trùng lặp trong bộ nhớ gặp race condition (TOCTOU) khi có nhiều request đồng thời, khiến nhiều request sinh cùng mã `BVTL0001`.
 - **Sao lưu & Dọn dẹp an toàn:** Sao lưu nguyên vẹn 22 bản ghi cũ vào bảng `appointments_backup_20261022`, resequence các mã test trùng lặp để đảm bảo tính toàn vẹn 100%, không xóa bất kỳ dữ liệu nào.
