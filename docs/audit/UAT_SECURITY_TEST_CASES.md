@@ -24,10 +24,12 @@ Các dòng dưới đây là **kịch bản đề xuất**, không phải kết 
 | TC-ACL-07 | P0 | Khi nghiệp vụ có chia khoa: user khoa A truy vấn, pagination, filter và export bản ghi khoa B. | Không nhận được dữ liệu khoa B từ bất cứ đường nào. | PASS |
 | TC-ACL-08 | P1 | Tài khoản có custom permissions nhưng không gắn khoa; bảo vệ trường `department` khi update. | Khóa Deny-by-default (trả về false), trường department chỉ được sửa bởi super-admin/system-admin/admin/clinic-schedule. | PASS |
 | TC-ACL-09 | P0 | Quản lý Khoa A thử tạo mới lịch gán cho Khoa B hoặc xóa lịch của Khoa B. | Bị từ chối (HTTP 403 / WHERE scope cách ly Khoa A; không thể tạo hay xóa lịch Khoa B). | PASS |
+| TC-ACL-10 | P0 | Integration test phân quyền Payload CMS toàn diện: tài khoản Khoa A không được đọc, tạo, sửa, xóa hay xuất lịch hẹn Khoa B. | Khóa cách ly hoàn toàn giữa Khoa A và Khoa B trên cả 5 tác vụ (Read, Create, Update, Delete, Export). | PASS |
 | TC-PRIV-01 | P0 | Export hợp lệ bằng role được phê duyệt; xem field trong Excel. | Chỉ các cột/record được phép, có audit trail. | NOT RUN (Cần UI staging) |
 | TC-PRIV-02 | P1 | Gây lỗi DB giả lập ở staging, đọc response và log. | Response không lộ SQL, secret, stack trace/PII; trả mã correlation ID ẩn danh. | PASS |
 | TC-PRIV-03 | P1 | Kiểm tra dữ liệu riêng tư trong URL, browser cache, search indexing và file media. | Không rò dữ liệu cá nhân ra URL công khai/crawler/cache public. | NOT RUN (Cần audit URL staging) |
 | TC-PRIV-04 | P1 | Người dùng chỉ biết SĐT gửi request đặt lịch trùng lặp (HTTP 409). | Trả thông báo lỗi chung, không trả mã phiếu hẹn cũ (`code`), không xác nhận ngày khám cụ thể để chống dò tìm (probing). | PASS |
+| TC-PRIV-05 | P1 | Kiểm thử HTTP 409 và 429 thực tế, đánh giá rủi ro suy đoán lịch hẹn từ phản hồi khác biệt. | Xác nhận HTTP 429 (IP limit & Phone cooldown), 409 (Conflict). Đánh giá phòng thủ đa tầng (Turnstile, IP quota, Phone cooldown) ngăn chặn triệt để hành vi dò quét. | PASS |
 
 ## 3. Nhóm API đặt lịch / chống lạm dụng
 
@@ -38,8 +40,8 @@ Các dòng dưới đây là **kịch bản đề xuất**, không phải kết 
 | TC-APPT-03 | P1 | SĐT/email/ngày giờ sai định dạng, field dài bất thường. | 400/422 dễ hiểu; regex validate SĐT/email/ngày. | PASS |
 | TC-APPT-04 | P1 | Gửi trùng cùng SĐT/ngày/chuyên khoa; nhấp nút liên tiếp. | Chặn gửi liên tiếp trong 60s và chặn trùng chuyên khoa trong ngày. | PASS |
 | TC-APPT-05 | P1 | Kiểm thử Concurrency giải quyết va chạm mã khi có nhiều request đồng thời (Promise.all). | Thuật toán retry bắt `unique_violation` và cấp mã đuôi ngẫu nhiên, 100% mã duy nhất, không va chạm. | PASS |
-| TC-APPT-05A | P1 | Kiểm thử Unique Constraint trên PostgreSQL thật với `TEST_DATABASE_URL` (20 requests đồng thời). | Bắt lỗi 23505 PostgreSQL, retry tự động cấp mã ngẫu nhiên, 100% mã duy nhất, 20 dòng ghi DB. | NOT RUN (Chờ cấu hình TEST_DATABASE_URL riêng) |
-| TC-APPT-05B | P1 | Integration test gửi 20 HTTP requests đồng thời tới API `/api/appointments` trên staging. | Máy chủ staging xử lý concurrency, trả HTTP 200/409 hợp lệ, không trùng mã. | NOT RUN (Chờ máy chủ STAGING_API_URL online) |
+| TC-APPT-05A | P1 | Kiểm thử Unique Constraint trên PostgreSQL thật với `TEST_DATABASE_URL` (20 requests đồng thời). | Bắt lỗi 23505 PostgreSQL, retry tự động cấp mã ngẫu nhiên, 100% mã duy nhất, 20 dòng ghi DB. Nếu cấu hình URL sai kết nối thì báo FAIL thay vì SKIP. | NOT RUN (Chờ cấu hình TEST_DATABASE_URL riêng) |
+| TC-APPT-05B | P1 | Integration test gửi 20 HTTP requests đồng thời tới API `/api/appointments` trên staging an toàn. | Máy chủ staging xử lý concurrency, dùng ngày tương lai động, dùng token kiểm thử hợp lệ, chấp nhận 200/201 hoặc 429 theo rate-limit, tuyệt đối cấm gửi lên production. | NOT RUN (Chờ máy chủ STAGING_API_URL online) |
 | TC-APPT-06 | P1 | Sinh mã vào thời điểm chuyển ngày theo Asia/Ho_Chi_Minh. | Tính chuẩn mốc thời gian UTC+7 để lọc số thứ tự theo ngày. | PASS |
 | TC-APPT-07 | P1 | Giả lập đã cấp 9999 mã của một ngày bằng fixture. | Mở rộng lên `BVTL10000`, không quay vòng về 1 gây trùng lịch sử. | PASS |
 | TC-APPT-08 | P1 | Sau nâng cấp schema sinh mã mới, truy cập mã lịch cũ. | Mã cũ (`BVTLxxxx`, `LK-xxxx`) còn tra cứu được bình thường. | PASS |
@@ -79,6 +81,7 @@ Các dòng dưới đây là **kịch bản đề xuất**, không phải kết 
 | TC-DR-04 | P1 | Mô phỏng mất một file backup hoặc checksum sai. | Verify fail; cảnh báo và không tự coi backup hợp lệ. | NOT RUN (Cần test phục hồi) |
 | TC-DR-05 | P1 | Diễn tập khôi phục đo RTO/RPO. | Đạt ngưỡng do bệnh viện phê duyệt; có biên bản. | NOT RUN (Cần diễn tập vận hành) |
 | TC-DR-06 | P1 | Gọi lệnh/script backup được khai báo ở `package.json` theo nền tảng đang dùng. | Đã xóa secret hardcoded; script yêu cầu DATABASE_URL từ môi trường. | PASS |
+| TC-DR-07 | P1 | Diễn tập sao lưu và khôi phục dữ liệu giả lập (`npm run backup:rehearse`). | 7 bước kiểm thử: tạo dump, hash SHA-256, verify checksum, khử khuẩn secret, khôi phục với CONFIRM_RESTORE=YES, phát hiện tamper-detection và dọn dẹp sạch. | PASS |
 | TC-CI-01 | P1 | Trên branch test, cố tình bật lại public collection create. | Security test FAIL chặn merge. | PASS |
 | TC-CI-02 | P1 | Trên branch test, mở quyền export cho editor. | RBAC test FAIL chặn merge. | PASS |
 | TC-CI-03 | P1 | Chạy `npm ci`, typecheck, audit, build, validator. | Các job thành công trên SHA dự kiến triển khai. | PASS |

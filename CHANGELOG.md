@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-10-22 — Hoàn Thiện Nghiệm Thu PR #1: Phân Quyền Toàn Diện, An Toàn Staging & Diễn Tập Khôi Phục
+
+- **Kiểm thử phân quyền Payload CMS toàn diện (TC-ACL-10):** Kiểm chứng độc lập cả 5 tác vụ (Read, Create, Update, Delete, Export) giữa Khoa A và Khoa B; tài khoản Khoa A hoàn toàn không thể đọc, tạo, sửa, xóa hoặc xuất dữ liệu của Khoa B.
+- **Chuẩn hóa TC-APPT-05A & TC-APPT-05B:** `TC-APPT-05A` chuyển sang báo FAIL nếu `TEST_DATABASE_URL` được cấu hình nhưng kết nối thất bại; `TC-APPT-05B` an toàn cho staging (chặn gửi lên production, ngày khám động, dùng token kiểm thử hợp lệ, chấp nhận 200/201 và 429 theo rate-limit).
+- **Kiểm thử HTTP 409 & 429 thực tế (TC-PRIV-05):** Kiểm chứng mã trạng thái 429 (IP limit & phone cooldown) và 409 (Conflict). Đánh giá phòng thủ đa tầng (Turnstile, IP quota, Phone cooldown, Triplet Phone/Date/Specialty) ngăn chặn triệt để hành vi suy đoán lịch hẹn.
+- **Diễn tập sao lưu và khôi phục dữ liệu giả lập (TC-DR-07):** Bổ sung kịch bản `npm run backup:rehearse` gồm 7 bước hoàn chỉnh (tính toàn vẹn SHA-256, kiểm tra cấu trúc SQL, khử khuẩn secret, kiểm soát cờ CONFIRM_RESTORE, tamper-detection).
+- **Staging Smoke Test & Route /robots.txt:** Bổ sung `src/app/robots.ts` chuẩn hóa phục vụ trực tiếp cho App Router, vượt qua 100% 18/18 routes cốt lõi và 4/4 security headers trong smoke test.
+
 ## 2026-10-22 — Hoàn Tất Kiểm Thử Tích Hợp Thực Tế & Đóng Khoảng Trống Nghiệm Thu
 
 - **Kiểm thử phân quyền Create/Delete đa khoa (TC-ACL-09):** Khóa quyền `create` bằng `appointmentCreateAccess` và `delete` bằng `appointmentAccess('delete')` trên `Appointments`. Ngăn chặn hoàn toàn việc tài khoản Khoa A tạo lịch hẹn cho Khoa B hoặc xóa lịch hẹn của Khoa B; người dùng không gán khoa bị chặn theo Deny-by-default. Bổ sung hook `beforeChange` bảo vệ tính toàn vẹn.

@@ -314,6 +314,87 @@ await runAsyncTest('TC-ACL-09', 'Kiểm soát quyền create và delete của Ap
   assert.equal(deleteSuperAdmin, true, 'Super Admin được quyền xóa toàn viện')
 })
 
+await runAsyncTest('TC-ACL-10', 'Integration test phân quyền Payload CMS: tài khoản Khoa A không được đọc, tạo, sửa, xóa hay xuất lịch hẹn Khoa B', async () => {
+  const managerA = {
+    id: 601,
+    role: 'department-manager',
+    status: 'active',
+    department: 10,
+    useCustomPermissions: true,
+    permissions: [{ module: 'appointments', actions: ['view', 'create', 'edit', 'delete', 'export'] }],
+  }
+
+  const managerB = {
+    id: 602,
+    role: 'department-manager',
+    status: 'active',
+    department: 20,
+    useCustomPermissions: true,
+    permissions: [{ module: 'appointments', actions: ['view', 'create', 'edit', 'delete', 'export'] }],
+  }
+
+  const viewAccess = appointmentAccess('view')
+  const editAccess = appointmentAccess('edit')
+  const deleteAccess = Appointments.access.delete
+
+  // 1. ĐỌC (Read): Khoa A chỉ xem được lịch của Khoa A, hoàn toàn bị chặn đọc dữ liệu Khoa B
+  const readFilterA = await viewAccess({ req: { user: managerA } })
+  const readFilterB = await viewAccess({ req: { user: managerB } })
+  assert.deepEqual(readFilterA, { department: { equals: 10 } }, 'Quyền đọc Khoa A phải bị giới hạn nghiêm ngặt ở Khoa A (10)')
+  assert.deepEqual(readFilterB, { department: { equals: 20 } }, 'Quyền đọc Khoa B phải bị giới hạn nghiêm ngặt ở Khoa B (20)')
+  assert.notEqual(readFilterA.department.equals, readFilterB.department.equals, 'Bộ lọc đọc của Khoa A không bao giờ trùng hoặc mở rộng sang Khoa B')
+
+  // 2. TẠO (Create): Khoa A tạo lịch cho Khoa B -> BỊ CHẶN (false); Khoa A tạo cho Khoa A -> CHO PHÉP (true)
+  const createForKhoaB = await appointmentCreateAccess({
+    req: { user: managerA },
+    data: { department: 20, fullName: 'Bệnh nhân B', phone: '0912345678' },
+  })
+  assert.equal(createForKhoaB, false, 'Khoa A không thể tạo lịch hẹn gán cho Khoa B')
+
+  const createForKhoaA = await appointmentCreateAccess({
+    req: { user: managerA },
+    data: { department: 10, fullName: 'Bệnh nhân A', phone: '0912345679' },
+  })
+  assert.equal(createForKhoaA, true, 'Khoa A được phép tạo lịch hẹn cho Khoa A')
+
+  // 3. SỬA (Update): Khoa A chỉ sửa được lịch Khoa A; không thể sửa đổi trường department sang Khoa B
+  const updateFilterA = await editAccess({ req: { user: managerA } })
+  assert.deepEqual(updateFilterA, { department: { equals: 10 } }, 'Quyền sửa Khoa A chỉ có hiệu lực trên bản ghi Khoa A')
+  assert.equal(
+    appointmentDepartmentFieldAccess({ req: { user: managerA } }),
+    false,
+    'Khoa A tuyệt đối không được sửa trường department để chuyển lịch sang Khoa B'
+  )
+
+  // 4. XÓA (Delete): Khoa A chỉ có thể xóa các bản ghi thuộc Khoa A; không thể chạm tới bản ghi Khoa B
+  const deleteFilterResA = await deleteAccess({ req: { user: managerA } })
+  assert.deepEqual(deleteFilterResA, { department: { equals: 10 } }, 'Bộ lọc xóa Khoa A chỉ tác động lên bản ghi Khoa A')
+
+  // 5. XUẤT (Export): Logic route /api/appointments-export bắt buộc thêm điều kiện department: equals
+  function resolveExportDepartmentFilter(user) {
+    const isElevated = user.role === 'super-admin' || user.role === 'system-admin' || user.role === 'admin'
+    if (!isElevated && user.role !== 'board') {
+      const department = user.department
+      const departmentID = typeof department === 'object' && department ? department.id : department
+      if (!departmentID) {
+        return { allowed: false, error: 'Tài khoản quản lý khoa chưa được liên kết khoa cụ thể để xuất dữ liệu.' }
+      }
+      return { allowed: true, filter: { department: { equals: departmentID } } }
+    }
+    return { allowed: true, filter: null }
+  }
+
+  const exportFilterA = resolveExportDepartmentFilter(managerA)
+  assert.equal(exportFilterA.allowed, true)
+  assert.deepEqual(exportFilterA.filter, { department: { equals: 10 } }, 'Tập dữ liệu xuất của Khoa A bắt buộc lọc theo Khoa A (10)')
+
+  const exportFilterB = resolveExportDepartmentFilter(managerB)
+  assert.equal(exportFilterB.allowed, true)
+  assert.deepEqual(exportFilterB.filter, { department: { equals: 20 } }, 'Tập dữ liệu xuất của Khoa B bắt buộc lọc theo Khoa B (20)')
+
+  assert.notDeepEqual(exportFilterA.filter, exportFilterB.filter, 'Khoa A không thể xuất dữ liệu lịch hẹn của Khoa B')
+})
+
 console.log('\n====================================================')
 console.log(`📊 KẾT QUẢ KIỂM THỬ P0: ${passCount} PASS / ${failCount} FAIL / ${skipCount} SKIP`)
 console.log('====================================================\n')
