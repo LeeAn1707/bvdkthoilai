@@ -176,6 +176,28 @@ export const moduleAccess = (module: string, action: PermissionAction): Access =
   return hasModulePermission(user, module, action)
 }
 
+export const appointmentAccess = (action: PermissionAction): Access => async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (!isActiveUser(user)) return false
+  const role = roleOf(user)
+  if (isElevatedRole(role)) return true
+  if (!hasModulePermission(user, 'appointments', action)) return false
+
+  // Ban Giám Đốc (board) và Điều phối phòng khám (clinic-schedule) được xem/điều phối toàn viện
+  if (role === 'board' || role === 'clinic-schedule') return true
+
+  // Quản lý khoa (department-manager) hoặc user có ràng buộc department:
+  // Chỉ được thao tác với các phiếu hẹn thuộc đúng khoa của mình.
+  if (role === 'department-manager' || user?.department) {
+    const department = (user as any)?.department
+    const departmentID = typeof department === 'object' && department ? department.id : department
+    if (!departmentID) return false
+    return { department: { equals: departmentID } } as Where
+  }
+
+  return true
+}
+
 export const departmentScopedAccess = (module: string, action: PermissionAction, departmentField = 'department'): Access => ({ req }) => {
   if (!isActiveUser(req.user)) return false
   if (isElevatedRole(roleOf(req.user))) return true

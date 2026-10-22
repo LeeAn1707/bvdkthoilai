@@ -36,5 +36,8 @@ jobs:
       - name: TypeScript check
         run: npm run typecheck
 
+      - name: Security checks
+        run: npm run test:security
+
       - name: Regression checks
         run: npm run validate:all

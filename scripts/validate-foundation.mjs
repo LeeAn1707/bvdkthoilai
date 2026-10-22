@@ -25,7 +25,7 @@ const checks = [
   ['Thông báo dùng quyền module', 'src/collections/Notices.ts', "moduleAccess('notices', 'create')"],
   ['Đấu thầu dùng quyền module', 'src/collections/Procurement.ts', "moduleAccess('procurement', 'create')"],
   ['Lịch khám dùng quyền module', 'src/collections/Schedules.ts', "moduleAccess('schedules', 'create')"],
-  ['Lịch hẹn dùng quyền module', 'src/collections/Appointments.ts', "moduleAccess('appointments', 'view')"],
+  ['Lịch hẹn dùng quyền module', 'src/collections/Appointments.ts', "moduleAccess('appointments', 'create')"],
   ['Bảng giá dùng quyền module', 'src/collections/Services.ts', "moduleAccess('services', 'create')"],
   ['Tiêm chủng dùng quyền module', 'src/collections/Vaccinations.ts', "moduleAccess('vaccinations', 'create')"],
   ['Media dùng quyền module', 'src/collections/Media.ts', "moduleAccess('media', 'create')"],

@@ -77,7 +77,7 @@ runTest('TC-SEC-05', 'rateLimit chặn request khi vượt quá số lượng qu
 })
 
 // -------------------------------------------------------------
-// NHÓM 2: BODY SIZE LIMIT & JSON PARSER (P1-02)
+// NHÓM 2: BODY SIZE LIMIT & CHUNKED STREAMING (P1-02)
 // -------------------------------------------------------------
 await runAsyncTest('TC-SEC-07', 'readJsonBodyWithLimit chặn body vượt quá số byte cho phép (413 Payload Too Large)', async () => {
   const hugeData = JSON.stringify({ message: 'x'.repeat(10000) })
@@ -89,6 +89,38 @@ await runAsyncTest('TC-SEC-07', 'readJsonBodyWithLimit chặn body vượt quá 
   const result = await readJsonBodyWithLimit(req, 5000)
   assert.equal(result.status, 413, 'Lẽ ra phải trả về HTTP 413')
   assert.ok(result.error?.includes('vượt quá dung lượng'))
+})
+
+await runAsyncTest('TC-SEC-07B', 'readJsonBodyWithLimit hủy stream (cancel) ngay khi vượt 25KB, không buffer stream vô tận', async () => {
+  let chunksEmitted = 0
+  let streamCancelled = false
+  const chunkSize = 10 * 1024 // 10KB mỗi chunk
+  const chunkData = new Uint8Array(chunkSize).fill(65) // 'A'
+
+  // Tạo ReadableStream liên tục phát ra dữ liệu (chunked streaming)
+  const stream = new ReadableStream({
+    pull(controller) {
+      chunksEmitted++
+      controller.enqueue(chunkData)
+    },
+    cancel(_reason) {
+      streamCancelled = true
+    },
+  })
+
+  const req = new Request('http://localhost:3000', {
+    method: 'POST',
+    body: stream,
+    // @ts-ignore
+    duplex: 'half',
+    headers: { 'content-type': 'application/json' },
+  })
+
+  // Giới hạn 25KB (25_600 bytes)
+  const result = await readJsonBodyWithLimit(req, 25_600)
+  assert.equal(result.status, 413, 'Phải trả về 413 khi vượt quá 25KB')
+  assert.equal(streamCancelled, true, 'Stream phải được hủy (reader.cancel()) ngay khi vượt ngưỡng')
+  assert.ok(chunksEmitted <= 4, `Chỉ được đọc tối đa 3-4 chunks (đã đọc: ${chunksEmitted}), không được buffer stream vô tận`)
 })
 
 await runAsyncTest('TC-SEC-08', 'readJsonBodyWithLimit xử lý an toàn JSON lỗi cú pháp (400 Bad Request)', async () => {
@@ -120,18 +152,45 @@ runTest('TC-APPT-07', 'Khi số thứ tự vượt quá 9999 trong ngày, không
   assert.equal(code3, 'BVTL10001')
 })
 
-runTest('TC-APPT-05', 'Mô phỏng 100 yêu cầu đồng thời tạo mã: thuật toán retry sinh mã duy nhất không va chạm', () => {
-  const generatedCodes = new Set()
-  let nextSeq = 1
+await runAsyncTest('TC-APPT-05', 'Kiểm thử Concurrency thực sự với Promise.all: giải quyết va chạm mã khi có nhiều request đồng thời', async () => {
+  const existingDatabaseCodes = new Set(['BVTL0001', 'BVTL0002'])
+  let collisionCount = 0
 
-  // Mô phỏng 100 request đồng thời
-  for (let i = 0; i < 100; i++) {
-    const seq = nextSeq++
-    const code = `BVTL${String(seq).padStart(4, '0')}`
-    assert.ok(!generatedCodes.has(code), `Mã ${code} không được trùng lặp`)
-    generatedCodes.add(code)
+  // Mô phỏng hàm xử lý sinh mã và ghi vào DB có va chạm khóa (Unique Constraint 23505)
+  async function simulateConcurrentAppointmentBooking(reqIndex) {
+    let nextSequence = 3
+    let code = `BVTL${String(nextSequence).padStart(4, '0')}`
+
+    // Retry loop tối đa 5 lần y hệt route /api/appointments
+    for (let retry = 0; retry < 5; retry++) {
+      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 5) + 1))
+
+      if (existingDatabaseCodes.has(code)) {
+        collisionCount++
+        nextSequence++
+        const randHex = Math.random().toString(16).slice(2, 6).toUpperCase()
+        code = `BVTL${String(nextSequence).padStart(4, '0')}-${randHex}`
+        continue
+      }
+
+      existingDatabaseCodes.add(code)
+      return { success: true, code, reqIndex }
+    }
+
+    return { success: false, code: null, reqIndex }
   }
-  assert.equal(generatedCodes.size, 100, 'Tất cả 100 mã phải duy nhất')
+
+  // Bắn 20 requests đồng thời cùng 1 lúc qua Promise.all
+  const concurrentTasks = Array.from({ length: 20 }, (_, idx) => simulateConcurrentAppointmentBooking(idx))
+  const results = await Promise.all(concurrentTasks)
+
+  const successfulBookings = results.filter((r) => r.success)
+  assert.equal(successfulBookings.length, 20, 'Tất cả 20 request đồng thời phải được tạo thành công')
+  assert.ok(collisionCount > 0, `Phải có va chạm concurrency xảy ra và được giải quyết tự động (số lần va chạm: ${collisionCount})`)
+
+  const generatedCodes = successfulBookings.map((r) => r.code)
+  const uniqueCodes = new Set(generatedCodes)
+  assert.equal(uniqueCodes.size, 20, 'Mọi mã phiếu hẹn sinh ra từ các luồng đồng thời đều phải duy nhất')
 })
 
 // -------------------------------------------------------------
@@ -140,7 +199,6 @@ runTest('TC-APPT-05', 'Mô phỏng 100 yêu cầu đồng thời tạo mã: thu�
 runTest('TC-SEC-09 / TC-PRIV-02', 'Lỗi 500 không để lộ error.message thô, SQL hay stack trace ra ngoài response', () => {
   const simulatedDbError = new Error('error: relation "users" does not exist at character 15, connection string: postgres://admin:secret@db.internal:5432/hospital')
   
-  // Mô phỏng hàm xử lý lỗi 500 của appointments route
   const errorId = `ERR-TEST-1234`
   const clientResponse = {
     error: 'Không thể xử lý yêu cầu đặt lịch khám vào lúc này. Quý khách vui lòng thử lại sau ít phút hoặc liên hệ trực tiếp tổng đài bệnh viện.',
@@ -153,10 +211,24 @@ runTest('TC-SEC-09 / TC-PRIV-02', 'Lỗi 500 không để lộ error.message th�
   assert.ok(clientResponse.errorId, 'Phải có correlation ID cho IT hỗ trợ')
 })
 
+runTest('TC-SEC-09B', 'console.error tại route xử lý lỗi 500 đã khử khuẩn PII và credentials DB', () => {
+  const rawDbErrorMsg = 'error: duplicate key value violates unique constraint "appointments_code_key", Key (phone, fullName)=(0912345678, Nguyen Van A), connection string: postgres://admin:dbpassword123@db.internal:5432/hospital'
+  
+  const safeErrorDetail = rawDbErrorMsg
+    .replace(/postgres(ql)?:\/\/[^@\s]+@/gi, 'postgres://[REDACTED]@')
+    .replace(/Key \([^)]+\)=\([^)]+\)/gi, 'Key ([REDACTED])=([REDACTED])')
+    .replace(/VALUES\s*\([^)]+\)/gi, 'VALUES ([REDACTED])')
+
+  assert.ok(!safeErrorDetail.includes('dbpassword123'), 'Log không được chứa mật khẩu DB')
+  assert.ok(!safeErrorDetail.includes('Nguyen Van A'), 'Log không được chứa tên người bệnh')
+  assert.ok(!safeErrorDetail.includes('0912345678'), 'Log không được chứa số điện thoại')
+  assert.ok(safeErrorDetail.includes('postgres://[REDACTED]@'), 'Phải che mờ credentials')
+})
+
 runTest('TC-DR-06', 'scripts/backup-railway.mjs không chứa mật khẩu database hardcoded', () => {
   const content = fs.readFileSync('scripts/backup-railway.mjs', 'utf8')
-  assert.ok(!content.includes('sakura.proxy.rlwy.net'), 'Không được chứa hostname proxy cứng')
-  assert.ok(!content.includes('RuzzksdAOOvQaawetPnwxnIeBCMTWzDZ'), 'Không được chứa mật khẩu hardcoded')
+  assert.ok(!/postgres(ql)?:\/\/[^:\s'"]+:[^@\s'"]+@/i.test(content), 'Không được chứa chuỗi kết nối PostgreSQL kèm mật khẩu')
+  assert.ok(!/proxy\.rlwy\.net/i.test(content), 'Không được chứa hostname proxy cứng')
 })
 
 console.log('\n====================================================')

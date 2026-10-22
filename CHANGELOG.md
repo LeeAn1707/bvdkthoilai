@@ -1,13 +1,15 @@
 # CHANGELOG
 
-## 2026-10-22 — Khắc Phục Lỗ Hổng Bảo Mật P0 & P1 Theo Báo Cáo Đánh Giá Toàn Diện
+## 2026-10-22 — Khắc Phục Lỗ Hổng Bảo Mật P0 & P1 & Hoàn Thiện Sau Đợt Review Độc Lập
 
-- **P0 - Bảo mật lịch khám & RBAC:** Khóa trực tiếp quyền tạo của collection `Appointments` (`moduleAccess('appointments', 'create')`), chuyển toàn bộ luồng công khai qua endpoint kiểm soát `/api/appointments`; thu hồi quyền truy cập lịch khám của các vai trò ngoài chuyên môn (`editor`, `hr`, `finance`, `procurement`); siết chặt quyền xóa và xuất dữ liệu.
-- **P0 - Cloudflare Turnstile:** Cập nhật `verifyTurnstile` cơ chế Fail-Closed trên môi trường production khi thiếu `TURNSTILE_SECRET_KEY`; bổ sung kiểm tra preflight bắt buộc trước khi triển khai.
-- **P1 - Chống DoS & Bảo vệ API:** Chuẩn hóa nhận diện IP an toàn qua `cf-connecting-ip`, giới hạn rate limit và kiểm soát dung lượng payload stream thô qua `readJsonBodyWithLimit` (chống bypass chunked/Content-Length).
-- **P1 - Sinh mã lịch hẹn & Xử lý lỗi:** Cải tiến thuật toán sinh mã phiếu hẹn không quay vòng khi vượt quá 9999/ngày; bổ sung cơ chế retry bắt lỗi `unique_violation` khi có yêu cầu đồng thời; ẩn thông báo lỗi chi tiết ở phản hồi HTTP 500, sinh `errorId` tra cứu và không log dữ liệu định danh bệnh nhân.
-- **P1 - R2 Health Probe & Vệ sinh bí mật:** Nâng cấp health check kiểm tra thực tế Cloudflare R2 qua `HeadBucketCommand` với bộ nhớ đệm 30s; loại bỏ hoàn toàn chuỗi kết nối chứa mật khẩu cơ sở dữ liệu hardcoded trong `scripts/backup-railway.mjs`.
-- Bổ sung bộ kiểm thử tự động `test:security-p0` và `test:security-p1` (16/16 test case PASS).
+- **P0 - Khử khuẩn bí mật:** Xóa bỏ hoàn toàn chuỗi mật khẩu database cũ khỏi toàn bộ mã nguồn và test assertion; kiểm tra xác nhận không còn bí mật nào trong repository.
+- **P0 - Cấm mock Turnstile trên Production:** Sửa `verifyTurnstile` và `preflight-production.mjs`, cấm tuyệt đối `MOCK_TURNSTILE=true` trên production, chỉ cho phép mock ở `NODE_ENV=test`.
+- **P0 - Phân quyền lịch hẹn theo khoa:** Cập nhật `appointmentAccess` cho `Appointments` và lọc dữ liệu xuất Excel `/api/appointments-export`, giới hạn trưởng khoa (`department-manager`) chỉ xem, sửa và xuất phiếu hẹn thuộc khoa mình; bổ sung test cách ly Khoa A và Khoa B.
+- **P1 - Đọc stream hủy sớm chống DoS:** Sửa `readJsonBodyWithLimit` đọc payload theo stream chunk, lập tức gọi `reader.cancel()` khi vượt 25KB mà không buffer vào RAM; bổ sung test streaming.
+- **P1 - Kiểm thử Concurrency song song:** Nâng cấp `TC-APPT-05` với `Promise.all` kiểm thử 20 luồng đồng thời cạnh tranh sinh mã, xác thực cơ chế giải quyết va chạm khóa `unique_violation`.
+- **P1 - Khử khuẩn log lỗi 500:** Ẩn toàn bộ PII người bệnh và chuỗi kết nối database trong `console.error` tại endpoint lịch hẹn, chỉ log correlation `errorId` và mã lỗi chung.
+- **CI / Regression:** Sửa lỗi regression check `#21` trong `validate-patient-services.mjs` (vấn đề tồn đọng từ `main`); bổ sung `npm run test:security` vào GitHub Actions `.github/workflows/quality-gate.yml`.
+- Tự động hóa 20/20 test cases bảo mật (P0: 10, P1: 10), pass 100% typecheck, `validate:all` và Next.js production build.
 
 ## 2026-10-14 — Tùy Chọn Kiểu Hiển Thị Ảnh Ban Lãnh Đạo & Thứ Tự Ưu Tiên Ảnh Sơ Đồ Tổ Chức
 

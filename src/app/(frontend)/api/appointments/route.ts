@@ -379,9 +379,20 @@ export async function POST(req: Request) {
     })
   } catch (error: any) {
     const errorId = `ERR-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`
+    
+    // Khử khuẩn (sanitize) log để tuyệt đối không để lộ PII người bệnh hoặc connection string / mật khẩu DB
+    const safeErrorDetail = typeof error?.message === 'string'
+      ? error.message
+          .replace(/postgres(ql)?:\/\/[^@\s]+@/gi, 'postgres://[REDACTED]@')
+          .replace(/Key \([^)]+\)=\([^)]+\)/gi, 'Key ([REDACTED])=([REDACTED])')
+          .replace(/VALUES\s*\([^)]+\)/gi, 'VALUES ([REDACTED])')
+          .slice(0, 300)
+      : 'Internal processing error'
+
     console.error(`[AppointmentAPI][${errorId}] Lỗi tạo lịch hẹn:`, {
-      message: error?.message,
-      code: error?.code,
+      name: error?.name || 'Error',
+      code: error?.code || 'INTERNAL_ERROR',
+      detail: safeErrorDetail,
     })
     return NextResponse.json(
       {

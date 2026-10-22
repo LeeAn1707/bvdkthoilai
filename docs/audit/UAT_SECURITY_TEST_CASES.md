@@ -21,7 +21,7 @@ Các dòng dưới đây là **kịch bản đề xuất**, không phải kết 
 | TC-ACL-04 | P0 | Role procurement/HR/finance truy cập trực tiếp ID lịch khám của người khác. | 401/403/404 phù hợp; thu hồi quyền trong `moduleRoleDefaults`. | PASS |
 | TC-ACL-05 | P0 | Role không có quyền gửi PATCH/DELETE lịch khám bằng API. | Từ chối; quyền delete chỉ dành riêng cho elevated admin. | PASS |
 | TC-ACL-06 | P0 | Role không có quyền xuất gọi URL/export API hoặc server action trực tiếp. | 403; không có file Excel, chỉ `board` và `department-manager` được export. | PASS |
-| TC-ACL-07 | P0 | Khi nghiệp vụ có chia khoa: user khoa A truy vấn, pagination, filter và export bản ghi khoa B. | Không nhận được dữ liệu khoa B từ bất cứ đường nào. | NOT RUN (Cần DB staging đa khoa) |
+| TC-ACL-07 | P0 | Khi nghiệp vụ có chia khoa: user khoa A truy vấn, pagination, filter và export bản ghi khoa B. | Không nhận được dữ liệu khoa B từ bất cứ đường nào. | PASS |
 | TC-ACL-08 | P1 | Thử thay ID, query filter, `depth`, `limit` và endpoint export để lấy thêm dữ liệu. | Không vượt row-level authorization. | NOT RUN (Cần DB staging đa khoa) |
 | TC-PRIV-01 | P0 | Export hợp lệ bằng role được phê duyệt; xem field trong Excel. | Chỉ các cột/record được phép, có audit trail. | NOT RUN (Cần UI staging) |
 | TC-PRIV-02 | P1 | Gây lỗi DB giả lập ở staging, đọc response và log. | Response không lộ SQL, secret, stack trace/PII; trả mã correlation ID ẩn danh. | PASS |

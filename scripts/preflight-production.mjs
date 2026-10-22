@@ -74,6 +74,12 @@ for (const name of ['TURNSTILE_SECRET_KEY', 'NEXT_PUBLIC_TURNSTILE_SITE_KEY']) {
   if (value && /CHANGE_ME|dummy|example/i.test(value)) errors.push(`${name} còn mang giá trị mẫu/yếu`)
 }
 
+if (process.env.MOCK_TURNSTILE === 'true') {
+  errors.push('MOCK_TURNSTILE không được phép bật trên Production')
+} else {
+  ok.push('MOCK_TURNSTILE không bật trên Production')
+}
+
 if (process.env.SEED_ADMIN_PASSWORD && process.env.SEED_ADMIN_PASSWORD.length < 12) warnings.push('SEED_ADMIN_PASSWORD nên có ít nhất 12 ký tự nếu dùng seed')
 
 for (const line of ok) console.log(`PASS - ${line}`)

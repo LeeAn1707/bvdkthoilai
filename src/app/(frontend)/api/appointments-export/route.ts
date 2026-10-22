@@ -103,6 +103,21 @@ export async function GET(req: Request) {
       filters.push({ status: { equals: statusFilter } })
     }
 
+    // RBAC: Giới hạn dữ liệu xuất theo khoa nếu là department-manager hoặc tài khoản có ràng buộc department
+    const userRole = user.role
+    const isElevated = userRole === 'super-admin' || userRole === 'system-admin' || userRole === 'admin'
+    if (!isElevated && userRole !== 'board') {
+      const department = user.department
+      const departmentID = typeof department === 'object' && department ? department.id : department
+      if (!departmentID) {
+        return NextResponse.json(
+          { error: 'Tài khoản quản lý khoa chưa được liên kết khoa cụ thể để xuất dữ liệu.' },
+          { status: 403 }
+        )
+      }
+      filters.push({ department: { equals: departmentID } })
+    }
+
     const where = { and: filters }
 
     const [result, settings] = await Promise.all([

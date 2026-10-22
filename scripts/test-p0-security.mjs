@@ -5,7 +5,7 @@
  */
 
 import assert from 'node:assert/strict'
-import { roleHasModulePermission, hasModulePermission } from '../src/access/index.ts'
+import { roleHasModulePermission, hasModulePermission, appointmentAccess } from '../src/access/index.ts'
 import { verifyTurnstile } from '../src/lib/request-security.ts'
 import { Appointments } from '../src/collections/Appointments.ts'
 
@@ -138,6 +138,56 @@ await runAsyncTest('TC-SEC-03', 'Chế độ test hợp lệ với mock token đ
   } finally {
     process.env.NODE_ENV = originalEnv
   }
+})
+
+await runAsyncTest('TC-SEC-01B', 'MOCK_TURNSTILE=true bị VÔ HIỆU HÓA triệt để trên NODE_ENV=production', async () => {
+  const originalEnv = process.env.NODE_ENV
+  const originalMock = process.env.MOCK_TURNSTILE
+  try {
+    process.env.NODE_ENV = 'production'
+    process.env.MOCK_TURNSTILE = 'true'
+    const dummyReq = new Request('http://localhost:3000/api/appointments', { method: 'POST' })
+    const result = await verifyTurnstile(dummyReq, 'cf-mock-valid-token')
+    assert.equal(result, false, 'Trên production, dù có MOCK_TURNSTILE=true thì mock token vẫn phải bị TỪ CHỐI (false)')
+  } finally {
+    process.env.NODE_ENV = originalEnv
+    if (originalMock !== undefined) process.env.MOCK_TURNSTILE = originalMock
+    else delete process.env.MOCK_TURNSTILE
+  }
+})
+
+await runAsyncTest('TC-ACL-07', 'Department-manager bị giới hạn phạm vi dữ liệu theo khoa (Khoa A vs Khoa B)', async () => {
+  const managerA = { id: 201, role: 'department-manager', status: 'active', department: 10 } // Khoa A (id: 10)
+  const managerB = { id: 202, role: 'department-manager', status: 'active', department: 20 } // Khoa B (id: 20)
+  const managerNoDept = { id: 203, role: 'department-manager', status: 'active' } // Chưa gán khoa
+
+  const viewAccess = appointmentAccess('view')
+  const editAccess = appointmentAccess('edit')
+
+  // Quản lý Khoa A: Chỉ đọc và sửa được bản ghi của Khoa A
+  const filterViewA = await viewAccess({ req: { user: managerA } })
+  assert.deepEqual(filterViewA, { department: { equals: 10 } }, 'Quản lý Khoa A chỉ xem được lịch của Khoa A')
+  const filterEditA = await editAccess({ req: { user: managerA } })
+  assert.deepEqual(filterEditA, { department: { equals: 10 } }, 'Quản lý Khoa A chỉ sửa được lịch của Khoa A')
+
+  // Quản lý Khoa B: Chỉ đọc và sửa được bản ghi của Khoa B
+  const filterViewB = await viewAccess({ req: { user: managerB } })
+  assert.deepEqual(filterViewB, { department: { equals: 20 } }, 'Quản lý Khoa B chỉ xem được lịch của Khoa B')
+  const filterEditB = await editAccess({ req: { user: managerB } })
+  assert.deepEqual(filterEditB, { department: { equals: 20 } }, 'Quản lý Khoa B chỉ sửa được lịch của Khoa B')
+
+  // Quản lý Khoa A KHÔNG thể xem/sửa bản ghi Khoa B (where query khác biệt hoàn toàn)
+  assert.notDeepEqual(filterViewA, filterViewB, 'Filter của Khoa A và Khoa B phải cách ly hoàn toàn')
+
+  // Quản lý chưa gán khoa: Fail-closed (trả về false)
+  const filterNoDept = await viewAccess({ req: { user: managerNoDept } })
+  assert.equal(filterNoDept, false, 'Quản lý chưa được gán khoa phải bị từ chối truy cập')
+
+  // Ban Giám Đốc & Điều phối phòng khám: Có quyền toàn viện (trả về true)
+  const filterBoard = await viewAccess({ req: { user: mockUsers.board } })
+  assert.equal(filterBoard, true, 'Ban Giám Đốc được xem toàn viện')
+  const filterClinic = await viewAccess({ req: { user: mockUsers.clinicSchedule } })
+  assert.equal(filterClinic, true, 'Điều phối phòng khám được xem toàn viện')
 })
 
 console.log('\n====================================================')

@@ -55,24 +55,51 @@ export function bodyIsTooLarge(req: Request, maxBytes: number) {
 }
 
 /**
- * Đọc body JSON với cơ chế đếm byte thực tế (chống bypass bằng chunked transfer / fake Content-Length)
+ * Đọc body JSON với cơ chế đọc stream có giới hạn byte tích lũy.
+ * Ngay khi lượng byte vượt quá maxBytes, stream đọc sẽ bị hủy ngay lập tức
+ * (reader.cancel()) mà KHÔNG buffer toàn bộ payload vào RAM nhằm chống tấn công DoS/OOM.
  */
 export async function readJsonBodyWithLimit<T = any>(
   req: Request,
   maxBytes: number,
 ): Promise<{ data?: T; error?: string; status?: number }> {
-  // 1. Kiểm tra nhanh Content-Length nếu có
+  // 1. Kiểm tra nhanh Content-Length nếu có header khai báo
   if (bodyIsTooLarge(req, maxBytes)) {
     return { error: 'Dữ liệu gửi lên vượt quá dung lượng cho phép.', status: 413 }
   }
 
+  // 2. Nếu không có body stream
+  if (!req.body) {
+    return { data: {} as T }
+  }
+
   try {
-    const rawText = await req.text()
-    const byteLength = Buffer.byteLength(rawText, 'utf8')
-    if (byteLength > maxBytes) {
-      return { error: 'Dữ liệu gửi lên vượt quá dung lượng cho phép.', status: 413 }
+    const reader = req.body.getReader()
+    const chunks: Uint8Array[] = []
+    let totalBytes = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        totalBytes += value.byteLength
+        if (totalBytes > maxBytes) {
+          try {
+            await reader.cancel('Payload too large')
+          } catch {}
+          return { error: 'Dữ liệu gửi lên vượt quá dung lượng cho phép.', status: 413 }
+        }
+        chunks.push(value)
+      }
     }
-    if (!rawText.trim()) {
+
+    if (chunks.length === 0) {
+      return { data: {} as T }
+    }
+
+    const concatenated = Buffer.concat(chunks, totalBytes)
+    const rawText = concatenated.toString('utf8').trim()
+    if (!rawText) {
       return { data: {} as T }
     }
     const parsed = JSON.parse(rawText)
@@ -84,7 +111,8 @@ export async function readJsonBodyWithLimit<T = any>(
 
 export async function verifyTurnstile(req: Request, token: unknown) {
   const isProduction = process.env.NODE_ENV === 'production'
-  const isTest = process.env.NODE_ENV === 'test' || process.env.MOCK_TURNSTILE === 'true'
+  // Mock token CHỈ được phép bật khi NODE_ENV === 'test' và TUYỆT ĐỐI KHÔNG PHẢI production
+  const isTest = process.env.NODE_ENV === 'test' && !isProduction
   const responseToken = String(token || '').trim()
 
   // 1. Token rỗng hoặc vượt quá độ dài tối đa cho phép luôn bị từ chối
@@ -92,7 +120,13 @@ export async function verifyTurnstile(req: Request, token: unknown) {
     return false
   }
 
-  // 2. Cho phép token giả lập hợp lệ trong môi trường kiểm thử tự động
+  // 2. Chặn đứng nguy cơ bypass trên production nếu có ai cấu hình MOCK_TURNSTILE=true
+  if (isProduction && process.env.MOCK_TURNSTILE === 'true') {
+    console.error('[Security] CẢNH BÁO NGUY HIỂM: MOCK_TURNSTILE không được phép bật trên Production. Từ chối yêu cầu.')
+    return false
+  }
+
+  // 3. Chỉ cho phép token giả lập hợp lệ trong môi trường kiểm thử tự động (NODE_ENV=test)
   if (isTest && responseToken === 'cf-mock-valid-token') {
     return true
   }
