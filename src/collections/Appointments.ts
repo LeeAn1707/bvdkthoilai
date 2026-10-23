@@ -1,5 +1,6 @@
-import type { CollectionConfig } from 'payload'
-import { anyone, moduleAccess } from '@/access'
+import { randomBytes } from 'node:crypto'
+import { APIError, type CollectionConfig } from 'payload'
+import { appointmentAccess, appointmentCreateAccess, appointmentDepartmentFieldAccess } from '@/access'
 
 export const Appointments: CollectionConfig = {
   slug: 'appointments',
@@ -14,10 +15,11 @@ export const Appointments: CollectionConfig = {
     },
   },
   access: {
-    create: anyone, // Cho phép người dùng ngoài website gửi đăng ký đặt khám
-    read: moduleAccess('appointments', 'view'),
-    update: moduleAccess('appointments', 'edit'),
-    delete: moduleAccess('appointments', 'delete'),
+    // create: moduleAccess('appointments', 'create') - Nâng cấp lên appointmentCreateAccess để kiểm soát giới hạn khoa phòng
+    create: appointmentCreateAccess,
+    read: appointmentAccess('view'),
+    update: appointmentAccess('edit'),
+    delete: appointmentAccess('delete'),
   },
   fields: [
     {
@@ -30,6 +32,12 @@ export const Appointments: CollectionConfig = {
           required: true,
           unique: true,
           index: true,
+          access: {
+            update: ({ req }) => {
+              const role = (req.user as any)?.role
+              return role === 'super-admin' || role === 'system-admin' || role === 'admin'
+            },
+          },
           admin: {
             readOnly: true,
             width: '33%',
@@ -130,6 +138,9 @@ export const Appointments: CollectionConfig = {
               type: 'relationship',
               relationTo: 'departments',
               admin: { width: '30%' },
+              access: {
+                update: appointmentDepartmentFieldAccess,
+              },
             },
             {
               name: 'doctor',
@@ -229,5 +240,96 @@ export const Appointments: CollectionConfig = {
       ],
     },
   ],
+  hooks: {
+    beforeOperation: [
+      ({ args, operation, req }) => {
+        if (operation === 'update' && (args as any)?.data?.code !== undefined) {
+          const user = (req as any)?.user
+          if (user) {
+            const role = user.role
+            const isElevated = role === 'super-admin' || role === 'system-admin' || role === 'admin'
+            if (!isElevated) {
+              throw new APIError('Bạn không có quyền thay đổi mã phiếu hẹn đã cấp.', 403)
+            }
+          }
+        }
+        if (operation === 'update' && (args as any)?.data?.department !== undefined) {
+          const user = (req as any)?.user
+          if (user) {
+            const role = user.role
+            const isElevated = role === 'super-admin' || role === 'system-admin' || role === 'admin'
+            if (!isElevated && role !== 'clinic-schedule') {
+              const userDept = typeof user.department === 'object' ? user.department?.id : user.department
+              const targetDept = typeof (args as any).data.department === 'object' ? (args as any).data.department?.id : (args as any).data.department
+              if (Number(targetDept) !== Number(userDept)) {
+                throw new APIError('Bạn không có quyền chuyển lịch hẹn sang khoa/phòng khác.', 403)
+              }
+            }
+          }
+        }
+      },
+    ],
+    beforeValidate: [
+      async ({ data, operation, req, originalDoc }) => {
+        const user = (req as any)?.user
+        const isElevated = user?.role === 'super-admin' || user?.role === 'system-admin' || user?.role === 'admin'
+        const isRegularUser = Boolean(user && !isElevated)
+
+        // 1. Khi tạo mới (create):
+        // Tài khoản thường không được tự chỉ định mã; nếu thiếu mã hoặc là tài khoản thường thì sinh mã tự động
+        if (operation === 'create' && data) {
+          if (!data.code || isRegularUser) {
+            const { getNextAtomicAppointmentCode } = await import('@/lib/appointment-code')
+            data.code = await getNextAtomicAppointmentCode(req.payload)
+          }
+        }
+
+        // 2. Khi cập nhật (update):
+        // Tài khoản thường tuyệt đối không được phép thay đổi mã lịch hẹn đã tồn tại
+        if (operation === 'update' && data && data.code !== undefined && originalDoc?.code) {
+          if (data.code !== originalDoc.code && !isElevated) {
+            throw new APIError('Bạn không có quyền thay đổi mã phiếu hẹn đã cấp.', 403)
+          }
+        }
+
+        return data
+      },
+    ],
+    beforeChange: [
+      async ({ req, data, operation }) => {
+        if (!req.user) return data
+        const role = (req.user as any)?.role
+        const isElevated = role === 'super-admin' || role === 'system-admin' || role === 'admin'
+        if (isElevated || role === 'clinic-schedule') return data
+
+        const userDept = (req.user as any)?.department
+        const userDeptID = typeof userDept === 'object' && userDept ? userDept.id : userDept
+        if (!userDeptID) {
+          throw new APIError('Tài khoản chưa được gán khoa/phòng, không thể tạo hoặc chỉnh sửa lịch hẹn.', 403)
+        }
+
+        if (operation === 'create') {
+          if (!data.department) {
+            data.department = userDeptID
+          } else {
+            const targetDeptID = typeof data.department === 'object' && data.department ? data.department.id : data.department
+            if (Number(targetDeptID) !== Number(userDeptID)) {
+              throw new APIError('Bạn không có quyền tạo lịch hẹn cho khoa/phòng khác.', 403)
+            }
+          }
+        }
+
+        if (operation === 'update' && data.department) {
+          const targetDeptID = typeof data.department === 'object' && data.department ? data.department.id : data.department
+          if (Number(targetDeptID) !== Number(userDeptID)) {
+            throw new APIError('Bạn không có quyền chuyển lịch hẹn sang khoa/phòng khác.', 403)
+          }
+        }
+
+        return data
+      },
+    ],
+  },
   timestamps: true,
 }
+

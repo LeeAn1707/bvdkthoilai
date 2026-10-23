@@ -48,6 +48,9 @@
     "smoke:production": "node scripts/smoke-production.mjs",
     "deploy:check": "npm run validate:all && npm run preflight:production && npm run typecheck && npm run build",
     "validate:production-security": "node scripts/validate-production-security-v430.mjs",
+    "test:security-p0": "tsx scripts/test-p0-security.mjs",
+    "test:security-p1": "tsx scripts/test-p1-security.mjs",
+    "test:security": "npm run test:security-p0 && npm run test:security-p1",
     "validate:content-consistency": "node scripts/validate-content-consistency.mjs",
     "validate:smart-links": "node scripts/validate-smart-links.mjs",
     "audit:legacy": "node scripts/migrate-legacy-data.mjs",
@@ -58,7 +61,9 @@
     "upgrade:header-settings": "node scripts/upgrade-header-settings.mjs",
     "audit:users-schema": "node scripts/repair-users-schema.mjs",
     "repair:users-schema": "node scripts/repair-users-schema.mjs",
-    "backup:railway": "node scripts/backup-railway.mjs"
+    "backup:railway": "node scripts/backup-railway.mjs",
+    "backup:rehearse": "node scripts/rehearse-backup-restore.mjs",
+    "backup:restore-real": "node scripts/drill-disposable-restore.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1128.0",

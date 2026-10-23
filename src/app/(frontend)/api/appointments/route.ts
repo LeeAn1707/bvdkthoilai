@@ -1,19 +1,57 @@
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
+import config from '@payload-config'
+import { REST_GET, REST_POST, REST_PATCH, REST_DELETE } from '@payloadcms/next/routes'
 import { getCMS } from '@/lib/payload'
-import { bodyIsTooLarge, clientAddress, rateLimit, validEmail, validPhone, verifyTurnstile } from '@/lib/request-security'
+import { readJsonBodyWithLimit, clientAddress, rateLimit, validEmail, validPhone, verifyTurnstile } from '@/lib/request-security'
+import { getNextAtomicAppointmentCode } from '@/lib/appointment-code'
 
 export const dynamic = 'force-dynamic'
 
+const restGet = REST_GET(config)
+const restPost = REST_POST(config)
+const restPatch = REST_PATCH(config)
+const restDelete = REST_DELETE(config)
+
 const generateAppointmentCode = () => `LK-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`
 
-export async function POST(req: Request) {
-  try {
-    if (bodyIsTooLarge(req, 20_000)) {
-      return NextResponse.json({ error: 'Dữ liệu gửi lên vượt quá dung lượng cho phép.' }, { status: 413 })
-    }
+// Ủy quyền GET /api/appointments về Payload REST API (kiểm tra access.read theo từng khoa)
+export async function GET(req: Request) {
+  return restGet(req, { params: Promise.resolve({ slug: ['appointments'] }) })
+}
 
-    const body = await req.json()
+// Ủy quyền PATCH /api/appointments về Payload REST API
+export async function PATCH(req: Request) {
+  return restPatch(req, { params: Promise.resolve({ slug: ['appointments'] }) })
+}
+
+// Ủy quyền DELETE /api/appointments về Payload REST API
+export async function DELETE(req: Request) {
+  return restDelete(req, { params: Promise.resolve({ slug: ['appointments'] }) })
+}
+
+export async function POST(req: Request) {
+  // 1. Phân định routing: Nếu request có Authorization header (JWT/Bearer), cookie payload-token hoặc header x-payload-rest,
+  // đây là request từ Payload CMS REST API (admin/staff/integration test kiểm tra Access Control)
+  const authHeader = req.headers.get('authorization')
+  const cookieHeader = req.headers.get('cookie') || ''
+  const isPayloadRest = Boolean(
+    (authHeader && (authHeader.startsWith('JWT ') || authHeader.startsWith('Bearer '))) ||
+    cookieHeader.includes('payload-token=') ||
+    req.headers.get('x-payload-rest') === 'true'
+  )
+
+  if (isPayloadRest) {
+    return restPost(req, { params: Promise.resolve({ slug: ['appointments'] }) })
+  }
+
+  // 2. Ngược lại: đây là request đặt lịch khám công khai từ người dân (AppointmentBookingForm.tsx)
+  try {
+    const parsed = await readJsonBodyWithLimit(req, 25_000)
+    if (parsed.error) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 })
+    }
+    const body = parsed.data || {}
 
     // Honeypot: nếu bot điền trường website ẩn thì âm thầm trả về giả lập thành công
     if (body.website) {
@@ -90,8 +128,11 @@ export async function POST(req: Request) {
       // Bỏ qua nếu chưa load được
     }
 
-    // 2. Kiểm tra giới hạn số lần gửi từ 1 địa chỉ IP (mặc định 5 lần / 15 phút hoặc theo admin cấu hình)
-    const maxSubmissions = typeof appSettings?.maxSubmissionsPerIp === 'number' && appSettings.maxSubmissionsPerIp > 0 ? appSettings.maxSubmissionsPerIp : 5
+    // 2. Kiểm tra giới hạn số lần gửi từ 1 địa chỉ IP (mặc định 5 lần / 15 phút hoặc theo admin cấu hình / biến môi trường kiểm thử tải)
+    const envRateLimitMax = process.env.APPOINTMENTS_RATE_LIMIT_MAX ? Number(process.env.APPOINTMENTS_RATE_LIMIT_MAX) : undefined
+    const maxSubmissions = envRateLimitMax && envRateLimitMax > 0
+      ? envRateLimitMax
+      : (typeof appSettings?.maxSubmissionsPerIp === 'number' && appSettings.maxSubmissionsPerIp > 0 ? appSettings.maxSubmissionsPerIp : 5)
     const throttle = rateLimit(req, 'appointment-create', maxSubmissions, 15 * 60_000)
     if (!throttle.allowed) {
       return NextResponse.json(
@@ -100,7 +141,56 @@ export async function POST(req: Request) {
       )
     }
 
-    // 3. Kiểm tra khoảng thời gian chờ giữa 2 lần đặt của cùng SĐT (chống click đúp / spam liên tiếp)
+    // 3. Kiểm tra chặn đặt trùng (Cùng SĐT + Cùng ngày khám + Cùng chuyên khoa -> HTTP 409 Conflict)
+    const preventDuplicate = appSettings?.preventDuplicateBooking !== false
+    if (preventDuplicate) {
+      try {
+        const appointmentDateStr = typeof appointmentDate === 'string' ? appointmentDate.slice(0, 10) : ''
+        const startOfDay = appointmentDateStr ? new Date(`${appointmentDateStr}T00:00:00.000Z`).toISOString() : appointmentDate
+        const endOfDay = appointmentDateStr ? new Date(`${appointmentDateStr}T23:59:59.999Z`).toISOString() : appointmentDate
+
+        const dateFilter = appointmentDateStr
+          ? [
+              { appointmentDate: { greater_than_equal: startOfDay } },
+              { appointmentDate: { less_than_equal: endOfDay } },
+            ]
+          : [{ appointmentDate: { equals: appointmentDate } }]
+
+        const duplicateCheck = await payload.find({
+          collection: 'appointments' as any,
+          where: {
+            and: [
+              { phone: { equals: phone } },
+              ...dateFilter,
+              { status: { not_in: ['cancelled'] } },
+            ],
+          },
+          limit: 10,
+          overrideAccess: true,
+        })
+
+        const matchedDup = duplicateCheck.docs.find((d: any) => {
+          if (rawSpecialtyId && d.specialty && (String(d.specialty) === String(rawSpecialtyId) || String(d.specialty?.id) === String(rawSpecialtyId))) return true
+          if (rawSpecialtyId && d.department && (String(d.department) === String(rawSpecialtyId) || String(d.department?.id) === String(rawSpecialtyId))) return true
+          if (specialtyTitle && d.specialtyTitle && d.specialtyTitle.toLowerCase().trim() === specialtyTitle.toLowerCase().trim()) return true
+          if (!rawSpecialtyId && !specialtyTitle && !d.specialty && !d.specialtyTitle) return true
+          return false
+        })
+
+        if (matchedDup) {
+          return NextResponse.json(
+            {
+              error: 'Yêu cầu đặt lịch khám chưa thể thực hiện do thông tin đăng ký trùng khớp với lịch hẹn đã có trên hệ thống. Quý khách vui lòng kiểm tra lại hoặc liên hệ trực tiếp tổng đài bệnh viện để được hỗ trợ.',
+            },
+            { status: 409 }
+          )
+        }
+      } catch {
+        // Tiếp tục nếu lỗi truy vấn
+      }
+    }
+
+    // 4. Kiểm tra khoảng thời gian chờ giữa 2 lần đặt của cùng SĐT (chống click đúp / spam liên tiếp -> HTTP 429)
     const minSeconds = typeof appSettings?.minSecondsBetweenSubmissions === 'number' && appSettings.minSecondsBetweenSubmissions >= 0 ? appSettings.minSecondsBetweenSubmissions : 60
     if (minSeconds > 0) {
       try {
@@ -127,43 +217,6 @@ export async function POST(req: Request) {
         }
       } catch {
         // Tiếp tục nếu lỗi truy vấn kiểm tra
-      }
-    }
-
-    // 4. Kiểm tra chặn đặt trùng (Cùng SĐT + Cùng ngày khám + Cùng chuyên khoa)
-    const preventDuplicate = appSettings?.preventDuplicateBooking !== false
-    if (preventDuplicate) {
-      try {
-        const duplicateCheck = await payload.find({
-          collection: 'appointments' as any,
-          where: {
-            and: [
-              { phone: { equals: phone } },
-              { appointmentDate: { equals: appointmentDate } },
-              { status: { not_in: ['cancelled'] } },
-            ],
-          },
-          limit: 5,
-          overrideAccess: true,
-        })
-
-        const matchedDup = duplicateCheck.docs.find((d: any) => {
-          if (rawSpecialtyId && d.specialty && (d.specialty === rawSpecialtyId || d.specialty?.id === rawSpecialtyId)) return true
-          if (rawSpecialtyId && d.department && (d.department === rawSpecialtyId || d.department?.id === rawSpecialtyId)) return true
-          if (specialtyTitle && d.specialtyTitle && d.specialtyTitle.toLowerCase() === specialtyTitle.toLowerCase()) return true
-          return false
-        })
-
-        if (matchedDup) {
-          return NextResponse.json(
-            {
-              error: `Số điện thoại này đã có phiếu hẹn "${matchedDup.code}" đăng ký khám ngày ${appointmentDate.split('-').reverse().join('/')}. Quý khách vui lòng không đăng ký trùng lặp hoặc liên hệ tổng đài để đổi thông tin.`,
-            },
-            { status: 409 }
-          )
-        }
-      } catch {
-        // Tiếp tục nếu lỗi truy vấn
       }
     }
 
@@ -204,70 +257,8 @@ export async function POST(req: Request) {
       dbTimeSlot = 'morning'
     }
 
-    // Sinh mã phiếu hẹn duy nhất theo quy cách: BVTL + 4 số thứ tự từ 0001 đến 9999 (reset lại 0001 theo ngày mới)
-    // Xác định mốc thời gian bắt đầu và kết thúc của ngày hôm nay theo múi giờ Việt Nam (UTC+7)
-    const nowForCodeVN = new Date(Date.now() + 7 * 60 * 60 * 1000)
-    const yyyyVN = nowForCodeVN.getUTCFullYear()
-    const mIdxVN = nowForCodeVN.getUTCMonth()
-    const dVN = nowForCodeVN.getUTCDate()
-    const startOfTodayVN = new Date(Date.UTC(yyyyVN, mIdxVN, dVN, 0, 0, 0) - 7 * 60 * 60 * 1000)
-    const endOfTodayVN = new Date(Date.UTC(yyyyVN, mIdxVN, dVN, 23, 59, 59, 999) - 7 * 60 * 60 * 1000)
-
-    let nextSequence = 1
-    try {
-      // Tìm các phiếu hẹn đã tạo trong ngày hôm nay
-      const todayAppointments = await payload.find({
-        collection: 'appointments' as any,
-        where: {
-          and: [
-            { createdAt: { greater_than_equal: startOfTodayVN.toISOString() } },
-            { createdAt: { less_than_equal: endOfTodayVN.toISOString() } },
-          ],
-        },
-        sort: '-createdAt',
-        limit: 100,
-        overrideAccess: true,
-      })
-
-      // Lọc ra số thứ tự lớn nhất của định dạng BVTLxxxx hoặc TLxxxx trong ngày hôm nay
-      for (const doc of todayAppointments.docs || []) {
-        if (typeof doc.code === 'string') {
-          if (/^BVTL\d{4}$/.test(doc.code)) {
-            const num = parseInt(doc.code.slice(4), 10)
-            if (!isNaN(num) && num >= nextSequence) {
-              nextSequence = num + 1
-            }
-          } else if (/^TL\d{4}$/.test(doc.code)) {
-            const num = parseInt(doc.code.slice(2), 10)
-            if (!isNaN(num) && num >= nextSequence) {
-              nextSequence = num + 1
-            }
-          }
-        }
-      }
-    } catch {
-      // Nếu có lỗi truy vấn, thử đếm bản ghi thông thường
-    }
-
-    if (nextSequence > 9999) {
-      nextSequence = 1 // Vòng lặp an toàn nếu vượt quá 9999 trong 1 ngày
-    }
-
-    let code = `BVTL${String(nextSequence).padStart(4, '0')}`
-
-    // Đảm bảo mã chưa từng bị trùng lặp
-    for (let attempt = 0; attempt < 50; attempt++) {
-      const exists = await payload.find({
-        collection: 'appointments' as any,
-        where: { code: { equals: code } },
-        limit: 1,
-        overrideAccess: true,
-      })
-      if (!exists.docs.length) break
-      nextSequence++
-      if (nextSequence > 9999) nextSequence = 1
-      code = `BVTL${String(nextSequence).padStart(4, '0')}`
-    }
+    // Sinh mã phiếu hẹn nguyên tử duy nhất qua PostgreSQL daily counter (BVTL0001 -> BVTL9999)
+    let code = await getNextAtomicAppointmentCode(payload)
 
     let validSpecialtyId: number | undefined = undefined
     let validDepartmentId: number | undefined = undefined
@@ -318,38 +309,56 @@ export async function POST(req: Request) {
       }
     }
 
-    const created: any = await payload.create({
-      collection: 'appointments' as any,
-      data: {
-        code,
-        fullName,
-        phone,
-        email: email || undefined,
-        address: address || undefined,
-        dob: dob || undefined,
-        gender,
-        insuranceNumber: insuranceNumber || undefined,
-        specialty: validSpecialtyId,
-        department: validDepartmentId,
-        specialtyTitle: specialtyTitle || undefined,
-        appointmentDate,
-        timeSlot: dbTimeSlot,
-        timeSlotLabel: finalTimeSlotLabel,
-        doctor: parsedDoctor || undefined,
-        symptoms: symptoms || undefined,
-        status: 'new',
-        source: 'website',
-        submittedAt: submittedAtDate.toISOString(),
-        ipAddress: clientIp,
-        userAgent: userAgent,
-        customData: Object.keys(customData).length > 0 ? customData : undefined,
-      },
-      overrideAccess: true,
-    })
+    // Cơ chế retry an toàn xử lý va chạm mã khi có nhiều request đồng thời (Concurrency)
+    let created: any = null
+    let finalCode = code
+    for (let retry = 0; retry < 5; retry++) {
+      try {
+        created = await payload.create({
+          collection: 'appointments' as any,
+          data: {
+            code: finalCode,
+            fullName,
+            phone,
+            email: email || undefined,
+            address: address || undefined,
+            dob: dob || undefined,
+            gender,
+            insuranceNumber: insuranceNumber || undefined,
+            specialty: validSpecialtyId,
+            department: validDepartmentId,
+            specialtyTitle: specialtyTitle || undefined,
+            appointmentDate,
+            timeSlot: dbTimeSlot,
+            timeSlotLabel: finalTimeSlotLabel,
+            doctor: parsedDoctor || undefined,
+            symptoms: symptoms || undefined,
+            status: 'new',
+            source: 'website',
+            submittedAt: submittedAtDate.toISOString(),
+            ipAddress: clientIp,
+            userAgent: userAgent,
+            customData: Object.keys(customData).length > 0 ? customData : undefined,
+          },
+          overrideAccess: true,
+        })
+        break
+      } catch (createErr: any) {
+        const isCollision =
+          createErr?.code === '23505' ||
+          createErr?.cause?.code === '23505' ||
+          /unique|duplicate|code/i.test(createErr?.message || '')
+        if (isCollision && retry < 4) {
+          finalCode = await getNextAtomicAppointmentCode(payload)
+          continue
+        }
+        throw createErr
+      }
+    }
 
     return NextResponse.json({
       ok: true,
-      code,
+      code: created?.code || finalCode,
       id: created.id,
       appointmentDate,
       timeSlot: dbTimeSlot,
@@ -358,8 +367,30 @@ export async function POST(req: Request) {
       message: 'Đăng ký đặt lịch khám thành công! Bệnh viện sẽ liên hệ xác nhận trong thời gian sớm nhất.',
     })
   } catch (error: any) {
+    const errorId = `ERR-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`
+
+    // Phân loại lỗi an toàn theo danh mục nghiệp vụ mà không phụ thuộc regex hay in chuỗi error.message thô của DB
+    let errorCategory = 'INTERNAL_ERROR'
+    if (error?.code === '23505') {
+      errorCategory = 'DATABASE_UNIQUE_VIOLATION'
+    } else if (error?.code === '23503') {
+      errorCategory = 'DATABASE_FOREIGN_KEY_VIOLATION'
+    } else if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+      errorCategory = 'NETWORK_TIMEOUT'
+    } else if (error?.name === 'ValidationError') {
+      errorCategory = 'VALIDATION_ERROR'
+    }
+
+    console.error(`[AppointmentAPI][${errorId}] Lỗi tạo lịch hẹn:`, {
+      name: error?.name || 'Error',
+      code: error?.code || 'UNKNOWN',
+      category: errorCategory,
+    })
     return NextResponse.json(
-      { error: 'Không thể xử lý yêu cầu đặt lịch khám: ' + (error?.message || 'Lỗi hệ thống') },
+      {
+        error: 'Không thể xử lý yêu cầu đặt lịch khám vào lúc này. Quý khách vui lòng thử lại sau ít phút hoặc liên hệ trực tiếp tổng đài bệnh viện.',
+        errorId,
+      },
       { status: 500 }
     )
   }

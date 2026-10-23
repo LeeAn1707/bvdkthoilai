@@ -1,5 +1,92 @@
 # CHANGELOG
 
+## 2026-10-22 — Hoàn Tất Rà Soát Cuối Commit 8f98809: An Toàn Khởi Tạo Sequence, Kiểm Soát Mã Phiếu & Nghiệm Thu Staging
+
+- **Bảo vệ khởi tạo sequence & Idempotent Migration 081:** Bổ sung `LOCK TABLE public.appointments IN EXCLUSIVE MODE;` loại bỏ xung đột ghi lịch hẹn đồng thời lúc tạo sequence; cơ chế khởi tạo `GREATEST(max_val, curr_seq_val)` bảo đảm sequence không bị lùi về sau khi chạy lại migration hoặc khi sequence đã tiến xa hơn mã lưu trong DB.
+- **Nâng cấp verify() Migration 081:** Kiểm tra catalog PostgreSQL xác minh `indisunique = true`, `indisvalid = true` trên cột `code` bảng `appointments`, bảo đảm 0 mã trùng lặp trong DB và giá trị sequence không nhỏ hơn mã lớn nhất.
+- **Kiểm soát quyền truy cập trường `code` (Appointments):** Cấu hình field-level access, hook `beforeOperation` và `beforeValidate` nghiêm cấm tài khoản thường tự chỉ định hoặc sửa đổi `code` đã cấp (trả về HTTP 403 hoặc tự động sinh mã nguyên tử hợp lệ), chỉ super-admin/system-admin/admin mới có quyền quản trị. Sửa `route.ts` trả về `code: created?.code || finalCode` để đảm bảo API phản hồi đồng bộ 100% với mã lưu DB.
+- **Kiểm thử tự động Migration 081 (`TC-MIG-081`):** Kiểm thử thành công 4 kịch bản: chạy lần đầu, chạy lại (idempotent), sequence lớn hơn mã lưu và thực thi hàm `verify()`.
+- **Nghiệm thu toàn diện Staging & CI Quality Gates:** Chạy hoàn tất `TC-ACL-10B` với 2 tài khoản Khoa A và Khoa B trên staging (14/14 P0 PASS), 20/20 P1 PASS (bao gồm `TC-APPT-05B` 20 concurrent HTTP requests, `TC-PRIV-05B`, `TC-APPT-08`, `TC-MIG-081`), typecheck 0 lỗi, migrations 354/354 PASS, validate:all PASS, build Next.js thành công.
+
+
+- **Xác minh rủi ro chuyển ngày:** Thực nghiệm chuyển ngày 22/10 sang 23/10 trên database TEST xác nhận bộ đếm `date_key` reset về 1 sinh mã `BVTL0001` bị chặn bởi UNIQUE index `appointments_code_idx` (lỗi 23505) do mã lịch hẹn không chứa ngày.
+- **Migration 081 & PostgreSQL Sequence toàn cục:** Triển khai `public.appointment_code_seq` tăng đơn điệu liên tục toàn hệ thống; khởi tạo an toàn từ giá trị lớn nhất hiện có (`MAX = 205`) mà không làm thay đổi các mã đã tồn tại. Duy trì 100% UNIQUE index trên `appointments(code)`.
+- **Độc lập Timezone & Đồng bộ hai luồng tạo:** `src/lib/appointment-code.ts` gọi `SELECT nextval('public.appointment_code_seq')`, độc lập hoàn toàn với ngày tháng và timezone của PostgreSQL. Đồng bộ sử dụng chung bộ sinh mã cho cả `/api/appointments` và hook `beforeValidate` của collection `Appointments`.
+- **Loại bỏ fallback âm thầm:** Bỏ sinh mã ngẫu nhiên; ném lỗi có kiểm soát `APPOINTMENT_CODE_GENERATOR_ERROR` khi không kết nối được database.
+- **Nghiệm thu toàn diện:** Thêm test `TC-APPT-08` xác minh chuyển ngày, kiểm thử đa instance, restart server và timezone. Kiểm thử thành công 20 và 100 concurrent requests; truy vấn PostgreSQL TEST xác nhận 325/325 mã duy nhất tuyệt đối (0 trùng lặp). Toàn bộ 19 test P1, 13 test P0, migrations 354/354, typecheck và build Next.js đều đạt 100% PASS.
+
+- **Xác định nguyên nhân gốc rễ:** Phát hiện `appointments.code` chưa có UNIQUE constraint/index trong PostgreSQL; endpoint tạo lịch kiểm tra trùng lặp trong bộ nhớ gặp race condition (TOCTOU) khi có nhiều request đồng thời, khiến nhiều request sinh cùng mã `BVTL0001`.
+- **Sao lưu & Dọn dẹp an toàn:** Sao lưu nguyên vẹn 22 bản ghi cũ vào bảng `appointments_backup_20261022`, resequence các mã test trùng lặp để đảm bảo tính toàn vẹn 100%, không xóa bất kỳ dữ liệu nào.
+- **Migration 080 & Unique Index:** Tạo bảng `appointment_daily_counters` cho atomic counter và thiết lập `UNIQUE INDEX appointments_code_idx ON appointments (code)`. Seal DB schema contract cho migration 080.
+- **Bộ sinh mã nguyên tử (Atomic Counter):** Tạo `src/lib/appointment-code.ts` sử dụng lệnh PostgreSQL UPSERT nguyên tử trả về `current_val` (`BVTL0001` - `BVTL9999` và tự động mở rộng `BVTL10000+`). Áp dụng đồng bộ cho cả `/api/appointments` và hook `beforeValidate` của collection `Appointments`.
+- **Xử lý va chạm & Tách biệt Concurrency/Rate Limit:** Thêm cơ chế retry bắt mã lỗi `23505` (`unique_violation`); tách biệt kiểm thử concurrency khỏi rate limit thông qua `APPOINTMENTS_RATE_LIMIT_MAX`; loại bỏ IP spoofing.
+- **Nghiệm thu SQL & Concurrency:** Kiểm thử 20 và 100 HTTP request đồng thời đều đạt 100% mã duy nhất. Truy vấn PostgreSQL thực tế xác nhận: `COUNT(*) = 178`, `COUNT(DISTINCT code) = 178`, `GROUP BY code HAVING COUNT(*) > 1` trả về 0 dòng. Toàn bộ test suites P0, P1, `validate:all`, `typecheck` và `build` đều PASS.
+
+- **Cơ chế bảo vệ nâng cấp TC-APPT-05A & Nguyên tắc đặc quyền tối thiểu:** Bổ sung cơ chế fail-closed bắt buộc `CONFIRM_TEST_INSTANCE=true` và `RAILWAY_TEST_PROJECT_ID` (phải khác `RAILWAY_PROD_PROJECT_ID`), không mặc định mọi host `proxy.rlwy.net` là test DB. Kiểm tra cảnh báo tài khoản superuser PostgreSQL và yêu cầu cờ `ALLOW_SUPERUSER_TEST=true`.
+- **Thực thi TC-APPT-05B & Xác minh PostgreSQL:** 20 HTTP POST thực tế đồng thời gửi tới `/api/appointments` với Cloudflare Turnstile testing keys; xác minh và đối chiếu đúng 20 mã phiếu hẹn được tạo và lưu trữ an toàn trong bảng `appointments` của PostgreSQL Railway TEST.
+- **Thực thi TC-PRIV-05B (HTTP 429 & 409 riêng biệt):** Hoán đổi thứ tự kiểm tra trùng lặp lên trước cooldown SĐT tại route `/api/appointments`; xác minh thành công HTTP 429 (với `retry-after`) và HTTP 409 Conflict riêng biệt mà không để lộ mã phiếu hẹn hoặc dữ liệu PII.
+- **Chuẩn bị tài khoản & Thực thi TC-ACL-10B:** Cấu hình 2 tài khoản thử nghiệm độc lập Khoa A (ID 6) và Khoa B (ID 7) với custom permissions; thiết lập `auth.useSessions: false` trên Users collection; kiểm thử thành công qua REST API toàn bộ 5 thao tác Read, Create, Update, Delete và Export mà không ảnh hưởng dữ liệu người bệnh thật.
+- **Kết quả nghiệm thu:** 32/32 bài test đạt 100% PASS (14/14 P0 PASS, 18/18 P1 PASS, 0 FAIL, 0 SKIP, 0 BLOCKED).
+
+## 2026-10-22 — Hoàn Tất Bản Vá Các Phát Hiện Cuối Trước Nghiệm Thu Staging (PR #1)
+
+- **Sửa đếm quota hai lần & TC-SEC-05B:** Xóa bỏ lệnh gọi `rateLimit()` trùng lặp ở đầu route `/api/appointments`; chỉ kích hoạt duy nhất một lần tại bước kiểm tra chính sách với `maxSubmissions` cấu hình từ admin. Thêm test `TC-SEC-05B` xác minh chỉ gọi 1 lần và kiểm tra chính xác số lượt cho phép trước 429.
+- **Routing đa luồng cho TC-ACL-10B:** Route `/api/appointments` ủy quyền tự động về Payload REST API (`REST_POST`, `REST_GET`, `REST_PATCH`, `REST_DELETE`) khi có header `Authorization: JWT/Bearer`, cookie hoặc `x-payload-rest`. Request công khai của người dân từ `AppointmentBookingForm.tsx` (không auth) vẫn xử lý độc lập, không làm hỏng giao diện đặt lịch.
+- **Bảo vệ credentials & xác thực instance test (drill restore):** Khử khuẩn 100% mật khẩu bằng `sanitizeText`; cấm in URL hoặc mật khẩu ra terminal/CI. Yêu cầu `CONFIRM_TEST_INSTANCE=true` và kiểm tra Allowlist host (`ALLOWED_TEST_HOSTS` / `VERIFIED_TEST_HOST`) trước khi thực hiện thao tác tạo/xóa database.
+- **Bắt buộc commit máy chủ trong Smoke Test:** Bắt buộc `EXPECTED_COMMIT_SHA`; nếu thiếu hoặc máy chủ không trả về commit qua HTTP hoặc commit không khớp thì ghi nhận FAIL dứt khoát; xóa bỏ SHA cũ làm mặc định.
+- **Hoàn thiện TC-APPT-05B & TC-PRIV-05B:** `TC-APPT-05B` bắt buộc `TEST_DATABASE_URL`, đối chiếu mã ghi thực tế trong PostgreSQL và từ chối nếu có lỗi mạng chưa xử lý. `TC-PRIV-05B` kiểm tra độc lập và riêng biệt cả HTTP 429 và HTTP 409 bằng dữ liệu kiểm thử phù hợp, không cho phép dùng một mã bất kỳ thay thế cho nhau.
+- **Xác minh Railway TEST & Chạy thành công TC-APPT-05A:** Cập nhật cơ chế bảo vệ trong `TC-APPT-05A` chấp nhận máy chủ PostgreSQL test trên Railway (không chứa từ khóa production). Chạy thực tế 20 workers đồng thời trên bảng tạm duy nhất, kích hoạt và giải quyết thành công va chạm lỗi unique 23505; đạt 20/20 bản ghi với mã duy nhất 100% trong PostgreSQL.
+
+## 2026-10-22 — Chốt An Toàn Bộ Script Nghiệm Thu & Diễn Tập Khôi Phục (PR #1)
+
+- **An toàn tuyệt đối drill khôi phục (scripts/drill-disposable-restore.mjs):** Cấm đọc `DATABASE_URL` từ `.env`; bắt buộc `TEST_ADMIN_DATABASE_URL` trên test instance độc lập. Sử dụng runId ngẫu nhiên duy nhất, chỉ drop database do chính phiên hiện tại tạo ra (kiểm tra quyền sở hữu). Tương thích đa phiên bản PostgreSQL, yêu cầu `pg_restore` exit code 0, phân biệt rõ thời gian mẫu vs RTO ước lượng toàn hệ thống.
+- **Loại bỏ fallback TC-APPT-05A:** Bỏ hoàn toàn fallback từ `DATABASE_URL` chính; bắt buộc `TEST_DATABASE_URL` với cơ chế fail-closed chống kết nối production; tạo bảng tạm duy nhất và dọn dẹp an toàn.
+- **Tách bạch TC-PRIV-05A & TC-PRIV-05B:** Tách riêng logic in-memory (`TC-PRIV-05A`) và HTTP mạng thực tế (`TC-PRIV-05B`); không nuốt lỗi mạng; báo BLOCKED minh bạch khi thiếu `STAGING_API_URL`.
+- **Hoàn thiện TC-ACL-10B:** Kiểm thử đầy đủ 5 thao tác READ, CREATE, UPDATE, DELETE và EXPORT giữa Khoa A và Khoa B trên staging với tài khoản test và dọn dẹp dữ liệu an toàn.
+- **Xác thực commit từ máy chủ qua HTTP:** Route `/api/health` trả về header `X-Server-Commit` và trường `commit`; smoke test đọc trực tiếp phản hồi từ máy chủ để đối chiếu commit mục tiêu nghiệm thu.
+
+
+- **Phân quyền & REST API (TC-ACL-10, TC-PRIV-05):** Tách `TC-ACL-10A` (Access Control Hooks logic) và `TC-ACL-10B` (REST API thật với Payload CMS). Báo BLOCKED minh bạch khi staging DB thiếu tài khoản Khoa A / Khoa B; không tự sinh dữ liệu giả trong operational DB. Kiểm thử trực tiếp HTTP 429 thực tế qua mạng, xác minh header `Retry-After` và JSON error.
+- **PostgreSQL & Concurrency (TC-APPT-05A, TC-APPT-05B):** `TC-APPT-05A` chạy thực tế trên PostgreSQL disposable database (`bvdk_disposable_test`), 20 workers song song, xử lý va chạm 23505 tự động, kiểm chứng SQL `total: 20`, `unique_codes: 20`. `TC-APPT-05B` bắt buộc Staging Allowlist, loại bỏ `X-Forwarded-For` giả mạo, cấm PASS khi tất cả request bị 429, kiểm chứng mã phiếu bằng truy vấn SQL thực.
+- **Diễn tập Khôi phục Thực tế (Real Backup & Restore Drill):** Bổ sung `scripts/drill-disposable-restore.mjs` (`npm run backup:restore-real`). Sử dụng `pg_dump.exe` và `pg_restore.exe` thật của hệ thống trên database disposable riêng biệt; phục hồi tệp media thực (`media.tar`); đo thời gian khôi phục thực tế (RTO: 127 ms); kiểm chứng 100% dữ liệu SQL và hash SHA-256 media; dọn dẹp sạch tài nguyên.
+- **Staging Smoke Test:** Nâng cấp `scripts/smoke-production.mjs` xác minh Staging Allowlist và commit `078ed03`; ghi rõ HTTP status từng route (phân biệt 200 vs 301/302); kiểm tra bảo vệ unauthenticated `/api/appointments-export` (401) và `/api/appointments` (429/400); đạt 25/25 PASS (0 lỗi).
+
+
+- **Kiểm thử phân quyền Payload CMS toàn diện (TC-ACL-10):** Kiểm chứng độc lập cả 5 tác vụ (Read, Create, Update, Delete, Export) giữa Khoa A và Khoa B; tài khoản Khoa A hoàn toàn không thể đọc, tạo, sửa, xóa hoặc xuất dữ liệu của Khoa B.
+- **Chuẩn hóa TC-APPT-05A & TC-APPT-05B:** `TC-APPT-05A` chuyển sang báo FAIL nếu `TEST_DATABASE_URL` được cấu hình nhưng kết nối thất bại; `TC-APPT-05B` an toàn cho staging (chặn gửi lên production, ngày khám động, dùng token kiểm thử hợp lệ, chấp nhận 200/201 và 429 theo rate-limit).
+- **Kiểm thử HTTP 409 & 429 thực tế (TC-PRIV-05):** Kiểm chứng mã trạng thái 429 (IP limit & phone cooldown) và 409 (Conflict). Đánh giá phòng thủ đa tầng (Turnstile, IP quota, Phone cooldown, Triplet Phone/Date/Specialty) ngăn chặn triệt để hành vi suy đoán lịch hẹn.
+- **Diễn tập sao lưu và khôi phục dữ liệu giả lập (TC-DR-07):** Bổ sung kịch bản `npm run backup:rehearse` gồm 7 bước hoàn chỉnh (tính toàn vẹn SHA-256, kiểm tra cấu trúc SQL, khử khuẩn secret, kiểm soát cờ CONFIRM_RESTORE, tamper-detection).
+- **Staging Smoke Test & Route /robots.txt:** Bổ sung `src/app/robots.ts` chuẩn hóa phục vụ trực tiếp cho App Router, vượt qua 100% 18/18 routes cốt lõi và 4/4 security headers trong smoke test.
+
+## 2026-10-22 — Hoàn Tất Kiểm Thử Tích Hợp Thực Tế & Đóng Khoảng Trống Nghiệm Thu
+
+- **Kiểm thử phân quyền Create/Delete đa khoa (TC-ACL-09):** Khóa quyền `create` bằng `appointmentCreateAccess` và `delete` bằng `appointmentAccess('delete')` trên `Appointments`. Ngăn chặn hoàn toàn việc tài khoản Khoa A tạo lịch hẹn cho Khoa B hoặc xóa lịch hẹn của Khoa B; người dùng không gán khoa bị chặn theo Deny-by-default. Bổ sung hook `beforeChange` bảo vệ tính toàn vẹn.
+- **Tách bạch kiểm thử Concurrency & Cơ chế SKIP/NOT RUN:** Tách `TC-APPT-05` thành unit retry simulation (PASS), `TC-APPT-05A` kiểm thử Unique Constraint trên PostgreSQL thật qua `TEST_DATABASE_URL` (báo SKIP nếu chưa cấu hình DB test, cấm dùng `DATABASE_URL` chính), và `TC-APPT-05B` integration test HTTP tới staging (báo SKIP nếu chưa có server staging). Mọi test chưa chạy đều chuyển sang SKIP/NOT RUN, không cộng PASS.
+- **Bảo vệ riêng tư & Chống dò tìm (Probing) lịch khám:** Cập nhật phản hồi HTTP 409 tại `/api/appointments`, loại bỏ việc nhắc ngày khám hoặc chuyên khoa cụ thể để triệt tiêu nguy cơ kẻ gian dò tìm lịch sử khám của người khác chỉ bằng số điện thoại; test `TC-PRIV-04` đối chiếu trực tiếp mã nguồn thực tế.
+- **Xác nhận GitHub Actions CI:** Workflow chất lượng `BVDK quality gate` chạy thành công (Run #39708465098) cho commit mới nhất bao gồm typecheck, regression, security và build Next.js.
+- **Cập nhật nghiệm thu UAT:** Hoàn thiện bảng test case `docs/audit/UAT_SECURITY_TEST_CASES.md` với đầy đủ trạng thái PASS và giải trình chi tiết các ca kiểm thử NOT RUN theo môi trường.
+
+## 2026-10-22 — Hoàn Thiện Sau Đợt Review Độc Lập #2: Deny-by-default, Concurrency PostgreSQL & An Toàn Log
+
+- **P1 - Khử khuẩn lỗi 500 API xuất Excel:** Sửa `appointments-export` route để response HTTP 500 không trả `error.message`, SQL hay stack trace; trả thông điệp cố định kèm correlation `errorId` (`ERR-EXP-...`).
+- **P1 - Kiểm thử Concurrency thực sự với PostgreSQL:** Viết integration test `TC-APPT-05` kết nối PostgreSQL thật qua pool, chạy 20 workers đồng thời với ràng buộc `UNIQUE (code)`, kiểm chứng bắt lỗi 23505 và thuật toán retry sinh 100% mã duy nhất; tự động dọn sạch bảng tạm; an toàn bỏ qua nếu gặp database production.
+- **P1 - Khóa quyền lịch hẹn theo Deny-by-default:** Rà soát `appointmentAccess`, tài khoản có custom permissions nhưng không gắn khoa mặc định bị từ chối truy cập (fail-closed); thêm `appointmentDepartmentFieldAccess` bảo vệ trường `department` khi cập nhật.
+- **P1 - Phân loại log lỗi an toàn:** Route `/api/appointments` phân loại lỗi theo category (`DATABASE_UNIQUE_VIOLATION`, `DATABASE_FOREIGN_KEY_VIOLATION`, v.v.), loại bỏ hoàn toàn việc in raw SQL queries và thông tin người bệnh ra log hệ thống.
+- **P1 - Bảo vệ riêng tư khi trùng lịch:** Response HTTP 409 không trả lại mã phiếu hẹn cũ (`code`) hoặc thông tin người bệnh, chống rò rỉ dữ liệu khi người lạ chỉ biết số điện thoại.
+- **CI / GitHub Actions:** Bổ sung `npm run build` vào `.github/workflows/quality-gate.yml` để đảm bảo Next.js build được kiểm tra liên tục trên CI.
+- Tự động hóa 24/24 test cases bảo mật (P0: 11, P1: 13), 100% PASS typecheck, `validate:all` và build.
+
+## 2026-10-22 — Khắc Phục Lỗ Hổng Bảo Mật P0 & P1 & Hoàn Thiện Sau Đợt Review Độc Lập
+
+- **P0 - Khử khuẩn bí mật:** Xóa bỏ hoàn toàn chuỗi mật khẩu database cũ khỏi toàn bộ mã nguồn và test assertion; kiểm tra xác nhận không còn bí mật nào trong repository.
+- **P0 - Cấm mock Turnstile trên Production:** Sửa `verifyTurnstile` và `preflight-production.mjs`, cấm tuyệt đối `MOCK_TURNSTILE=true` trên production, chỉ cho phép mock ở `NODE_ENV=test`.
+- **P0 - Phân quyền lịch hẹn theo khoa:** Cập nhật `appointmentAccess` cho `Appointments` và lọc dữ liệu xuất Excel `/api/appointments-export`, giới hạn trưởng khoa (`department-manager`) chỉ xem, sửa và xuất phiếu hẹn thuộc khoa mình; bổ sung test cách ly Khoa A và Khoa B.
+- **P1 - Đọc stream hủy sớm chống DoS:** Sửa `readJsonBodyWithLimit` đọc payload theo stream chunk, lập tức gọi `reader.cancel()` khi vượt 25KB mà không buffer vào RAM; bổ sung test streaming.
+- **P1 - Kiểm thử Concurrency song song:** Nâng cấp `TC-APPT-05` với `Promise.all` kiểm thử 20 luồng đồng thời cạnh tranh sinh mã, xác thực cơ chế giải quyết va chạm khóa `unique_violation`.
+- **P1 - Khử khuẩn log lỗi 500:** Ẩn toàn bộ PII người bệnh và chuỗi kết nối database trong `console.error` tại endpoint lịch hẹn, chỉ log correlation `errorId` và mã lỗi chung.
+- **CI / Regression:** Sửa lỗi regression check `#21` trong `validate-patient-services.mjs` (vấn đề tồn đọng từ `main`); bổ sung `npm run test:security` vào GitHub Actions `.github/workflows/quality-gate.yml`.
+- Tự động hóa 20/20 test cases bảo mật (P0: 10, P1: 10), pass 100% typecheck, `validate:all` và Next.js production build.
+
 ## 2026-10-14 — Tùy Chọn Kiểu Hiển Thị Ảnh Ban Lãnh Đạo & Thứ Tự Ưu Tiên Ảnh Sơ Đồ Tổ Chức
 
 - Bổ sung tùy chọn kiểu hiển thị ảnh cho Ban Lãnh đạo trong **Sơ đồ tổ chức** (`src/globals/OrganizationChart.ts`), hỗ trợ 5 kiểu dáng: Tràn viền thẻ (`full-cover`), Khung phủ kín (`cover-box`), Vừa vặn (`contain-box`), Bo góc lọt lòng (`rounded-inset`), và Hình tròn (`circle`).

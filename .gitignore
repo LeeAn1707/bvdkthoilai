@@ -38,6 +38,7 @@ scripts/seed-quality-settings.mjs
 backups/
 scripts/backup-*.mjs
 scripts/backup-*.js
+!scripts/backup-railway.mjs
 
 # archives
 *.zip

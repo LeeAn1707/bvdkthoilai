@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import ExcelJS from 'exceljs'
 import { getCMS } from '@/lib/payload'
 import { hasModulePermission } from '@/access'
@@ -101,6 +102,21 @@ export async function GET(req: Request) {
     ]
     if (statusFilter && statusFilter !== 'all') {
       filters.push({ status: { equals: statusFilter } })
+    }
+
+    // RBAC: Giới hạn dữ liệu xuất theo khoa nếu là department-manager hoặc tài khoản có ràng buộc department
+    const userRole = user.role
+    const isElevated = userRole === 'super-admin' || userRole === 'system-admin' || userRole === 'admin'
+    if (!isElevated && userRole !== 'board') {
+      const department = user.department
+      const departmentID = typeof department === 'object' && department ? department.id : department
+      if (!departmentID) {
+        return NextResponse.json(
+          { error: 'Tài khoản quản lý khoa chưa được liên kết khoa cụ thể để xuất dữ liệu.' },
+          { status: 403 }
+        )
+      }
+      filters.push({ department: { equals: departmentID } })
     }
 
     const where = { and: filters }
@@ -351,8 +367,16 @@ export async function GET(req: Request) {
       },
     })
   } catch (error: any) {
+    const errorId = `ERR-EXP-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`
+    console.error(`[AppointmentsExport][${errorId}] Lỗi xuất file Excel:`, {
+      name: error?.name || 'Error',
+      code: error?.code || 'INTERNAL_ERROR',
+    })
     return NextResponse.json(
-      { error: 'Không thể xuất file Excel: ' + (error?.message || 'Lỗi hệ thống') },
+      {
+        error: 'Không thể xuất file Excel vào lúc này. Quý khách vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên hệ thống.',
+        errorId,
+      },
       { status: 500 }
     )
   }

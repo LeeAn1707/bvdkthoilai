@@ -1,11 +1,37 @@
 const buckets = new Map<string, { count: number; resetAt: number }>()
 
-// In production the app port is bound to 127.0.0.1 and Nginx overwrites these
-// headers, so they cannot be supplied directly by an Internet client.
-export function clientAddress(req: Request) {
-  return req.headers.get('x-real-ip')?.trim()
-    || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || 'unknown'
+const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+const IPV6_REGEX = /^[a-fA-F0-9:]{2,39}$/
+
+function sanitizeIp(ip: string | null | undefined): string | null {
+  if (!ip) return null
+  const cleaned = ip.trim().split(':')[0] === '::ffff' ? ip.trim().replace(/^::ffff:/, '') : ip.trim()
+  if (IPV4_REGEX.test(cleaned) || IPV6_REGEX.test(cleaned)) {
+    return cleaned
+  }
+  return null
+}
+
+// In production the app port is bound to 127.0.0.1 and Nginx/Cloudflare sets these
+// headers. Ưu tiên cf-connecting-ip từ Cloudflare, sau đó là x-real-ip từ reverse proxy.
+export function clientAddress(req: Request): string {
+  const cfIp = sanitizeIp(req.headers.get('cf-connecting-ip'))
+  if (cfIp) return cfIp
+
+  const realIp = sanitizeIp(req.headers.get('x-real-ip'))
+  if (realIp) return realIp
+
+  const forwarded = req.headers.get('x-forwarded-for')
+  if (forwarded) {
+    // Lấy IP từ chuỗi forwarded, lọc qua validator an toàn
+    const parts = forwarded.split(',').map((p) => p.trim())
+    for (const part of parts) {
+      const valid = sanitizeIp(part)
+      if (valid && valid !== '127.0.0.1' && valid !== '::1') return valid
+    }
+  }
+
+  return 'unknown'
 }
 
 export function rateLimit(req: Request, namespace: string, limit: number, windowMs: number) {
@@ -28,22 +54,110 @@ export function bodyIsTooLarge(req: Request, maxBytes: number) {
   return Number.isFinite(length) && length > maxBytes
 }
 
+/**
+ * Đọc body JSON với cơ chế đọc stream có giới hạn byte tích lũy.
+ * Ngay khi lượng byte vượt quá maxBytes, stream đọc sẽ bị hủy ngay lập tức
+ * (reader.cancel()) mà KHÔNG buffer toàn bộ payload vào RAM nhằm chống tấn công DoS/OOM.
+ */
+export async function readJsonBodyWithLimit<T = any>(
+  req: Request,
+  maxBytes: number,
+): Promise<{ data?: T; error?: string; status?: number }> {
+  // 1. Kiểm tra nhanh Content-Length nếu có header khai báo
+  if (bodyIsTooLarge(req, maxBytes)) {
+    return { error: 'Dữ liệu gửi lên vượt quá dung lượng cho phép.', status: 413 }
+  }
+
+  // 2. Nếu không có body stream
+  if (!req.body) {
+    return { data: {} as T }
+  }
+
+  try {
+    const reader = req.body.getReader()
+    const chunks: Uint8Array[] = []
+    let totalBytes = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        totalBytes += value.byteLength
+        if (totalBytes > maxBytes) {
+          try {
+            await reader.cancel('Payload too large')
+          } catch {}
+          return { error: 'Dữ liệu gửi lên vượt quá dung lượng cho phép.', status: 413 }
+        }
+        chunks.push(value)
+      }
+    }
+
+    if (chunks.length === 0) {
+      return { data: {} as T }
+    }
+
+    const concatenated = Buffer.concat(chunks, totalBytes)
+    const rawText = concatenated.toString('utf8').trim()
+    if (!rawText) {
+      return { data: {} as T }
+    }
+    const parsed = JSON.parse(rawText)
+    return { data: parsed }
+  } catch (err: any) {
+    return { error: 'Dữ liệu yêu cầu không đúng định dạng JSON.', status: 400 }
+  }
+}
+
 export async function verifyTurnstile(req: Request, token: unknown) {
-  const secret = process.env.TURNSTILE_SECRET_KEY?.trim()
-  if (!secret) return true // Optional until keys are configured on VPS.
+  const isProduction = process.env.NODE_ENV === 'production'
+  // Mock token CHỈ được phép bật khi NODE_ENV === 'test' và TUYỆT ĐỐI KHÔNG PHẢI production
+  const isTest = process.env.NODE_ENV === 'test' && !isProduction
   const responseToken = String(token || '').trim()
-  if (!responseToken || responseToken.length > 4096) return false
+
+  // 1. Token rỗng hoặc vượt quá độ dài tối đa cho phép luôn bị từ chối
+  if (!responseToken || responseToken.length > 4096) {
+    return false
+  }
+
+  // 2. Chặn đứng nguy cơ bypass trên production nếu có ai cấu hình MOCK_TURNSTILE=true
+  if (isProduction && process.env.MOCK_TURNSTILE === 'true') {
+    console.error('[Security] CẢNH BÁO NGUY HIỂM: MOCK_TURNSTILE không được phép bật trên Production. Từ chối yêu cầu.')
+    return false
+  }
+
+  // 3. Chỉ cho phép token giả lập hợp lệ trong môi trường kiểm thử tự động (NODE_ENV=test)
+  if (isTest && responseToken === 'cf-mock-valid-token') {
+    return true
+  }
+
+  const secret = process.env.TURNSTILE_SECRET_KEY?.trim()
+  if (!secret) {
+    if (isProduction || isTest) {
+      console.error('[Security] TURNSTILE_SECRET_KEY chưa được cấu hình. Từ chối yêu cầu (Fail-closed).')
+      return false
+    }
+    // Môi trường dev địa phương chưa cấu hình keys thì cảnh báo nhưng cho phép để lập trình viên kiểm thử UI
+    return true
+  }
+
   try {
     const form = new URLSearchParams({ secret, response: responseToken })
     const ip = clientAddress(req)
     if (ip && ip !== 'unknown') form.set('remoteip', ip)
     const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form, cache: 'no-store',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
     })
     if (!response.ok) return false
     const result = await response.json() as { success?: boolean }
     return result.success === true
-  } catch { return false }
+  } catch {
+    return false
+  }
 }
 
 export const validPhone = (value: string) => /^(?:\+?84|0)[0-9\s.-]{8,14}$/.test(value)

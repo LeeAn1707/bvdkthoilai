@@ -120,7 +120,13 @@ const moduleRoleDefaults: Record<string, Partial<Record<PermissionAction, Role[]
   'scientific-activities': { view: ['editor', 'reviewer', 'department', 'department-manager'], create: ['editor', 'reviewer', 'department', 'department-manager'], edit: ['editor', 'reviewer', 'department', 'department-manager'], delete: ['reviewer'], submit: ['editor', 'department', 'department-manager'], approve: ['reviewer'], publish: ['reviewer'], hide: ['reviewer'], restore: ['reviewer'] },
   'work-schedules': { view: ['board', 'clinic-schedule', 'department-manager', 'editor', 'reviewer'], create: ['clinic-schedule'], edit: ['clinic-schedule'], delete: ['clinic-schedule'], publish: ['clinic-schedule'], import: ['clinic-schedule'], export: ['clinic-schedule'] },
   schedules: { view: ['clinic-schedule', 'department-manager'], create: ['clinic-schedule'], edit: ['clinic-schedule'], delete: ['clinic-schedule'], publish: ['clinic-schedule'], import: ['clinic-schedule'], export: ['clinic-schedule'] },
-  appointments: { view: ['board', 'editor', 'reviewer', 'department', 'department-manager', 'hr', 'finance', 'procurement', 'clinic-schedule', 'vaccination', 'quality-management'], create: ['board', 'editor', 'reviewer', 'department', 'department-manager', 'hr', 'finance', 'procurement', 'clinic-schedule', 'vaccination', 'quality-management'], edit: ['board', 'editor', 'reviewer', 'department', 'department-manager', 'hr', 'finance', 'procurement', 'clinic-schedule', 'vaccination', 'quality-management'], delete: ['board', 'editor', 'reviewer', 'department', 'department-manager', 'hr', 'finance', 'procurement', 'clinic-schedule', 'vaccination', 'quality-management'], export: ['board', 'editor', 'reviewer', 'department', 'department-manager', 'hr', 'finance', 'procurement', 'clinic-schedule', 'vaccination', 'quality-management'] },
+  appointments: {
+    view: ['board', 'clinic-schedule', 'department-manager'],
+    create: ['clinic-schedule', 'department-manager'],
+    edit: ['clinic-schedule', 'department-manager'],
+    delete: [],
+    export: ['board', 'department-manager'],
+  },
   vaccinations: { view: ['vaccination'], create: ['vaccination'], edit: ['vaccination'], delete: ['vaccination'], publish: ['vaccination'], import: ['vaccination'], export: ['vaccination'] },
   services: { view: ['finance'], create: ['finance'], edit: ['finance'], delete: ['finance'], publish: ['finance'], import: ['finance'], export: ['finance'] },
   feedback: { view: ['quality-management', 'department-manager'], create: ['quality-management'], edit: ['quality-management', 'department-manager'], delete: ['quality-management'], export: ['quality-management'] },
@@ -169,6 +175,58 @@ export const moduleAccess = (module: string, action: PermissionAction): Access =
   if (!isActiveUser(user)) return false
   return hasModulePermission(user, module, action)
 }
+
+export const appointmentAccess = (action: PermissionAction): Access => async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (!isActiveUser(user)) return false
+  const role = roleOf(user)
+  if (isElevatedRole(role)) return true
+  if (!hasModulePermission(user, 'appointments', action)) return false
+
+  // Ban Giám Đốc (board) và Điều phối phòng khám (clinic-schedule) được xem/điều phối toàn viện
+  if (role === 'board' || role === 'clinic-schedule') return true
+
+  // Nguyên tắc Deny-by-default: Mọi tài khoản khác (kể cả department-manager hay tài khoản có custom permissions)
+  // bắt buộc phải được gắn vào một khoa/phòng cụ thể (user.department).
+  // Nếu không gắn khoa -> TUYỆT ĐỐI KHÔNG được xem hoặc sửa dữ liệu lịch hẹn (Fail-closed).
+  const department = (user as any)?.department
+  const departmentID = typeof department === 'object' && department ? department.id : department
+  if (!departmentID) return false
+
+  return { department: { equals: departmentID } } as Where
+}
+
+export const appointmentDepartmentFieldAccess: FieldAccess = ({ req }) => {
+  const user = req?.user as any
+  if (!isActiveUser(user)) return false
+  const role = roleOf(user)
+  // Chỉ admin cấp cao hoặc nhân sự điều phối toàn viện mới được thay đổi Khoa tiếp nhận của phiếu hẹn
+  return isElevatedRole(role) || role === 'clinic-schedule'
+}
+
+export const appointmentCreateAccess: Access = async ({ req, data }: any) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (!isActiveUser(user)) return false
+  const role = roleOf(user)
+  if (isElevatedRole(role) || role === 'clinic-schedule') return true
+  if (!hasModulePermission(user, 'appointments', 'create')) return false
+
+  // Nguyên tắc Deny-by-default: Người dùng bắt buộc phải gắn với một khoa cụ thể
+  const department = (user as any)?.department
+  const userDeptID = typeof department === 'object' && department ? department.id : department
+  if (!userDeptID) return false
+
+  // Ngăn chặn tài khoản khoa A tạo lịch khám cho khoa B:
+  if (data?.department) {
+    const targetDeptID = typeof data.department === 'object' && data.department ? data.department.id : data.department
+    if (targetDeptID && Number(targetDeptID) !== Number(userDeptID)) {
+      return false
+    }
+  }
+
+  return true
+}
+
 
 export const departmentScopedAccess = (module: string, action: PermissionAction, departmentField = 'department'): Access => ({ req }) => {
   if (!isActiveUser(req.user)) return false

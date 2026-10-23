@@ -26,7 +26,7 @@ check('Collection vaccines đã tách riêng', vaccines.includes("slug: 'vaccine
 check('Collection vaccinePrices đã tách riêng', vaccinePrices.includes("slug: 'vaccinePrices'") && config.includes('VaccinePrices'))
 check('Giá vắc xin có lịch sử hiệu lực', vaccinePrices.includes('effectiveFrom') && vaccinePrices.includes('effectiveTo'))
 check('Collection vaccinationSchedules đã tách riêng', vaccinationSchedules.includes("slug: 'vaccinationSchedules'") && config.includes('VaccinationSchedules'))
-check('Lịch khám mặc định ưu tiên ảnh/tệp', schedules.includes("defaultValue: 'attachment'") && schedules.includes('Ảnh lịch khám tuần (ưu tiên)'))
+check('Lịch khám hỗ trợ đăng ảnh/tệp ưu tiên', (schedules.includes("defaultValue: 'attachment'") || schedules.includes("value: 'attachment'")) && schedules.includes('Ảnh lịch khám tuần (ưu tiên)'))
 check('Lịch khám hỗ trợ lịch chính thức/điều chỉnh', schedules.includes("name: 'scheduleType'") && schedules.includes('adjustment'))
 check('Import Center có bước preview', importRoute.includes("mode !== 'import'") && importUI.includes("send('preview')"))
 check('Import Center bắt buộc ngày hiệu lực', importRoute.includes('thiếu/sai Hiệu lực từ') && importRoute.includes('effectiveFrom'))

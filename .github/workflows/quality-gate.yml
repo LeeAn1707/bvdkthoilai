@@ -36,5 +36,14 @@ jobs:
       - name: TypeScript check
         run: npm run typecheck
 
+      - name: Security checks
+        run: npm run test:security
+
       - name: Regression checks
         run: npm run validate:all
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+

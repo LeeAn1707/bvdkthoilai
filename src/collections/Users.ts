@@ -33,6 +33,7 @@ export const Users: CollectionConfig = {
   slug: 'users',
   labels: { singular: 'Người dùng', plural: 'Người dùng & Phân quyền' },
   auth: {
+    useSessions: false,
     maxLoginAttempts: 5,
     lockTime: 15 * 60 * 1000,
     cookies: {

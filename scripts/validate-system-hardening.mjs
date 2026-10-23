@@ -26,6 +26,7 @@ const checks = [
   ['Backup checksum', 'scripts/backup.sh', 'SHA256SUMS'],
   ['Backup verification', 'scripts/verify-backup.sh', 'pg_restore --list'],
   ['Restore verifies backup', 'scripts/restore.sh', 'verify-backup.sh'],
+  ['Appointments collection create locked', 'src/collections/Appointments.ts', "create: moduleAccess('appointments', 'create')"],
 ]
 
 const accessPolicy = fs.readFileSync('src/access/index.ts', 'utf8')
@@ -33,6 +34,8 @@ const leastPrivilegeChecks = [
   ['Site Settings has no business-role default edit', /'site-settings':\s*\{\s*view:\s*\['board'\],\s*edit:\s*\[\]\s*\}/.test(accessPolicy)],
   ['Homepage default edit is limited to website editors', /homepage:\s*\{\s*view:\s*\['board',\s*'editor',\s*'reviewer'\],\s*edit:\s*\['editor',\s*'reviewer'\]\s*\}/.test(accessPolicy)],
   ['Navigation default edit is limited to website editors', /navigation:\s*\{\s*view:\s*\['board',\s*'editor',\s*'reviewer'\],\s*edit:\s*\['editor',\s*'reviewer'\]\s*\}/.test(accessPolicy)],
+  ['Appointments default edit/view excludes editor, hr, finance, procurement', !/'appointments':\s*\{[^}]*'(editor|hr|finance|procurement)'/.test(accessPolicy)],
+  ['Appointments delete has no default business role', /appointments:\s*\{[^}]*delete:\s*\[\]/.test(accessPolicy)],
 ]
 
 let failed = 0
