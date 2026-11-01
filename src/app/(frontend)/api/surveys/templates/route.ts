@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCMS } from '@/lib/payload'
-import { hasModulePermission } from '@/access'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
 import { SYSTEM_SURVEY_PRESETS } from '@/lib/surveyTemplatePresets'
 import {
   getSavedSurveyTemplates,
@@ -10,8 +10,7 @@ import {
 
 const authorize = async (request: Request, action: 'view' | 'create' | 'edit' | 'delete') => {
   const payload = await getCMS()
-  const auth = await payload.auth({ headers: request.headers })
-  const user = auth.user as any
+  const user = await getVerifiedActiveUser(payload, request.headers)
   return { payload, user, allowed: Boolean(user && hasModulePermission(user, 'surveys', action)) }
 }
 
@@ -137,8 +136,8 @@ export async function GET(request: Request) {
       campaigns,
     })
   } catch (error: any) {
-    console.error('API SURVEY TEMPLATES ERROR:', error)
-    return NextResponse.json({ error: error?.message || 'Lỗi xử lý danh sách mẫu khảo sát.' }, { status: 500 })
+    console.error('API SURVEY TEMPLATES ERROR:', error?.message || error)
+    return NextResponse.json({ error: 'Lỗi xử lý danh sách mẫu khảo sát.' }, { status: 500 })
   }
 }
 
@@ -176,8 +175,8 @@ export async function POST(request: Request) {
       template: saved,
     })
   } catch (error: any) {
-    console.error('API SURVEY TEMPLATES POST ERROR:', error)
-    return NextResponse.json({ error: error?.message || 'Lỗi khi lưu mẫu khảo sát.' }, { status: 500 })
+    console.error('API SURVEY TEMPLATES POST ERROR:', error?.message || error)
+    return NextResponse.json({ error: 'Lỗi khi lưu mẫu khảo sát.' }, { status: 500 })
   }
 }
 
@@ -209,7 +208,7 @@ export async function DELETE(request: Request) {
       message: 'Đã xóa mẫu khảo sát thành công.',
     })
   } catch (error: any) {
-    console.error('API SURVEY TEMPLATES DELETE ERROR:', error)
-    return NextResponse.json({ error: error?.message || 'Lỗi khi xóa mẫu khảo sát.' }, { status: 500 })
+    console.error('API SURVEY TEMPLATES DELETE ERROR:', error?.message || error)
+    return NextResponse.json({ error: 'Lỗi khi xóa mẫu khảo sát.' }, { status: 500 })
   }
 }

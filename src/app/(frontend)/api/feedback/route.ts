@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createHash, randomBytes } from 'crypto'
 import { getCMS } from '@/lib/payload'
-import { bodyIsTooLarge, rateLimit, validEmail, validPhone, verifyTurnstile } from '@/lib/request-security'
+import { bodyIsTooLarge, rateLimit, readJsonBodyWithLimit, validEmail, validPhone, verifyTurnstile } from '@/lib/request-security'
 
 const makeCode = () => `GY-${new Date().getFullYear()}-${randomBytes(4).toString('hex').toUpperCase()}`
 
@@ -10,7 +10,9 @@ export async function POST(req: Request) {
     if (bodyIsTooLarge(req, 20_000)) return NextResponse.json({ error: 'Dữ liệu quá lớn' }, { status: 413 })
     const throttle = rateLimit(req, 'feedback-case', 5, 15 * 60_000)
     if (!throttle.allowed) return NextResponse.json({ error: 'Bạn gửi quá nhiều yêu cầu. Vui lòng thử lại sau.' }, { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } })
-    const body = await req.json()
+    const parsed = await readJsonBodyWithLimit<Record<string, any>>(req, 20_000)
+    if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 })
+    const body = parsed.data || {}
     if (body.website) return NextResponse.json({ ok: true })
     if (!(await verifyTurnstile(req, body['cf-turnstile-response']))) return NextResponse.json({ error: 'Không thể xác minh yêu cầu. Vui lòng thử lại.' }, { status: 403 })
     const name = String(body.name || '').trim().slice(0, 150)
@@ -93,7 +95,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, code })
   } catch (err: any) {
-    console.error('API FEEDBACK ERROR:', err)
+    console.error('API FEEDBACK ERROR:', err instanceof Error ? err.message : 'UNKNOWN_ERROR')
     return NextResponse.json({ error: 'Không thể xử lý yêu cầu. Vui lòng thử lại sau.' }, { status: 500 })
   }
 }

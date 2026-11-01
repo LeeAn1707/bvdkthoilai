@@ -1,6 +1,7 @@
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { postgresAdapter } from '@payloadcms/db-postgres'
+import { sql } from '@payloadcms/db-postgres/drizzle'
 import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
 import nodemailer from 'nodemailer'
 import { s3Storage } from '@payloadcms/storage-s3'
@@ -95,7 +96,7 @@ import { ArticleDetailSettings } from './src/globals/ArticleDetailSettings'
 import { VaccinationSettings } from './src/globals/VaccinationSettings'
 import { withAudit, withGlobalAudit } from './src/lib/audit'
 import { hospitalEditor } from './src/editor/hospitalEditor'
-import { hasModulePermission } from './src/access'
+import { hasModulePermission, isActiveUser } from './src/access'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -274,7 +275,7 @@ const hideWithoutModulePermission = <T extends CollectionConfig | GlobalConfig>(
             ? existingHidden(args)
             : existingHidden === true
           const userRole = args.user?.role
-          const isElevated = userRole === 'super-admin' || userRole === 'system-admin' || userRole === 'admin'
+          const isElevated = isActiveUser(args.user) && (userRole === 'super-admin' || userRole === 'system-admin' || userRole === 'admin')
           return alreadyHidden || !isElevated
         },
       },
@@ -345,7 +346,7 @@ export default buildConfig({
             pass: smtpPass,
           },
           tls: {
-            rejectUnauthorized: false,
+            rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED === 'false' ? false : true,
           },
           connectionTimeout: 10000,
           greetingTimeout: 10000,
@@ -365,6 +366,74 @@ export default buildConfig({
       keepAliveInitialDelayMillis: 10000,
     }
   }),
+  onInit: async (payload) => {
+    if (isBuildPhase) return
+    try {
+      await payload.db.drizzle.execute(
+        sql`
+          ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "reset_password_requested_at" TIMESTAMP(3) WITH TIME ZONE;
+
+          DO $$ BEGIN
+            CREATE TYPE public."enum_doctors_avatar_display_mode" AS ENUM (
+              'inherit', 'zoom-out-2-3', 'zoom-out-wide', 'zoom-out-medium',
+              'cover-top', 'cover-body', 'cover-center', 'zoom-in-close', 'fill'
+            );
+          EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+          DO $$ BEGIN
+            CREATE TYPE public."enum__doctors_v_version_avatar_display_mode" AS ENUM (
+              'inherit', 'zoom-out-2-3', 'zoom-out-wide', 'zoom-out-medium',
+              'cover-top', 'cover-body', 'cover-center', 'zoom-in-close', 'fill'
+            );
+          EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+          DO $$ BEGIN
+            CREATE TYPE public."enum_homepage_sections_expert_image_display_mode" AS ENUM (
+              'zoom-out-2-3', 'zoom-out-wide', 'zoom-out-medium',
+              'cover-top', 'cover-body', 'cover-center', 'zoom-in-close', 'fill'
+            );
+          EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+          DO $$ BEGIN
+            CREATE TYPE public."enum__homepage_v_version_sections_expert_image_display_mode" AS ENUM (
+              'zoom-out-2-3', 'zoom-out-wide', 'zoom-out-medium',
+              'cover-top', 'cover-body', 'cover-center', 'zoom-in-close', 'fill'
+            );
+          EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+          ALTER TABLE public."doctors"
+            ADD COLUMN IF NOT EXISTS "avatar_display_mode" public."enum_doctors_avatar_display_mode" DEFAULT 'inherit',
+            ADD COLUMN IF NOT EXISTS "avatar_scale" numeric,
+            ADD COLUMN IF NOT EXISTS "avatar_offset_y" numeric;
+          ALTER TABLE public."_doctors_v"
+            ADD COLUMN IF NOT EXISTS "version_avatar_display_mode" public."enum__doctors_v_version_avatar_display_mode" DEFAULT 'inherit',
+            ADD COLUMN IF NOT EXISTS "version_avatar_scale" numeric,
+            ADD COLUMN IF NOT EXISTS "version_avatar_offset_y" numeric;
+          ALTER TABLE public."our_experts"
+            ADD COLUMN IF NOT EXISTS "image_scale" numeric,
+            ADD COLUMN IF NOT EXISTS "image_offset_y" numeric;
+          ALTER TABLE public."expert_items"
+            ADD COLUMN IF NOT EXISTS "image_scale" numeric,
+            ADD COLUMN IF NOT EXISTS "image_offset_y" numeric;
+          ALTER TABLE public."_expert_items_v"
+            ADD COLUMN IF NOT EXISTS "image_scale" numeric,
+            ADD COLUMN IF NOT EXISTS "image_offset_y" numeric;
+          ALTER TABLE public."homepage_sections"
+            ADD COLUMN IF NOT EXISTS "expert_image_display_mode" public."enum_homepage_sections_expert_image_display_mode" DEFAULT 'zoom-out-2-3',
+            ADD COLUMN IF NOT EXISTS "expert_image_scale" numeric DEFAULT 86,
+            ADD COLUMN IF NOT EXISTS "expert_card_height" numeric DEFAULT 240,
+            ADD COLUMN IF NOT EXISTS "expert_image_offset_y" numeric DEFAULT 12;
+          ALTER TABLE public."_homepage_v_version_sections"
+            ADD COLUMN IF NOT EXISTS "expert_image_display_mode" public."enum__homepage_v_version_sections_expert_image_display_mode" DEFAULT 'zoom-out-2-3',
+            ADD COLUMN IF NOT EXISTS "expert_image_scale" numeric DEFAULT 86,
+            ADD COLUMN IF NOT EXISTS "expert_card_height" numeric DEFAULT 240,
+            ADD COLUMN IF NOT EXISTS "expert_image_offset_y" numeric DEFAULT 12;
+        `
+      )
+    } catch {
+      // Bỏ qua nếu kết nối DB không có quyền DDL hoặc đang ở pha khởi tạo tĩnh
+    }
+  },
   sharp,
   // Luôn đăng ký adapter để importMap Production nhận diện đúng component S3.
   // `enabled` quyết định upload thật sự đi R2 hay local /media.

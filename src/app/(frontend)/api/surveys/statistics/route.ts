@@ -1,20 +1,24 @@
 import { NextResponse } from 'next/server'
 import { getCMS } from '@/lib/payload'
-import { hasModulePermission } from '@/access'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
+import { rateLimit } from '@/lib/request-security'
 
 const PUBLIC_MIN_SAMPLE_SIZE = 5
 const ALLOWED_PERIODS = new Set(['all', 'day', 'week', 'month', 'quarter', '6months', '9months', 'year'])
 
 export async function GET(request: Request) {
   try {
+    const throttle = rateLimit(request, 'surveys-statistics', 60, 15 * 60_000)
+    if (!throttle.allowed) {
+      return NextResponse.json({ error: 'Quá nhiều yêu cầu truy vấn thống kê khảo sát. Vui lòng thử lại sau.' }, { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } })
+    }
     const payload = await getCMS()
     const { searchParams } = new URL(request.url)
 
     const campaign = searchParams.get('campaign') || 'all'
     const period = searchParams.get('period') || 'all' // all | day | week | month | quarter | 6months | 9months | year
     const wantsAdminDetails = searchParams.get('details') === 'admin'
-    const auth = await payload.auth({ headers: request.headers })
-    const user = auth.user as any
+    const user = await getVerifiedActiveUser(payload, request.headers)
     const canViewDetails = Boolean(user && hasModulePermission(user, 'surveys', 'view'))
 
     if (!ALLOWED_PERIODS.has(period)) {

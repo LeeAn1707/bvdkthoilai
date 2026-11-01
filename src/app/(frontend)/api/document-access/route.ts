@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCMS } from '@/lib/payload'
-import { hasModulePermission } from '@/access'
-import { bodyIsTooLarge, rateLimit } from '@/lib/request-security'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
+import { bodyIsTooLarge, rateLimit, readJsonBodyWithLimit } from '@/lib/request-security'
 import {
   createDocumentToken,
   pinsMatch,
@@ -25,7 +25,11 @@ export async function POST(request: Request) {
       )
     }
 
-    const body = await request.json().catch(() => null) as Record<string, unknown> | null
+    const parsed = await readJsonBodyWithLimit<Record<string, unknown>>(request, 4_096)
+    if (parsed.error) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 })
+    }
+    const body = parsed.data || null
     const collection = body?.collection
     const documentId = String(body?.documentId || '').trim()
     const pin = String(body?.pin || '').slice(0, 200)
@@ -62,8 +66,7 @@ export async function POST(request: Request) {
     }
 
     if (mode === 'internal') {
-      const auth = await payload.auth({ headers: request.headers })
-      const user = auth.user as any
+      const user = await getVerifiedActiveUser(payload, request.headers)
       const moduleName = collection === 'documents' ? 'documents' : 'clinical-protocols'
       if (!user) {
         return NextResponse.json({ error: 'Bạn cần đăng nhập để xem tài liệu nội bộ.' }, { status: 401 })
@@ -85,7 +88,7 @@ export async function POST(request: Request) {
       { headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } },
     )
   } catch (error) {
-    console.error('DOCUMENT ACCESS ERROR:', error)
+    console.error('DOCUMENT ACCESS ERROR:', error instanceof Error ? error.message : 'UNKNOWN_ERROR')
     return NextResponse.json(
       { error: 'Không thể xác minh quyền truy cập tài liệu.' },
       { status: 500, headers: { 'Cache-Control': 'no-store' } },

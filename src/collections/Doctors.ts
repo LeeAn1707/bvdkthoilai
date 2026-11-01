@@ -77,6 +77,56 @@ export const Doctors: CollectionConfig = {
                 description: '💡 Tỷ lệ đứng 3:4 chuẩn bệnh viện (600×800px hoặc 450×600px). Chụp bán thân áo blouse trắng nền sáng. Hệ thống tự động căn chỉnh phủ khít khung hình, bảo đảm tuyệt đối không biến dạng, không méo ảnh.',
               },
             },
+            {
+              type: 'row',
+              fields: [
+                {
+                  name: 'avatarDisplayMode',
+                  label: 'Kiểu hiển thị ảnh trên Trang chủ (Luôn full khung)',
+                  type: 'select',
+                  defaultValue: 'inherit',
+                  options: [
+                    { label: '🔄 Theo cấu hình chung của mục Chuyên gia Trang chủ (Mặc định)', value: 'inherit' },
+                    { label: '⭐ Chế độ 1: Zoom xa lấy > 2/3 người + Full nền đồng màu (85%)', value: 'zoom-out-2-3' },
+                    { label: '🔍 Chế độ 2: Zoom rất xa lấy trọn thân người (76%) + Full nền', value: 'zoom-out-wide' },
+                    { label: '🎯 Chế độ 3: Vừa khung tiêu chuẩn lấy 2/3 người (92%) + Full nền', value: 'zoom-out-medium' },
+                    { label: '📐 Chế độ 4: Lấp đầy khung canh từ đỉnh đầu xuống ngực (Cover Top)', value: 'cover-top' },
+                    { label: '👤 Chế độ 5: Lấp đầy khung canh giữa thân người (Cover Body)', value: 'cover-body' },
+                    { label: '⚖️ Chế độ 6: Lấp đầy khung canh chính giữa tâm ảnh (Cover Center)', value: 'cover-center' },
+                    { label: '🔬 Chế độ 7: Thu gần / Zoom cận mặt rõ nét (Zoom In 115%)', value: 'zoom-in-close' },
+                    { label: '↔️ Chế độ 8: Co giãn lấp đầy khít 4 cạnh khung (Fill 100%)', value: 'fill' },
+                  ],
+                  admin: {
+                    width: '40%',
+                    description: 'Chọn nhanh chế độ hiển thị ảnh cho bác sĩ này trên Trang chủ (luôn đảm bảo full khung 100%).',
+                  },
+                },
+                {
+                  name: 'avatarScale',
+                  label: 'Tinh chỉnh Zoom xa (<100%) / Thu gần (>100%)',
+                  type: 'number',
+                  min: 40,
+                  max: 200,
+                  admin: {
+                    width: '30%',
+                    placeholder: 'VD: 85 (Zoom xa) hoặc 115 (Thu gần)',
+                    description: '💡 Nhập < 100% (VD: 75–92) để ZOOM XA lấy > 2/3 người; nhập > 100% (VD: 105–135) để THU GẦN lại.',
+                  },
+                },
+                {
+                  name: 'avatarOffsetY',
+                  label: 'Vị trí canh dọc ảnh (%)',
+                  type: 'number',
+                  min: 0,
+                  max: 100,
+                  admin: {
+                    width: '30%',
+                    placeholder: 'Mặc định 12%',
+                    description: 'Điều chỉnh điểm canh dọc từ 0% (đỉnh đầu) đến 100% (chân ảnh). Khuyên dùng 8%–25%.',
+                  },
+                },
+              ],
+            },
           ],
         },
         {

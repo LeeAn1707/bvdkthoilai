@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { Workbook } from 'exceljs'
 import { getCMS } from '@/lib/payload'
-import { hasModulePermission } from '@/access'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
+import { rateLimit } from '@/lib/request-security'
 import {
   RAW_OUTPATIENT_SURVEY_SECTIONS as OUTPATIENT_SURVEY_SECTIONS,
   RAW_INPATIENT_SURVEY_SECTIONS as INPATIENT_SURVEY_SECTIONS,
@@ -19,14 +20,17 @@ const requestIP = (request: Request) =>
 export async function GET(request: Request) {
   try {
     const payload = await getCMS()
-    const auth = await payload.auth({ headers: request.headers })
-    const user = auth.user as any
+    const user = await getVerifiedActiveUser(payload, request.headers)
 
     if (!user) {
       return NextResponse.json({ error: 'Bạn cần đăng nhập để xuất dữ liệu khảo sát.' }, { status: 401 })
     }
     if (!hasModulePermission(user, 'surveys', 'export')) {
       return NextResponse.json({ error: 'Bạn không có quyền xuất dữ liệu khảo sát.' }, { status: 403 })
+    }
+    const throttle = rateLimit(request, `surveys-export:${user.id}`, 20, 15 * 60_000)
+    if (!throttle.allowed) {
+      return NextResponse.json({ error: 'Bạn đã xuất báo cáo khảo sát quá nhiều lần. Vui lòng thử lại sau.' }, { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } })
     }
 
     const { searchParams } = new URL(request.url)

@@ -156,7 +156,7 @@ export const Media: CollectionConfig = {
     },
     {
       name: 'accessLevel', label: 'Mức truy cập', type: 'select', required: true, defaultValue: 'public', index: true,
-      access: { create: ({ req }) => Boolean(req.user), update: ({ req }) => Boolean(req.user) },
+      access: { create: moduleAccess('media', 'create') as any, update: moduleAccess('media', 'edit') as any },
       options: [
         { label: 'Công khai', value: 'public' }, { label: 'Nội bộ', value: 'internal' }, { label: 'Hạn chế', value: 'restricted' },
       ],

@@ -57,7 +57,18 @@ function parseMode() {
 }
 
 function checksum(filePath) {
-  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
+  const content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n')
+  return crypto.createHash('sha256').update(content, 'utf8').digest('hex')
+}
+
+function checksumVariants(filePath) {
+  const rawBuf = fs.readFileSync(filePath)
+  const rawHash = crypto.createHash('sha256').update(rawBuf).digest('hex')
+  const lfContent = rawBuf.toString('utf8').replace(/\r\n/g, '\n')
+  const lfHash = crypto.createHash('sha256').update(lfContent, 'utf8').digest('hex')
+  const crlfContent = lfContent.replace(/\n/g, '\r\n')
+  const crlfHash = crypto.createHash('sha256').update(crlfContent, 'utf8').digest('hex')
+  return new Set([lfHash, rawHash, crlfHash])
 }
 
 function isNeonPooledConnection(connectionString) {
@@ -197,6 +208,7 @@ async function loadMigrations() {
       up: migration.up,
       verify: migration.verify,
       checksum: checksum(filePath),
+      checksumVariants: checksumVariants(filePath),
     })
   }
 
@@ -260,7 +272,7 @@ async function validateAndReconcileHistory(client, migrations, appliedMigrations
   for (const migration of migrations) {
     const applied = appliedMigrations.get(migration.id)
     if (applied && applied.checksum !== migration.checksum) {
-      if (allowChecksumUpdate || KNOWN_SAFE_CHECKSUM_UPDATE_IDS.has(migration.id)) {
+      if (allowChecksumUpdate || KNOWN_SAFE_CHECKSUM_UPDATE_IDS.has(migration.id) || migration.checksumVariants?.has(applied.checksum)) {
         // Tự động cập nhật checksum nếu migration hợp lệ
         try {
           await migration.verify({ client })

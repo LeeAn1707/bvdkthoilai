@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import ExcelJS from 'exceljs'
 import { getCMS } from '@/lib/payload'
-import { hasModulePermission } from '@/access'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
+import { rateLimit } from '@/lib/request-security'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,14 +62,17 @@ const requestIP = (request: Request) =>
 export async function GET(req: Request) {
   try {
     const payload = await getCMS()
-    const auth = await payload.auth({ headers: req.headers })
-    const user = auth.user as any
+    const user = await getVerifiedActiveUser(payload, req.headers)
 
     if (!user) {
       return NextResponse.json({ error: 'Bạn cần đăng nhập để xuất dữ liệu lịch hẹn.' }, { status: 401 })
     }
     if (!hasModulePermission(user, 'appointments', 'export')) {
       return NextResponse.json({ error: 'Bạn không có quyền xuất dữ liệu lịch hẹn.' }, { status: 403 })
+    }
+    const throttle = rateLimit(req, `appointments-export:${user.id}`, 20, 15 * 60_000)
+    if (!throttle.allowed) {
+      return NextResponse.json({ error: 'Bạn đã xuất dữ liệu quá nhiều lần. Vui lòng thử lại sau.' }, { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } })
     }
 
     const url = new URL(req.url)

@@ -51,7 +51,7 @@ function show(name, ok, detail='') {
 async function audit() {
   console.log('\n=== KIỂM TRA SCHEMA USERS / PHÂN QUYỀN ===')
   const expected = {
-    users: ['id','name','role','department_id','status','use_custom_permissions','last_login_at','updated_at','created_at','email','reset_password_token','reset_password_expiration','salt','hash','login_attempts','lock_until'],
+    users: ['id','name','role','department_id','status','use_custom_permissions','last_login_at','updated_at','created_at','email','reset_password_token','reset_password_expiration','reset_password_requested_at','salt','hash','login_attempts','lock_until'],
     users_permissions: ['_order','_parent_id','id','module'],
     users_permissions_actions: ['order','parent_id','value','id'],
     users_sessions: ['_order','_parent_id','id','created_at','expires_at'],
@@ -102,6 +102,7 @@ async function applyRepair() {
     await q(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS status public.enum_users_status DEFAULT 'active'::public.enum_users_status`)
     await q(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS use_custom_permissions boolean DEFAULT false`)
     await q(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_login_at timestamp(3) with time zone`)
+    await q(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS reset_password_requested_at timestamp(3) with time zone`)
     await q(`CREATE TABLE IF NOT EXISTS public.users_permissions (_order integer NOT NULL,_parent_id integer NOT NULL,id character varying NOT NULL,module character varying NOT NULL)`)
     await q(`CREATE TABLE IF NOT EXISTS public.users_permissions_actions ("order" integer NOT NULL,parent_id character varying NOT NULL,value public.enum_users_permissions_actions,id serial PRIMARY KEY)`)
     await q(`CREATE TABLE IF NOT EXISTS public.users_sessions (_order integer NOT NULL,_parent_id integer NOT NULL,id character varying NOT NULL,created_at timestamp(3) with time zone,expires_at timestamp(3) with time zone NOT NULL)`)

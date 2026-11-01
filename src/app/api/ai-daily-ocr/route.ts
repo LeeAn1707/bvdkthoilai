@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { hasModulePermission } from '@/access'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
 import { getCMS } from '@/lib/payload'
 import { bodyIsTooLarge, rateLimit } from '@/lib/request-security'
 
@@ -24,8 +24,7 @@ const json = (body: Record<string, unknown>, status = 200, extraHeaders?: Record
 export async function POST(req: NextRequest) {
   try {
     const payload = await getCMS()
-    const auth = await payload.auth({ headers: req.headers })
-    const user = auth.user as any
+    const user = await getVerifiedActiveUser(payload, req.headers)
     if (!user) return json({ error: 'Bạn cần đăng nhập để sử dụng chức năng AI OCR.' }, 401)
     if (!hasModulePermission(user, 'schedules', 'import')) {
       return json({ error: 'Bạn không có quyền nhập lịch khám.' }, 403)

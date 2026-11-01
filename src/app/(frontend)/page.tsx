@@ -524,11 +524,11 @@ export default async function HomePage() {
   const fnSources = (Array.isArray(fnConfig?.featuredSources) && fnConfig.featuredSources.length > 0)
     ? fnConfig.featuredSources
     : [
-        { source: 'news', limit: 8, enabled: true },
-        { source: 'notices', limit: 6, enabled: true },
-        { source: 'procurement', limit: 4, enabled: true },
-        { source: 'schedules', limit: 0, enabled: false },
-      ]
+      { source: 'news', limit: 8, enabled: true },
+      { source: 'notices', limit: 6, enabled: true },
+      { source: 'procurement', limit: 4, enabled: true },
+      { source: 'schedules', limit: 0, enabled: false },
+    ]
   const fnFilterMode = fnConfig?.featuredFilterMode || 'all'
 
   const resolveFitAndPosition = (coverFitVal: string | undefined, coverPosVal: string | undefined) => {
@@ -1285,7 +1285,7 @@ export default async function HomePage() {
               const autoUrl = isLinkEnabled
                 ? (exp.url || (linkedDoc?.slug ? `/bac-si/${linkedDoc.slug}` : (linkedDoc ? `/bac-si/${linkedDoc.id}` : undefined)))
                 : undefined
-              
+
               // Bỏ phần chức vụ trước tên: chỉ hiển thị học vị + họ tên (ví dụ: BSCKII. Lê Thị Đức Hạnh)
               const doctorBaseName = linkedDoc?.name ? linkedDoc.name.trim() : ''
               const rawName = doctorBaseName || exp.name || 'Bác sĩ / Chuyên gia'
@@ -1307,11 +1307,11 @@ export default async function HomePage() {
                 // Tách riêng chức danh/chức vụ và khoa/phòng
                 const titles = linkedDoc ? [linkedDoc.title, linkedDoc.degree, linkedDoc.professionalTitle].filter(Boolean) : []
                 const baseTitle = titles.join(' · ') || exp.position || ''
-                
+
                 const doctorPos = linkedDoc
                   ? (shouldShowDept ? ([baseTitle, linkedDept].filter(Boolean).join(' · ') || linkedDept) : (baseTitle || linkedDept))
                   : (exp.position || '')
-                
+
                 const customExpPos = (exp.position || '').trim()
                 autoPos = doctorPos || customExpPos || undefined
                 if (doctorPos && customExpPos && customExpPos !== doctorPos) {
@@ -1324,6 +1324,11 @@ export default async function HomePage() {
               const doctorAvatarUrl = linkedDoc?.avatar ? mediaUrl(linkedDoc.avatar) : ''
               const autoImage = doctorAvatarUrl || mediaUrl(exp.image) || ''
               const autoFit = exp.imageFit || 'contain'
+              const autoMode = exp.imageFit && exp.imageFit !== 'contain'
+                ? exp.imageFit
+                : (linkedDoc?.avatarDisplayMode && linkedDoc.avatarDisplayMode !== 'inherit' ? linkedDoc.avatarDisplayMode : undefined)
+              const autoScale = exp.imageScale ?? linkedDoc?.avatarScale ?? undefined
+              const autoOffsetY = exp.imageOffsetY ?? linkedDoc?.avatarOffsetY ?? undefined
               return {
                 id: exp.id,
                 name: autoName,
@@ -1331,6 +1336,9 @@ export default async function HomePage() {
                 subPosition: autoSubPos,
                 image: autoImage,
                 imageFit: autoFit,
+                displayMode: autoMode,
+                imageScale: autoScale,
+                imageOffsetY: autoOffsetY,
                 url: autoUrl,
                 openNewTab: isLinkEnabled && exp.openNewTab === true,
                 visible: exp.active !== false,
@@ -1346,19 +1354,22 @@ export default async function HomePage() {
                 const shouldShowDept = doc.showDepartment !== false
                 const titles = [doc.title, doc.degree, doc.professionalTitle].filter(Boolean)
                 const baseTitle = titles.join(' · ')
-                
+
                 const position = doc.customSubtitle?.trim()
                   ? doc.customSubtitle.trim()
                   : (shouldShowDept
-                      ? ([baseTitle, deptName].filter(Boolean).join(' · ') || deptName || 'Bác sĩ chuyên khoa')
-                      : (baseTitle || deptName || 'Bác sĩ chuyên khoa'))
+                    ? ([baseTitle, deptName].filter(Boolean).join(' · ') || deptName || 'Bác sĩ chuyên khoa')
+                    : (baseTitle || deptName || 'Bác sĩ chuyên khoa'))
 
                 return {
                   id: doc.id,
                   name: (doc.name || '').trim(),
                   position,
                   image: mediaUrl(doc.avatar) || '',
-                  imageFit: 'contain',
+                  imageFit: doc.avatarDisplayMode === 'fill' ? 'fill' : 'contain',
+                  displayMode: doc.avatarDisplayMode && doc.avatarDisplayMode !== 'inherit' ? doc.avatarDisplayMode : undefined,
+                  imageScale: doc.avatarScale ?? undefined,
+                  imageOffsetY: doc.avatarOffsetY ?? undefined,
                   url: `/bac-si/${doc.slug}`,
                   openNewTab: false,
                   visible: doc.active !== false,
@@ -1373,7 +1384,7 @@ export default async function HomePage() {
               const autoUrl = isLinkEnabled
                 ? (linkedDoc?.slug ? `/bac-si/${linkedDoc.slug}` : (exp.url || (linkedDoc ? `/bac-si/${linkedDoc.id}` : undefined)))
                 : undefined
-              
+
               // Bỏ phần chức vụ trước tên: chỉ hiển thị học vị + họ tên
               const doctorBaseName = linkedDoc?.name ? linkedDoc.name.trim() : ''
               const rawName = doctorBaseName || exp.name || 'Bác sĩ / Chuyên gia'
@@ -1406,6 +1417,11 @@ export default async function HomePage() {
               const doctorAvatarUrl = linkedDoc?.avatar ? mediaUrl(linkedDoc.avatar) : ''
               const autoImage = doctorAvatarUrl || mediaUrl(exp.image) || ''
               const autoFit = exp.imageFit || 'contain'
+              const autoMode = exp.imageFit && exp.imageFit !== 'contain'
+                ? exp.imageFit
+                : (linkedDoc?.avatarDisplayMode && linkedDoc.avatarDisplayMode !== 'inherit' ? linkedDoc.avatarDisplayMode : undefined)
+              const autoScale = exp.imageScale ?? linkedDoc?.avatarScale ?? undefined
+              const autoOffsetY = exp.imageOffsetY ?? linkedDoc?.avatarOffsetY ?? undefined
               return {
                 id: exp.id || `expert-${expIdx}`,
                 name: autoName,
@@ -1413,6 +1429,9 @@ export default async function HomePage() {
                 subPosition: autoSubPos,
                 image: autoImage,
                 imageFit: autoFit,
+                displayMode: autoMode,
+                imageScale: autoScale,
+                imageOffsetY: autoOffsetY,
                 url: autoUrl,
                 openNewTab: isLinkEnabled && exp.openNewTab === true,
                 visible: exp.visible !== false,
@@ -1420,14 +1439,14 @@ export default async function HomePage() {
             })
 
             // Thứ tự ưu tiên nguồn dữ liệu:
-            // 1) Ưu tiên cao nhất: Danh sách Bác sĩ từ Quản trị -> Tổ chức -> Đội ngũ Bác sĩ & Chuyên gia (doctors collection có showOnHome !== false)
-            // 2) Nếu không có Bác sĩ nào được bật showOnHome: Lấy từ Quản trị -> Nội dung -> Chuyên gia của chúng tôi (our-experts collection)
-            // 3) Danh sách cấu hình thủ công trong Homepage (expertItems)
-            const expertSlides = collectionDoctorSlides.length > 0
-              ? collectionDoctorSlides
-              : (ourExpertsCollectionSlides.length > 0
-                  ? ourExpertsCollectionSlides
-                  : (hasCustomExpertList ? configuredExpertSlides : []))
+            // 1) Nếu Admin cấu hình danh sách tùy chỉnh trong Homepage (expertItems) -> Ưu tiên dùng danh sách tùy chỉnh này để mọi chỉnh sửa thu phóng/thứ tự tại Trang chủ có hiệu lực ngay
+            // 2) Danh sách Bác sĩ từ Quản trị -> Tổ chức -> Đội ngũ Bác sĩ & Chuyên gia (doctors collection có showOnHome !== false)
+            // 3) Quản trị -> Nội dung -> Chuyên gia của chúng tôi (our-experts collection)
+            const expertSlides = hasCustomExpertList
+              ? configuredExpertSlides
+              : (collectionDoctorSlides.length > 0
+                ? collectionDoctorSlides
+                : ourExpertsCollectionSlides)
 
             const isPinkish = (val?: string) => !val || val === '#fce4f0' || val === '#fce8f3' || val === '#d42d7d' || val === '#c92372' || val.toLowerCase().includes('fc')
             const finalCardBg = isPinkish(item.expertCardBgColor) ? '#f0f7fd' : item.expertCardBgColor
@@ -1449,6 +1468,15 @@ export default async function HomePage() {
             })
 
             const displayLayout = item.expertDisplayLayout || 'featured-grid'
+            const sectionDisplayMode = item.expertImageDisplayMode || 'zoom-out-2-3'
+            const sectionImageScale = item.expertImageScale !== null && item.expertImageScale !== undefined ? Number(item.expertImageScale) : undefined
+            const sectionImageOffsetY = item.expertImageOffsetY !== null && item.expertImageOffsetY !== undefined ? Number(item.expertImageOffsetY) : undefined
+            // Giữ nguyên kích thước khung ô chuẩn 240px (và khung Lãnh đạo 494px); chỉ thay đổi nếu Admin chủ động nhập giá trị khác 300
+            const rawCardHeight = Number(item.expertCardHeight)
+            const sectionCardHeight = rawCardHeight && rawCardHeight !== 300 ? rawCardHeight : 240
+            // Mặc định lưới bên phải hiển thị 6 ảnh chuyển động (2 hàng x 3 cột) nếu chưa cấu hình hoặc cấu hình mặc định cũ là 3
+            const rawPerView = Number(item.expertItemsPerView || 6)
+            const effectiveGridSubItems = displayLayout === 'featured-grid' && (!item.expertItemsPerView || rawPerView === 3) ? 6 : Math.min(6, Math.max(1, rawPerView))
 
             return (
               <section className="sectionPro configurableHomeSection homeOurExpertsSection" style={style} key={key}>
@@ -1468,6 +1496,10 @@ export default async function HomePage() {
                       itemsPerView={Math.min(6, Math.max(1, Number(item.expertItemsPerView || 4)))}
                       cardBarBgColor={finalCardBg}
                       cardBarTextColor={finalCardText}
+                      defaultDisplayMode={sectionDisplayMode}
+                      defaultImageScale={sectionImageScale}
+                      defaultImageOffsetY={sectionImageOffsetY}
+                      cardHeight={item.expertCardHeight && rawCardHeight !== 300 ? sectionCardHeight : undefined}
                     />
                   ) : (
                     <OurExpertsFeaturedGrid
@@ -1475,7 +1507,11 @@ export default async function HomePage() {
                       autoplaySeconds={Number(item.expertAutoplaySeconds ?? 5)}
                       cardBarBgColor={finalCardBg}
                       cardBarTextColor={finalCardText}
-                      subItemsPerPage={Math.min(6, Math.max(1, Number(item.expertItemsPerView || 3)))}
+                      subItemsPerPage={effectiveGridSubItems}
+                      defaultDisplayMode={sectionDisplayMode}
+                      defaultImageScale={sectionImageScale}
+                      defaultImageOffsetY={sectionImageOffsetY}
+                      cardHeight={sectionCardHeight}
                     />
                   )}
                 </div>
@@ -1670,8 +1706,8 @@ export default async function HomePage() {
 
           if (type === 'notices' || type === 'procurement') {
             const hasBoth = configuredSections.some((s: any) => s?.type === 'notices' && s.visible !== false) &&
-                            configuredSections.some((s: any) => s?.type === 'procurement' && s.visible !== false)
-            
+              configuredSections.some((s: any) => s?.type === 'procurement' && s.visible !== false)
+
             // Nếu cả 2 đều bật và đây là section thứ hai (procurement khi notices đứng trước, hoặc notices khi procurement đứng trước) -> bỏ qua để không bị render đúp
             if (hasBoth) {
               const firstPairType = configuredSections.find((s: any) => (s?.type === 'notices' || s?.type === 'procurement') && s.visible !== false)?.type
@@ -1932,23 +1968,23 @@ export default async function HomePage() {
                 const fileLink = mediaUrl(docItem.file)
                 const isLocked = docItem.accessMode === 'pin' || docItem.accessMode === 'internal' || docItem.accessMode === 'locked' || docItem.accessMode === 'view_only' || docItem.allowDownload === false
                 return {
-                id: `doc-${docItem.id}`,
-                href: docItem.slug ? `/van-ban/${docItem.slug}` : (fileLink || '/van-ban'),
-                title: docItem.title,
-                number: docItem.number || 'Chưa số',
-                issuer: docItem.issuer || 'Bệnh viện Đa khoa Khu vực Thới Lai',
-                excerpt: docItem.summary || 'Văn bản, biểu mẫu và tài liệu chỉ đạo điều hành công khai của bệnh viện.',
-                dateValue: docItem.issuedAt || docItem.updatedAt,
-                date: docItem.issuedAt ? new Date(docItem.issuedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
-                category: docItem.documentType || docItem.type || docItem.category || 'Văn bản – Tài liệu',
-                fileUrl: fileLink,
-                isProtocol: false,
-                accessMode: docItem.accessMode || 'public',
-                isPinProtected: docItem.accessMode === 'pin',
-                isViewOnly: docItem.accessMode === 'view_only',
-                canDownload: !isLocked && Boolean(fileLink),
-              }
-            })
+                  id: `doc-${docItem.id}`,
+                  href: docItem.slug ? `/van-ban/${docItem.slug}` : (fileLink || '/van-ban'),
+                  title: docItem.title,
+                  number: docItem.number || 'Chưa số',
+                  issuer: docItem.issuer || 'Bệnh viện Đa khoa Khu vực Thới Lai',
+                  excerpt: docItem.summary || 'Văn bản, biểu mẫu và tài liệu chỉ đạo điều hành công khai của bệnh viện.',
+                  dateValue: docItem.issuedAt || docItem.updatedAt,
+                  date: docItem.issuedAt ? new Date(docItem.issuedAt).toLocaleDateString('vi-VN') : 'Mới cập nhật',
+                  category: docItem.documentType || docItem.type || docItem.category || 'Văn bản – Tài liệu',
+                  fileUrl: fileLink,
+                  isProtocol: false,
+                  accessMode: docItem.accessMode || 'public',
+                  isPinProtected: docItem.accessMode === 'pin',
+                  isViewOnly: docItem.accessMode === 'view_only',
+                  canDownload: !isLocked && Boolean(fileLink),
+                }
+              })
 
             const cpDocItems = clinicalProtocols.map((cpItem: any) => {
               const specs = Array.isArray(cpItem.specialty)
@@ -2336,7 +2372,7 @@ export default async function HomePage() {
 
           if (type === 'health-warnings' || type === 'legal-dissemination') {
             const hasBoth = configuredSections.some((s: any) => s?.type === 'health-warnings' && s.visible !== false) &&
-                            configuredSections.some((s: any) => s?.type === 'legal-dissemination' && s.visible !== false)
+              configuredSections.some((s: any) => s?.type === 'legal-dissemination' && s.visible !== false)
 
             // Nếu cả 2 đều bật và đây là section thứ hai -> bỏ qua để không bị render đúp
             if (hasBoth) {

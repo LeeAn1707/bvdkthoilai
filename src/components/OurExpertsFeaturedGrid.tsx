@@ -10,6 +10,10 @@ type Props = {
   cardBarBgColor?: string
   cardBarTextColor?: string
   subItemsPerPage?: number
+  defaultDisplayMode?: string
+  defaultImageScale?: number
+  defaultImageOffsetY?: number
+  cardHeight?: number
 }
 
 export function OurExpertsFeaturedGrid({
@@ -18,6 +22,10 @@ export function OurExpertsFeaturedGrid({
   cardBarBgColor,
   cardBarTextColor,
   subItemsPerPage = 6,
+  defaultDisplayMode = 'zoom-out-2-3',
+  defaultImageScale = 86,
+  defaultImageOffsetY = 12,
+  cardHeight = 240,
 }: Props) {
   const safeItems = useMemo(
     () => items.filter((item) => item?.visible !== false && item?.name),
@@ -131,16 +139,145 @@ export function OurExpertsFeaturedGrid({
     : undefined
 
   const renderImageFitClass = (fit?: string) => {
+    if (fit === 'contain') return styles.fitContain
     if (fit === 'cover' || fit === 'cover-top') return styles.fitCoverTop
     if (fit === 'cover-center') return styles.fitCoverCenter
     if (fit === 'cover-bottom') return styles.fitCoverBottom
     if (fit === 'fill') return styles.fitFill
-    return ''
+    return styles.fitCoverTop
   }
+
+  const resolveDisplayConfig = (item: ExpertItem, isSubCard = true) => {
+    const activeMode =
+      item.displayMode && item.displayMode !== 'inherit'
+        ? item.displayMode
+        : defaultDisplayMode || 'cover-top'
+
+    // Giá trị mặc định theo từng Chế độ hiển thị:
+    // TUYỆT ĐỐI giữ đúng tỷ lệ gốc tự nhiên của ảnh (không bao giờ dùng fill làm biến dạng/kéo giãn ảnh!)
+    // Mặc định hiển thị ảnh gốc full khung (100%). Nếu ảnh nào chụp gần quá, chỉnh scale < 100% (VD: 80%–92%) để zoom xa ra.
+    let presetScale = 100
+    let presetOffsetY = 8
+    let forceContain = false
+
+    switch (activeMode) {
+      case 'zoom-out-2-3':
+      case 'cover-top':
+        presetScale = 100
+        presetOffsetY = 8
+        break
+      case 'zoom-out-wide':
+        presetScale = 82
+        presetOffsetY = 6
+        forceContain = true
+        break
+      case 'zoom-out-medium':
+        presetScale = 90
+        presetOffsetY = 8
+        forceContain = true
+        break
+      case 'cover-body':
+        presetScale = 100
+        presetOffsetY = 25
+        break
+      case 'cover-center':
+        presetScale = 100
+        presetOffsetY = 50
+        break
+      case 'zoom-in-close':
+        presetScale = 112
+        presetOffsetY = 8
+        break
+      case 'fill':
+        presetScale = 100
+        presetOffsetY = 12
+        break
+      default:
+        break
+    }
+
+    const hasCustomItemScale = item.imageScale !== null && item.imageScale !== undefined
+    const hasCustomSectionScale =
+      defaultImageScale !== null &&
+      defaultImageScale !== undefined &&
+      defaultImageScale !== 86 &&
+      defaultImageScale !== 88 &&
+      defaultImageScale !== 75
+    const rawScale = hasCustomItemScale
+      ? Number(item.imageScale)
+      : hasCustomSectionScale
+      ? Number(defaultImageScale)
+      : presetScale
+
+    const clampedScale = Number.isFinite(rawScale) && rawScale > 0
+      ? Math.min(200, Math.max(40, rawScale))
+      : presetScale
+
+    const hasCustomItemOffsetY = item.imageOffsetY !== null && item.imageOffsetY !== undefined
+    const hasCustomSectionOffsetY =
+      defaultImageOffsetY !== null &&
+      defaultImageOffsetY !== undefined &&
+      defaultImageOffsetY !== 12 &&
+      defaultImageOffsetY !== 15 &&
+      defaultImageOffsetY !== 5
+    const rawOffsetY = hasCustomItemOffsetY
+      ? Number(item.imageOffsetY)
+      : hasCustomSectionOffsetY
+      ? Number(defaultImageOffsetY)
+      : presetOffsetY
+
+    const clampedOffsetY = Number.isFinite(rawOffsetY)
+      ? Math.min(100, Math.max(0, rawOffsetY))
+      : presetOffsetY
+
+    // Khi bác sĩ nào ảnh chụp quá gần và được chọn Zoom xa (< 100% hoặc forceContain):
+    // Thu xa theo đúng tỷ lệ tự nhiên 1:1 (không bao giờ kéo giãn!) kết hợp lớp nền mở rộng đồng màu làm mịn phía sau để ô vẫn full kín 100%
+    if (clampedScale < 100 || forceContain) {
+      // Quy đổi: khi ở 6 ô nhỏ, nếu người dùng nhập 90% tức là muốn zoom xa nhẹ (90% của khung)
+      return {
+        showBackdrop: true,
+        style: {
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain' as const,
+          objectPosition: `center ${clampedOffsetY}%`,
+          transform: clampedScale < 100 ? `scale(${(clampedScale / 100).toFixed(3)})` : undefined,
+          transformOrigin: `center ${clampedOffsetY}%`,
+          position: 'relative' as const,
+          zIndex: 1,
+        },
+      }
+    }
+
+    // Mặc định (100% hoặc > 100%): Lấy ảnh gốc hiển thị FULL KHUNG hoàn toàn tự nhiên (object-fit: cover), không biến dạng!
+    void isSubCard
+    return {
+      showBackdrop: false,
+      style: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover' as const,
+        objectPosition: `center ${clampedOffsetY}%`,
+        transform: clampedScale > 100 ? `scale(${(clampedScale / 100).toFixed(3)})` : undefined,
+        transformOrigin: `center ${clampedOffsetY}%`,
+        position: 'relative' as const,
+        zIndex: 1,
+      },
+    }
+  }
+
+  const safeCardHeight = Math.min(520, Math.max(200, Number(cardHeight) || 240))
+  const rowsCount = visibleCount > 3 ? 2 : 1
+  const safeLeaderHeight = rowsCount === 2 ? safeCardHeight * 2 + 14 : 494
+  const containerCssVars = {
+    '--sub-card-height': `${safeCardHeight}px`,
+    '--leader-card-height': `${safeLeaderHeight}px`,
+  } as React.CSSProperties
 
   return (
     <div
       className={styles.featuredSectionContainer}
+      style={containerCssVars}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
@@ -165,13 +302,30 @@ export function OurExpertsFeaturedGrid({
 
             <div className={styles.leaderImageFrame}>
               {leader.image ? (
-                <img
-                  key={`leader-${leader.id || leader.name}`}
-                  src={leader.image}
-                  alt={leader.name}
-                  className={`${styles.leaderImg} ${renderImageFitClass(leader.imageFit)}`}
-                  loading="lazy"
-                />
+                (() => {
+                  const cfg = resolveDisplayConfig(leader, false)
+                  return (
+                    <>
+                      {cfg.showBackdrop && (
+                        <img
+                          src={leader.image}
+                          alt=""
+                          aria-hidden="true"
+                          className={styles.smartBackdropImg}
+                          loading="lazy"
+                        />
+                      )}
+                      <img
+                        key={`leader-${leader.id || leader.name}`}
+                        src={leader.image}
+                        alt={leader.name}
+                        style={cfg.style}
+                        className={`${styles.leaderImg} ${renderImageFitClass(leader.imageFit)}`}
+                        loading="lazy"
+                      />
+                    </>
+                  )
+                })()
               ) : (
                 <div className={styles.leaderPlaceholder}>
                   <svg viewBox="0 0 24 24" width="70" height="70" fill="none" stroke="#0878d1" strokeWidth="1.5">
@@ -239,12 +393,29 @@ export function OurExpertsFeaturedGrid({
 
                 <div className={styles.subImageFrame}>
                   {item.image ? (
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className={`${styles.subImg} ${renderImageFitClass(item.imageFit)}`}
-                      loading="lazy"
-                    />
+                    (() => {
+                      const cfg = resolveDisplayConfig(item, true)
+                      return (
+                        <>
+                          {cfg.showBackdrop && (
+                            <img
+                              src={item.image}
+                              alt=""
+                              aria-hidden="true"
+                              className={styles.smartBackdropImg}
+                              loading="lazy"
+                            />
+                          )}
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            style={cfg.style}
+                            className={`${styles.subImg} ${renderImageFitClass(item.imageFit)}`}
+                            loading="lazy"
+                          />
+                        </>
+                      )
+                    })()
                   ) : (
                     <div className={styles.subPlaceholder}>
                       <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="#0878d1" strokeWidth="1.5">

@@ -1,15 +1,17 @@
 import { randomBytes } from 'crypto'
 import { NextResponse } from 'next/server'
 import { getCMS } from '@/lib/payload'
-import { bodyIsTooLarge, rateLimit, verifyTurnstile } from '@/lib/request-security'
+import { bodyIsTooLarge, rateLimit, readJsonBodyWithLimit, verifyTurnstile } from '@/lib/request-security'
 
 const code = () => `BM-${new Date().getFullYear()}-${randomBytes(4).toString('hex').toUpperCase()}`
 export async function POST(req: Request) {
   try {
     if (bodyIsTooLarge(req, 64_000)) return NextResponse.json({ error: 'Dữ liệu quá lớn' }, { status: 413 })
     const throttle = rateLimit(req, 'dynamic-form', 10, 15 * 60_000)
-    if (!throttle.allowed) return NextResponse.json({ error: 'Bạn gửi quá nhiều biểu mẫu.' }, { status: 429 })
-    const body = await req.json()
+    if (!throttle.allowed) return NextResponse.json({ error: 'Bạn gửi quá nhiều biểu mẫu.' }, { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } })
+    const parsed = await readJsonBodyWithLimit<Record<string, any>>(req, 64_000)
+    if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 })
+    const body = parsed.data || {}
     if (body.website) return NextResponse.json({ ok: true })
     if (!(await verifyTurnstile(req, body['cf-turnstile-response']))) return NextResponse.json({ error: 'Không thể xác minh yêu cầu. Vui lòng thử lại.' }, { status: 403 })
     const slug = String(body.form || '').trim().slice(0, 100)

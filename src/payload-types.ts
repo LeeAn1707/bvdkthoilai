@@ -354,6 +354,7 @@ export interface User {
   resetPasswordExpiration?: string | null;
   salt?: string | null;
   hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
   password?: string | null;
@@ -1487,6 +1488,30 @@ export interface Doctor {
    * 💡 Tỷ lệ đứng 3:4 chuẩn bệnh viện (600×800px hoặc 450×600px). Chụp bán thân áo blouse trắng nền sáng. Hệ thống tự động căn chỉnh phủ khít khung hình, bảo đảm tuyệt đối không biến dạng, không méo ảnh.
    */
   avatar?: (number | null) | Media;
+  /**
+   * Chọn nhanh chế độ hiển thị ảnh cho bác sĩ này trên Trang chủ (luôn đảm bảo full khung 100%).
+   */
+  avatarDisplayMode?:
+    | (
+        | 'inherit'
+        | 'zoom-out-2-3'
+        | 'zoom-out-wide'
+        | 'zoom-out-medium'
+        | 'cover-top'
+        | 'cover-body'
+        | 'cover-center'
+        | 'zoom-in-close'
+        | 'fill'
+      )
+    | null;
+  /**
+   * 💡 Nhập < 100% (VD: 75–92) để ZOOM XA lấy > 2/3 người; nhập > 100% (VD: 105–135) để THU GẦN lại.
+   */
+  avatarScale?: number | null;
+  /**
+   * Điều chỉnh điểm canh dọc từ 0% (đỉnh đầu) đến 100% (chân ảnh). Khuyên dùng 8%–25%.
+   */
+  avatarOffsetY?: number | null;
   /**
    * Nhập thông tin năm tốt nghiệp Đại học Y, Thạc sĩ, Chuyên khoa, Tiến sĩ, tu nghiệp nước ngoài...
    */
@@ -3267,9 +3292,17 @@ export interface OurExpert {
    */
   image?: (number | null) | Media;
   /**
-   * Tùy chọn cách hiển thị để ảnh chân dung không bị mất đầu hoặc viền xấu: Chọn "Vừa vặn khung" để ảnh luôn hiển thị trọn vẹn 100% không bị cắt bất kỳ góc nào; hoặc chọn "Lấp đầy khung - Canh đỉnh đầu" để ảnh phủ kín thẻ nhưng luôn thấy rõ khuôn mặt.
+   * Chọn chế độ hiển thị > 2/3 người (contain) hoặc phủ kín khung (cover-top) kết hợp độ thu phóng bên cạnh.
    */
   imageFit?: ('contain' | 'cover-top' | 'cover-center' | 'cover-bottom' | 'cover' | 'fill') | null;
+  /**
+   * Nhập từ 40 đến 200 (%): < 100% để thu nhỏ thấy hơn 2/3 người; > 100% để phóng to.
+   */
+  imageScale?: number | null;
+  /**
+   * Canh điểm dọc từ 0% (đỉnh đầu) đến 100% (chân ảnh). Khuyên dùng 5%–15%.
+   */
+  imageOffsetY?: number | null;
   /**
    * BẬT: Bấm vào thẻ chuyên gia sẽ chuyển đến trang chi tiết Bác sĩ hoặc Link tùy chỉnh bên dưới. TẮT: Thẻ chuyên gia chỉ hiển thị thông tin tĩnh để xem (không bấm chuyển trang, không hiện con trỏ link).
    */
@@ -3779,6 +3812,7 @@ export interface UsersSelect<T extends boolean = true> {
   resetPasswordExpiration?: T;
   salt?: T;
   hash?: T;
+  resetPasswordRequestedAt?: T;
   loginAttempts?: T;
   lockUntil?: T;
 }
@@ -4184,6 +4218,9 @@ export interface DoctorsSelect<T extends boolean = true> {
   licenseNumber?: T;
   specialty?: T;
   avatar?: T;
+  avatarDisplayMode?: T;
+  avatarScale?: T;
+  avatarOffsetY?: T;
   education?: T;
   experience?: T;
   expertise?: T;
@@ -5157,6 +5194,8 @@ export interface OurExpertsSelect<T extends boolean = true> {
   badge?: T;
   image?: T;
   imageFit?: T;
+  imageScale?: T;
+  imageOffsetY?: T;
   enableLink?: T;
   url?: T;
   openNewTab?: T;
@@ -6852,9 +6891,36 @@ export interface Homepage {
          */
         expertAutoplaySeconds?: number | null;
         /**
-         * Đối với Phương án A: quy định số ô bác sĩ hiển thị ở lưới bên phải (mặc định 3 ô dạng 1 hàng 3 cột rất gọn và thoáng, hoặc 6 ô dạng 2 hàng). Đối với Carousel: quy định số thẻ trên 1 lượt trượt (từ 1 đến 6).
+         * Đối với Bố cục phân cấp: quy định số ô bác sĩ chuyển động ở lưới bên phải (mặc định 6 ô dạng 2 hàng × 3 cột, hoặc 3 ô dạng 1 hàng). Đối với Carousel: quy định số thẻ trên 1 lượt trượt (từ 1 đến 6).
          */
         expertItemsPerView?: number | null;
+        /**
+         * 💡 Chọn nhanh kiểu hiển thị ảnh chuẩn cho toàn bộ 6 ảnh chuyển động. Khi chọn các chế độ "Zoom xa", hệ thống dùng 2 lớp ảnh thông minh: lớp ảnh chính thu xa lấy trọn > 2/3 người ở giữa + lớp nền mở rộng đồng màu làm mờ nhẹ giúp khung thẻ luôn full kín 100% tuyệt đẹp.
+         */
+        expertImageDisplayMode?:
+          | (
+              | 'zoom-out-2-3'
+              | 'zoom-out-wide'
+              | 'zoom-out-medium'
+              | 'cover-top'
+              | 'cover-body'
+              | 'cover-center'
+              | 'zoom-in-close'
+              | 'fill'
+            )
+          | null;
+        /**
+         * 💡 Nhập < 100% (VD: 75%–92%) để ZOOM XA thấy hơn 2/3 người mà vẫn full nền; nhập > 100% (VD: 105%–135%) để THU GẦN lại.
+         */
+        expertImageScale?: number | null;
+        /**
+         * Giữ nguyên kích thước khung ô chuẩn (240px cho mỗi ô nhỏ và 494px cho khung Lãnh đạo bên trái). Chỉ thay đổi khi thật sự muốn đổi chiều cao ô.
+         */
+        expertCardHeight?: number | null;
+        /**
+         * Canh điểm lấy nét theo chiều dọc từ đỉnh đầu xuống thân người (0% = sát đỉnh đầu, 10%–25% = chuẩn 2/3 người, 50% = giữa ảnh).
+         */
+        expertImageOffsetY?: number | null;
         expertCardBgColor?: string | null;
         expertCardTextColor?: string | null;
         /**
@@ -6884,9 +6950,17 @@ export interface Homepage {
                */
               image?: (number | null) | Media;
               /**
-               * Tùy chọn cách hiển thị để ảnh chân dung không bị mất đầu hoặc viền xấu: Chọn "Vừa vặn khung" để ảnh luôn hiển thị trọn vẹn 100% không bị cắt bất kỳ góc nào; hoặc chọn "Lấp đầy khung - Canh đỉnh đầu" để ảnh phủ kín thẻ nhưng luôn thấy rõ khuôn mặt.
+               * Chọn kiểu hiển thị ảnh cho riêng bác sĩ này (kết hợp độ thu phóng % bên cạnh).
                */
               imageFit?: ('contain' | 'cover-top' | 'cover-center' | 'cover-bottom' | 'fill') | null;
+              /**
+               * Nhập < 100% (VD: 75%–90%) để ZOOM XA thấy hơn 2/3 người mà vẫn full nền; nhập > 100% (VD: 105%–135%) để THU GẦN lại.
+               */
+              imageScale?: number | null;
+              /**
+               * Canh cao/thấp cho riêng ảnh này (0% = sát đỉnh đầu, 10%–25% = chuẩn >2/3 người, 50% = giữa).
+               */
+              imageOffsetY?: number | null;
               /**
                * BẬT: Bấm vào thẻ chuyên gia sẽ chuyển đến trang chi tiết Bác sĩ hoặc Link tùy chỉnh bên dưới. TẮT: Thẻ chuyên gia chỉ hiển thị thông tin tĩnh để xem (không bấm chuyển trang, không hiện con trỏ link).
                */
@@ -10420,6 +10494,10 @@ export interface HomepageSelect<T extends boolean = true> {
         expertDisplayLayout?: T;
         expertAutoplaySeconds?: T;
         expertItemsPerView?: T;
+        expertImageDisplayMode?: T;
+        expertImageScale?: T;
+        expertCardHeight?: T;
+        expertImageOffsetY?: T;
         expertCardBgColor?: T;
         expertCardTextColor?: T;
         expertItems?:
@@ -10432,6 +10510,8 @@ export interface HomepageSelect<T extends boolean = true> {
               customSubtitle?: T;
               image?: T;
               imageFit?: T;
+              imageScale?: T;
+              imageOffsetY?: T;
               enableLink?: T;
               linkMode?: T;
               linkedPage?: T;

@@ -16,12 +16,23 @@ export interface SavedSurveyTemplate {
   }>
 }
 
-const DATA_DIR = path.join(process.cwd(), 'src', 'data')
-const FILE_PATH = path.join(DATA_DIR, 'savedSurveyTemplates.json')
+const DEFAULT_DATA_DIR = path.join(process.cwd(), 'src', 'data')
+const PERSISTENT_DATA_DIR = process.env.SURVEY_TEMPLATES_STORAGE_DIR
+  ? path.resolve(process.env.SURVEY_TEMPLATES_STORAGE_DIR)
+  : process.env.NODE_ENV === 'production' && fs.existsSync(path.join(process.cwd(), 'media'))
+    ? path.join(process.cwd(), 'media', '.internal-data')
+    : DEFAULT_DATA_DIR
+const FILE_PATH = path.join(PERSISTENT_DATA_DIR, 'savedSurveyTemplates.json')
+const SEED_FILE_PATH = path.join(DEFAULT_DATA_DIR, 'savedSurveyTemplates.json')
 
 function ensureDirectory() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true })
+  if (!fs.existsSync(PERSISTENT_DATA_DIR)) {
+    fs.mkdirSync(PERSISTENT_DATA_DIR, { recursive: true })
+  }
+  if (FILE_PATH !== SEED_FILE_PATH && !fs.existsSync(FILE_PATH) && fs.existsSync(SEED_FILE_PATH)) {
+    try {
+      fs.copyFileSync(SEED_FILE_PATH, FILE_PATH)
+    } catch {}
   }
 }
 

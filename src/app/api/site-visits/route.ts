@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sql } from '@payloadcms/db-postgres/drizzle'
 import { getCMS } from '@/lib/payload'
+import { clientAddress, rateLimit, readJsonBodyWithLimit } from '@/lib/request-security'
 
 // Cache đếm người đang online (hoạt động trong 5 phút gần nhất)
 // Key: visitorId/IP hash, Value: timestamp
 const activeSessions = new Map<string, number>()
 const ONLINE_WINDOW_MS = 5 * 60 * 1000 // 5 phút
+const MAX_ACTIVE_SESSIONS = 10_000
+const SLUG_PATTERN = /^[a-z0-9-]+$/i
 
 function cleanOldSessions() {
   const cutoff = Date.now() - ONLINE_WINDOW_MS
@@ -17,6 +21,14 @@ function cleanOldSessions() {
 
 export async function GET(req: NextRequest) {
   try {
+    const throttle = rateLimit(req, 'site-visits-get', 60, 60_000)
+    if (!throttle.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Quá nhiều yêu cầu truy vấn thống kê. Vui lòng thử lại sau.' },
+        { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } },
+      )
+    }
+
     const payload = await getCMS()
     cleanOldSessions()
 
@@ -25,29 +37,29 @@ export async function GET(req: NextRequest) {
 
     // 2. Lấy ngày hôm nay định dạng YYYY-MM-DD
     const todayStr = new Date().toISOString().slice(0, 10)
-    const currentMonthPrefix = todayStr.slice(0, 7) // YYYY-MM
+    const currentMonthLike = `${todayStr.slice(0, 7)}%` // YYYY-MM%
 
-    // 3. Truy vấn thống kê từ DB
+    // 3. Truy vấn thống kê từ DB (Parameterized SQL)
     const [summaryRes, todayRes, monthRes, historyRes, topContentRes] = await Promise.all([
       payload.db.drizzle.execute(
-        `SELECT total_views, total_visits, initial_offset FROM public."site_visits_summary" WHERE id = 1 LIMIT 1;`
+        sql`SELECT total_views, total_visits, initial_offset FROM public."site_visits_summary" WHERE id = 1 LIMIT 1;`
       ).catch(() => ({ rows: [] })),
       payload.db.drizzle.execute(
-        `SELECT views, unique_visits FROM public."site_visits_daily" WHERE date = '${todayStr}' LIMIT 1;`
+        sql`SELECT views, unique_visits FROM public."site_visits_daily" WHERE date = ${todayStr} LIMIT 1;`
       ).catch(() => ({ rows: [] })),
       payload.db.drizzle.execute(
-        `SELECT COALESCE(SUM(views), 0)::bigint AS month_views, COALESCE(SUM(unique_visits), 0)::bigint AS month_visits 
-         FROM public."site_visits_daily" WHERE date LIKE '${currentMonthPrefix}%';`
+        sql`SELECT COALESCE(SUM(views), 0)::bigint AS month_views, COALESCE(SUM(unique_visits), 0)::bigint AS month_visits 
+         FROM public."site_visits_daily" WHERE date LIKE ${currentMonthLike};`
       ).catch(() => ({ rows: [] })),
       // Lấy 14 ngày gần nhất để vẽ biểu đồ đường xu hướng
       payload.db.drizzle.execute(
-        `SELECT date, views, unique_visits 
+        sql`SELECT date, views, unique_visits 
          FROM public."site_visits_daily" 
          ORDER BY date DESC LIMIT 14;`
       ).catch(() => ({ rows: [] })),
       // Lấy top 10 bài viết xem nhiều nhất từ News và Notices
       payload.db.drizzle.execute(
-        `SELECT id, title, slug, 'news' AS type, 'Tin tức' AS type_label, COALESCE(views, 0)::int AS views, updated_at
+        sql`SELECT id, title, slug, 'news' AS type, 'Tin tức' AS type_label, COALESCE(views, 0)::int AS views, updated_at
          FROM public."news" WHERE _status = 'published'
          UNION ALL
          SELECT id, title, slug, 'notices' AS type, 'Thông báo' AS type_label, COALESCE(views, 0)::int AS views, updated_at
@@ -108,69 +120,89 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    console.error('[site-visits][GET] Error:', error?.message || error)
+    return NextResponse.json({ success: false, error: 'Không thể tải dữ liệu thống kê truy cập.' }, { status: 500 })
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const throttle = rateLimit(req, 'site-visits-post', 120, 60_000)
+    if (!throttle.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Quá nhiều yêu cầu ghi nhận lượt truy cập.' },
+        { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } },
+      )
+    }
+
+    const parsedBody = await readJsonBodyWithLimit<Record<string, unknown>>(req, 4096)
+    if (parsedBody.status === 413) {
+      return NextResponse.json({ success: false, error: parsedBody.error }, { status: 413 })
+    }
+    const body = parsedBody.data && typeof parsedBody.data === 'object' ? parsedBody.data : {}
+
     const payload = await getCMS()
     const now = Date.now()
 
-    let body: any = {}
-    try {
-      body = await req.json().catch(() => ({}))
-    } catch {}
+    const rawCollection = typeof body.collection === 'string' ? body.collection.trim() : ''
+    const rawSlug = typeof body.slug === 'string' ? body.slug.trim() : ''
 
-    const { collection, slug } = body || {}
+    // 1. Nhận diện visitor (từ IP đã khử khuẩn + User-Agent rút gọn)
+    const clientIp = clientAddress(req)
+    const userAgent = (req.headers.get('user-agent') || 'unknown').slice(0, 30)
+    const visitorId = `${clientIp}_${userAgent}`
 
-    // 1. Nhận diện visitor (từ cookie hoặc IP header)
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-                     req.headers.get('x-real-ip') || 
-                     '127.0.0.1'
-    const userAgent = req.headers.get('user-agent') || 'unknown'
-    const visitorId = `${clientIp}_${userAgent.slice(0, 30)}`
-
-    // Đánh dấu online
-    const isNewVisitorSession = !activeSessions.has(visitorId)
-    activeSessions.set(visitorId, now)
     cleanOldSessions()
 
+    // Giới hạn kích thước activeSessions chống DoS bộ nhớ
+    const isNewVisitorSession = !activeSessions.has(visitorId)
+    if (isNewVisitorSession && activeSessions.size >= MAX_ACTIVE_SESSIONS) {
+      const oldestKey = activeSessions.keys().next().value
+      if (oldestKey) activeSessions.delete(oldestKey)
+    }
+    activeSessions.set(visitorId, now)
+
+    const visitDelta = isNewVisitorSession ? 1 : 0
     const todayStr = new Date().toISOString().slice(0, 10)
 
-    // 2. Cập nhật bảng site_visits_summary
-    await payload.db.drizzle.execute(`
+    // 2. Cập nhật bảng site_visits_summary (Parameterized SQL)
+    await payload.db.drizzle.execute(sql`
       INSERT INTO public."site_visits_summary" ("id", "total_views", "total_visits", "initial_offset", "updated_at")
-      VALUES (1, 1, ${isNewVisitorSession ? 1 : 0}, 0, now())
+      VALUES (1, 1, ${visitDelta}, 0, now())
       ON CONFLICT ("id") DO UPDATE
       SET total_views = public."site_visits_summary".total_views + 1,
-          total_visits = public."site_visits_summary".total_visits + ${isNewVisitorSession ? 1 : 0},
+          total_visits = public."site_visits_summary".total_visits + ${visitDelta},
           updated_at = now();
     `)
 
-    // 3. Cập nhật bảng site_visits_daily
-    await payload.db.drizzle.execute(`
+    // 3. Cập nhật bảng site_visits_daily (Parameterized SQL)
+    await payload.db.drizzle.execute(sql`
       INSERT INTO public."site_visits_daily" ("date", "views", "unique_visits", "updated_at")
-      VALUES ('${todayStr}', 1, ${isNewVisitorSession ? 1 : 0}, now())
+      VALUES (${todayStr}, 1, ${visitDelta}, now())
       ON CONFLICT ("date") DO UPDATE
       SET views = public."site_visits_daily".views + 1,
-          unique_visits = public."site_visits_daily".unique_visits + ${isNewVisitorSession ? 1 : 0},
+          unique_visits = public."site_visits_daily".unique_visits + ${visitDelta},
           updated_at = now();
     `)
 
-    // 4. Nếu có truyền thông tin bài viết cụ thể (news, notices, clinical-protocols, health-warnings) -> Tăng views của bài đó
-    if (collection && slug) {
-      const allowedCollections = ['news', 'notices', 'clinical-protocols', 'health-warnings']
-      if (allowedCollections.includes(collection)) {
-        let tableName = collection
-        if (collection === 'clinical-protocols') tableName = 'clinical_protocols'
-        else if (collection === 'health-warnings') tableName = 'health_warnings'
-
-        await payload.db.drizzle.execute(`
-          UPDATE public."${tableName}"
-          SET views = COALESCE(views, 0) + 1
-          WHERE slug = '${slug}';
-        `).catch(() => {})
+    // 4. Nếu có truyền thông tin bài viết cụ thể -> Tăng views bằng Parameterized SQL (Chống tuyệt đối SQL Injection)
+    if (rawCollection && rawSlug && rawSlug.length <= 200 && SLUG_PATTERN.test(rawSlug)) {
+      if (rawCollection === 'news') {
+        await payload.db.drizzle.execute(
+          sql`UPDATE public."news" SET views = COALESCE(views, 0) + 1 WHERE slug = ${rawSlug};`
+        ).catch(() => {})
+      } else if (rawCollection === 'notices') {
+        await payload.db.drizzle.execute(
+          sql`UPDATE public."notices" SET views = COALESCE(views, 0) + 1 WHERE slug = ${rawSlug};`
+        ).catch(() => {})
+      } else if (rawCollection === 'clinical-protocols') {
+        await payload.db.drizzle.execute(
+          sql`UPDATE public."clinical_protocols" SET views = COALESCE(views, 0) + 1 WHERE slug = ${rawSlug};`
+        ).catch(() => {})
+      } else if (rawCollection === 'health-warnings') {
+        await payload.db.drizzle.execute(
+          sql`UPDATE public."health_warnings" SET views = COALESCE(views, 0) + 1 WHERE slug = ${rawSlug};`
+        ).catch(() => {})
       }
     }
 
@@ -179,6 +211,7 @@ export async function POST(req: NextRequest) {
       online: activeSessions.size,
     })
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    console.error('[site-visits][POST] Error:', error?.message || error)
+    return NextResponse.json({ success: false, error: 'Không thể ghi nhận lượt truy cập.' }, { status: 500 })
   }
 }

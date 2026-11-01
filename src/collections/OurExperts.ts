@@ -158,21 +158,51 @@ export const OurExperts: CollectionConfig = {
       },
     },
     {
-      name: 'imageFit',
-      label: 'Cách hiển thị ảnh',
-      type: 'select',
-      defaultValue: 'contain',
-      options: [
-        { label: 'Vừa vặn khung, trọn vẹn không bị cắt (khuyên dùng - contain)', value: 'contain' },
-        { label: 'Lấp đầy khung - Canh đỉnh đầu / mặt rõ nét (cover-top)', value: 'cover-top' },
-        { label: 'Lấp đầy khung - Canh chính giữa tâm ảnh (cover-center)', value: 'cover-center' },
-        { label: 'Lấp đầy khung - Canh phần dưới (cover-bottom)', value: 'cover-bottom' },
-        { label: 'Lấp đầy khung chuẩn (cover)', value: 'cover' },
-        { label: 'Co giãn vừa kín khung ảnh (fill)', value: 'fill' },
+      type: 'row',
+      fields: [
+        {
+          name: 'imageFit',
+          label: 'Cách hiển thị ảnh',
+          type: 'select',
+          defaultValue: 'contain',
+          options: [
+            { label: '⭐ Hiển thị > 2/3 người chuẩn y tế (vừa vặn, không cắt thân - contain)', value: 'contain' },
+            { label: 'Lấp đầy khung - Canh đỉnh đầu / mặt rõ nét (cover-top)', value: 'cover-top' },
+            { label: 'Lấp đầy khung - Canh chính giữa tâm ảnh (cover-center)', value: 'cover-center' },
+            { label: 'Lấp đầy khung - Canh phần dưới (cover-bottom)', value: 'cover-bottom' },
+            { label: 'Lấp đầy khung chuẩn (cover)', value: 'cover' },
+            { label: 'Co giãn vừa kín khung ảnh (fill)', value: 'fill' },
+          ],
+          admin: {
+            width: '40%',
+            description: 'Chọn chế độ hiển thị > 2/3 người (contain) hoặc phủ kín khung (cover-top) kết hợp độ thu phóng bên cạnh.',
+          },
+        },
+        {
+          name: 'imageScale',
+          label: 'Độ thu phóng ảnh hiển thị (%)',
+          type: 'number',
+          min: 40,
+          max: 200,
+          admin: {
+            width: '30%',
+            placeholder: 'Mặc định 88%',
+            description: 'Nhập từ 40 đến 200 (%): < 100% để thu nhỏ thấy hơn 2/3 người; > 100% để phóng to.',
+          },
+        },
+        {
+          name: 'imageOffsetY',
+          label: 'Vị trí canh dọc (%)',
+          type: 'number',
+          min: 0,
+          max: 100,
+          admin: {
+            width: '30%',
+            placeholder: 'Mặc định 8%',
+            description: 'Canh điểm dọc từ 0% (đỉnh đầu) đến 100% (chân ảnh). Khuyên dùng 5%–15%.',
+          },
+        },
       ],
-      admin: {
-        description: 'Tùy chọn cách hiển thị để ảnh chân dung không bị mất đầu hoặc viền xấu: Chọn "Vừa vặn khung" để ảnh luôn hiển thị trọn vẹn 100% không bị cắt bất kỳ góc nào; hoặc chọn "Lấp đầy khung - Canh đỉnh đầu" để ảnh phủ kín thẻ nhưng luôn thấy rõ khuôn mặt.',
-      },
     },
     {
       name: 'enableLink',

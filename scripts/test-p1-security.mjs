@@ -13,7 +13,7 @@ for (const envFile of ['.env.local', '.env']) {
   if (fs.existsSync(envFile)) {
     for (const line of fs.readFileSync(envFile, 'utf8').split('\n')) {
       const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/)
-      if (match && !process.env[match[1]]) {
+      if (match && !(match[1] in process.env)) {
         process.env[match[1]] = match[2] ? match[2].trim().replace(/^(['"])(.*)\1$/, '$2') : ''
       }
     }
@@ -262,7 +262,9 @@ await runAsyncTest('TC-APPT-05', 'Kiểm thử Concurrency giải quyết va ch�
 
 await runAsyncTest('TC-APPT-05A', 'Kiểm thử Unique Constraint trên PostgreSQL thật với TEST_DATABASE_URL độc lập (20 requests đồng thời)', async () => {
   // Chỉ sử dụng biến môi trường TEST_DATABASE_URL dành riêng cho database thử nghiệm (TUYỆT ĐỐI KHÔNG fallback từ DATABASE_URL chính)
-  const testDbUrl = process.env.TEST_DATABASE_URL
+  const rawTestDbUrl = process.env.TEST_DATABASE_URL
+  const isUnverifiedRailwayProxy = rawTestDbUrl && /proxy\.rlwy\.net/i.test(rawTestDbUrl) && process.env.VERIFIED_ISOLATED_TEST_DB !== 'true'
+  const testDbUrl = isUnverifiedRailwayProxy ? '' : rawTestDbUrl
 
   if (!testDbUrl) {
     return {
@@ -424,7 +426,7 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
   }
 
   // 1. BẮT BUỘC có TEST_DATABASE_URL để xác minh bản ghi thực tế trong PostgreSQL
-  const testDbUrl = process.env.TEST_DATABASE_URL
+  const rawTestDbUrl = process.env.TEST_DATABASE_URL; const testDbUrl = (rawTestDbUrl && /proxy\.rlwy\.net/i.test(rawTestDbUrl) && process.env.VERIFIED_ISOLATED_TEST_DB !== 'true') ? '' : rawTestDbUrl
   if (!testDbUrl) {
     return {
       blocked: true,
@@ -565,7 +567,7 @@ await runAsyncTest('TC-APPT-05B', 'Integration test gửi HTTP request tới API
 // NHÓM 3B: BỘ ĐẾM TOÀN CỤC POSTGRESQL & AN TOÀN CHUYỂN NGÀY (P0-ROLLOVER)
 // -------------------------------------------------------------
 await runAsyncTest('TC-APPT-08', 'Kiểm thử chuyển ngày mới (Rollover), đa Instance, Restart Server và tính độc lập Timezone của PostgreSQL Sequence', async () => {
-  const testDbUrl = process.env.TEST_DATABASE_URL
+  const rawTestDbUrl = process.env.TEST_DATABASE_URL; const testDbUrl = (rawTestDbUrl && /proxy\.rlwy\.net/i.test(rawTestDbUrl) && process.env.VERIFIED_ISOLATED_TEST_DB !== 'true') ? '' : rawTestDbUrl
   if (!testDbUrl) {
     return {
       blocked: true,
@@ -648,7 +650,7 @@ await runAsyncTest('TC-APPT-08', 'Kiểm thử chuyển ngày mới (Rollover), 
 })
 
 await runAsyncTest('TC-MIG-081', 'Kiểm thử Migration 081: Chạy lần đầu, chạy lại (idempotent), sequence lớn hơn mã lưu và không làm lùi sequence', async () => {
-  const testDbUrl = process.env.TEST_DATABASE_URL
+  const rawTestDbUrl = process.env.TEST_DATABASE_URL; const testDbUrl = (rawTestDbUrl && /proxy\.rlwy\.net/i.test(rawTestDbUrl) && process.env.VERIFIED_ISOLATED_TEST_DB !== 'true') ? '' : rawTestDbUrl
   if (!testDbUrl) {
     return {
       blocked: true,
@@ -1029,6 +1031,80 @@ runTest('TC-DR-06', 'scripts/backup-railway.mjs không chứa mật khẩu datab
   const content = fs.readFileSync('scripts/backup-railway.mjs', 'utf8')
   assert.ok(!/postgres(ql)?:\/\/[^:\s'"]+:[^@\s'"]+@/i.test(content), 'Không được chứa chuỗi kết nối PostgreSQL kèm mật khẩu')
   assert.ok(!/proxy\.rlwy\.net/i.test(content), 'Không được chứa hostname proxy cứng')
+})
+
+
+runTest('TC-SEC-11', 'Các custom API (/api/emergency-import, /api/ai-work-schedule-ocr, /api/work-schedule-history) bắt buộc xác thực và phân quyền module', () => {
+  const emergencyImport = fs.readFileSync('src/app/(frontend)/api/emergency-import/route.ts', 'utf8')
+  assert.ok(emergencyImport.includes('getVerifiedActiveUser'), '/api/emergency-import phải xác thực người dùng đang hoạt động')
+  assert.ok(emergencyImport.includes("hasModulePermission(user, 'schedules'"), '/api/emergency-import phải kiểm tra quyền module schedules')
+  assert.ok(emergencyImport.includes('rateLimit'), '/api/emergency-import phải áp dụng giới hạn tần suất (rateLimit)')
+
+  const workScheduleOcr = fs.readFileSync('src/app/api/ai-work-schedule-ocr/route.ts', 'utf8')
+  assert.ok(workScheduleOcr.includes('getVerifiedActiveUser'), '/api/ai-work-schedule-ocr phải xác thực người dùng đang hoạt động')
+  assert.ok(workScheduleOcr.includes("hasModulePermission(user, 'work-schedules'"), '/api/ai-work-schedule-ocr phải kiểm tra quyền module work-schedules')
+
+  const workScheduleHistory = fs.readFileSync('src/app/api/work-schedule-history/route.ts', 'utf8')
+  assert.ok(workScheduleHistory.includes('getVerifiedActiveUser'), '/api/work-schedule-history phải xác thực người dùng đang hoạt động')
+  assert.ok(workScheduleHistory.includes("hasModulePermission(user, 'work-schedules', 'view')"), '/api/work-schedule-history phải kiểm tra quyền xem work-schedules')
+})
+
+runTest('TC-SEC-12', 'Cấu hình SMTP TLS bật xác thực chứng chỉ mặc định (rejectUnauthorized !== false) và Media.accessLevel giới hạn quyền sửa', () => {
+  const payloadConfig = fs.readFileSync('payload.config.ts', 'utf8')
+  assert.ok(
+    payloadConfig.includes("rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED === 'false' ? false : true"),
+    'SMTP TLS phải mặc định bật rejectUnauthorized: true trừ khi cấu hình rõ SMTP_TLS_REJECT_UNAUTHORIZED=false'
+  )
+
+  const mediaCollection = fs.readFileSync('src/collections/Media.ts', 'utf8')
+  assert.ok(
+    mediaCollection.includes("update: moduleAccess('media', 'edit')") && !mediaCollection.includes('update: ({ req }) => Boolean(req.user)'),
+    'Trường Media.accessLevel chỉ cho phép người có quyền sửa media thay đổi mức độ truy cập'
+  )
+})
+
+runTest('TC-SEC-13', 'Bảo vệ biểu mẫu & kiểm soát giới hạn truy cập: Tất cả public/internal API đều dùng readJsonBodyWithLimit (streaming DoS guard), rateLimit, Retry-After và Turnstile', () => {
+  const jsonRoutes = [
+    'src/app/(frontend)/api/appointments/route.ts',
+    'src/app/(frontend)/api/feedback/route.ts',
+    'src/app/(frontend)/api/forms/route.ts',
+    'src/app/(frontend)/api/surveys/submit/route.ts',
+    'src/app/(frontend)/api/chatbot/route.ts',
+    'src/app/(frontend)/api/consultation/route.ts',
+    'src/app/(frontend)/api/document-access/route.ts',
+    'src/app/api/site-visits/route.ts',
+  ]
+  for (const routeFile of jsonRoutes) {
+    const src = fs.readFileSync(routeFile, 'utf8')
+    assert.ok(src.includes('readJsonBodyWithLimit'), `${routeFile} phải sử dụng readJsonBodyWithLimit để chống gửi stream quá khổ gây cạn RAM`)
+    assert.ok(src.includes('rateLimit('), `${routeFile} phải áp dụng rateLimit`)
+  }
+
+  const turnstileFormRoutes = [
+    'src/app/(frontend)/api/appointments/route.ts',
+    'src/app/(frontend)/api/feedback/route.ts',
+    'src/app/(frontend)/api/forms/route.ts',
+    'src/app/(frontend)/api/surveys/submit/route.ts',
+  ]
+  for (const routeFile of turnstileFormRoutes) {
+    const src = fs.readFileSync(routeFile, 'utf8')
+    assert.ok(src.includes('verifyTurnstile'), `Biểu mẫu công khai ${routeFile} phải xác thực Cloudflare Turnstile phía server`)
+    assert.ok(src.includes('.website'), `Biểu mẫu công khai ${routeFile} phải kiểm tra trường bẫy bot honeypot (website)`)
+  }
+
+  const rateLimitedImportExportRoutes = [
+    'src/app/(frontend)/api/services-import/route.ts',
+    'src/app/(frontend)/api/chatbot-excel-import/route.ts',
+    'src/app/(frontend)/api/emergency-import/route.ts',
+    'src/app/(frontend)/api/appointments-export/route.ts',
+    'src/app/(frontend)/api/surveys/export/route.ts',
+    'src/app/(frontend)/api/surveys/statistics/route.ts',
+    'src/app/(frontend)/api/surveys/qr/route.ts',
+  ]
+  for (const routeFile of rateLimitedImportExportRoutes) {
+    const src = fs.readFileSync(routeFile, 'utf8')
+    assert.ok(src.includes('rateLimit('), `API tải nặng ${routeFile} phải có rateLimit bảo vệ tài nguyên`)
+  }
 })
 
 console.log('\n====================================================')

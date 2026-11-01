@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCMS } from '@/lib/payload'
-import { bodyIsTooLarge, rateLimit } from '@/lib/request-security'
+import { bodyIsTooLarge, rateLimit, readJsonBodyWithLimit } from '@/lib/request-security'
 import { resolveBookingConfig } from '@/lib/booking'
 
 // Bộ từ điển phương ngữ Nam Bộ & Tây Nam Bộ (Cần Thơ, Thới Lai) được chuẩn hóa từ cụm dài đến từ đơn
@@ -166,8 +166,10 @@ export async function POST(req: Request) {
   try {
     if (bodyIsTooLarge(req, 8_000)) return NextResponse.json({ error: 'Dữ liệu quá lớn' }, { status: 413 })
     const throttle = rateLimit(req, 'chatbot', 60, 15 * 60_000)
-    if (!throttle.allowed) return NextResponse.json({ error: 'Bạn gửi quá nhiều câu hỏi.' }, { status: 429 })
-    const body = await req.json()
+    if (!throttle.allowed) return NextResponse.json({ error: 'Bạn gửi quá nhiều câu hỏi.' }, { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } })
+    const parsed = await readJsonBodyWithLimit<Record<string, any>>(req, 8_000)
+    if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 })
+    const body = parsed.data || {}
     const question = String(body.question || '').trim().slice(0, 1500)
     const sessionId = String(body.sessionId || '').trim().slice(0, 100)
     const feedback = body.feedback === 'up' || body.feedback === 'down' ? body.feedback : null

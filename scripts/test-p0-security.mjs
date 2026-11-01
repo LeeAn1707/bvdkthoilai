@@ -5,7 +5,9 @@
  */
 
 import assert from 'node:assert/strict'
-import { roleHasModulePermission, hasModulePermission, appointmentAccess, appointmentDepartmentFieldAccess, appointmentCreateAccess } from '../src/access/index.ts'
+import fs from 'node:fs'
+import { roleHasModulePermission, hasModulePermission, appointmentAccess, appointmentDepartmentFieldAccess, appointmentCreateAccess, moduleAccess, admins, adminAccess, ownUserOrAdmins, loggedIn, getVerifiedActiveUser } from '../src/access/index.ts'
+import { Users } from '../src/collections/Users.ts'
 import { verifyTurnstile } from '../src/lib/request-security.ts'
 import { Appointments } from '../src/collections/Appointments.ts'
 
@@ -643,6 +645,78 @@ await runAsyncTest('TC-ACL-10B', 'Kiểm thử thực tế qua REST API Payload 
     contentType.includes('spreadsheet') || contentType.includes('excel') || contentType.includes('octet-stream'),
     'Phản hồi export phải là định dạng bảng tính Excel'
   )
+})
+
+
+await runAsyncTest('TC-ACL-11', 'Thu hồi phiên/quyền tức thời: Khi user bị khóa (locked/inactive) hoặc đổi role/department trong DB, JWT cũ bị chặn ngay ở request kế tiếp', async () => {
+  const staleJwtUser = { id: 901, email: 'staff@thoilai.vn', role: 'admin', status: 'active', department: 10 }
+  const reqLocked = {
+    user: { ...staleJwtUser },
+    payload: { findByID: async () => ({ id: 901, email: 'staff@thoilai.vn', role: 'admin', status: 'locked', department: 10 }) },
+  }
+  assert.equal(await admins({ req: reqLocked }), false, 'Tài khoản vừa bị khóa trong DB phải bị từ chối quyền admin ngay cả khi JWT cũ còn hạn')
+  assert.equal(await loggedIn({ req: reqLocked }), false, 'Tài khoản vừa bị khóa trong DB phải bị từ chối loggedIn ngay lập tức')
+  assert.equal(await moduleAccess('news', 'create')({ req: reqLocked }), false, 'Tài khoản vừa bị khóa không thể tạo bài viết')
+
+  const reqDemoted = {
+    user: { ...staleJwtUser },
+    payload: { findByID: async () => ({ id: 901, email: 'staff@thoilai.vn', role: 'hr', status: 'active', department: 10 }) },
+  }
+  assert.equal(await admins({ req: reqDemoted }), false, 'Tài khoản vừa bị hạ quyền từ admin xuống hr phải mất quyền admins ngay lập tức')
+  assert.equal(await appointmentAccess('view')({ req: reqDemoted }), false, 'Tài khoản bị đổi sang role hr không còn quyền xem lịch hẹn')
+
+  const reqDeptChanged = {
+    user: { id: 902, role: 'department-manager', status: 'active', department: 10 },
+    payload: { findByID: async () => ({ id: 902, role: 'department-manager', status: 'active', department: 20 }) },
+  }
+  const newScope = await appointmentAccess('view')({ req: reqDeptChanged })
+  assert.deepEqual(newScope, { department: { equals: 20 } }, 'Khi đổi khoa trong DB từ 10 sang 20, scope truy cập phải lập tức chuyển sang Khoa 20')
+
+  const mockPayloadLocked = {
+    auth: async () => ({ user: staleJwtUser }),
+    findByID: async () => ({ id: 901, role: 'admin', status: 'locked' }),
+  }
+  const verifiedLocked = await getVerifiedActiveUser(mockPayloadLocked, new Headers())
+  assert.equal(verifiedLocked, null, 'getVerifiedActiveUser phải trả về null khi user bị khóa trong DB dù JWT còn hạn')
+
+  // Kiểm tra cổng vào Admin UI (Users.access.admin) và /api/users/me (Users.access.read = ownUserOrAdmins)
+  const reqAdminLocked = {
+    user: { ...staleJwtUser },
+    payload: { findByID: async () => ({ id: 901, email: 'staff@thoilai.vn', role: 'admin', status: 'locked', department: 10 }) },
+  }
+  assert.equal(await Users.access.admin({ req: reqAdminLocked }), false, 'Users.access.admin phải từ chối truy cập /admin ngay khi user bị khóa trong DB')
+  assert.equal(await ownUserOrAdmins({ req: reqAdminLocked }), false, 'ownUserOrAdmins phải từ chối đọc hồ sơ /api/users/me ngay khi user bị khóa trong DB')
+  assert.equal(reqAdminLocked.user, null, 'req.user phải bị xóa về null khi phát hiện tài khoản đã bị khóa trong DB')
+
+  // Kiểm tra thu hồi quyền tùy chỉnh (useCustomPermissions) tức thời
+  const reqCustomPermRevoked = {
+    user: {
+      id: 903,
+      role: 'editor',
+      status: 'active',
+      useCustomPermissions: false,
+      permissions: [{ module: 'news', actions: ['view', 'create', 'edit'] }],
+    },
+    payload: {
+      findByID: async () => ({
+        id: 903,
+        role: 'editor',
+        status: 'active',
+        useCustomPermissions: true,
+        permissions: [{ module: 'news', actions: ['view'] }], // Thu hồi quyền create/edit trong DB
+      }),
+    },
+  }
+  assert.equal(await moduleAccess('news', 'create')({ req: reqCustomPermRevoked }), false, 'Thu hồi quyền create trong ma trận tùy chỉnh phải có hiệu lực ngay ở request kế tiếp')
+  assert.equal(await moduleAccess('news', 'view')({ req: reqCustomPermRevoked }), true, 'Quyền view còn giữ trong DB vẫn hoạt động bình thường')
+})
+
+runTest('TC-SEC-10', 'Chống SQL Injection tại /api/site-visits: Truy vấn sử dụng parameterized sql template và kiểm tra định dạng slug', () => {
+  const routeContent = fs.readFileSync('src/app/api/site-visits/route.ts', 'utf8')
+  assert.ok(routeContent.includes("import { sql } from '@payloadcms/db-postgres/drizzle'"), 'Phải import sql template từ drizzle')
+  assert.ok(!routeContent.includes("WHERE slug = '"), 'Tuyệt đối không nối chuỗi trực tiếp slug vào mệnh đề WHERE')
+  assert.ok(!routeContent.includes("WHERE date = '"), 'Tuyệt đối không nối chuỗi trực tiếp date vào mệnh đề WHERE')
+  assert.ok(routeContent.includes('SLUG_PATTERN.test(rawSlug)'), 'Phải kiểm tra regex SLUG_PATTERN trước khi cập nhật lượt xem')
 })
 
 console.log('\n====================================================')

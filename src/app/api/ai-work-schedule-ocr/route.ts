@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
 import { getCMS } from '@/lib/payload'
 import { bodyIsTooLarge, rateLimit } from '@/lib/request-security'
 
@@ -23,9 +24,15 @@ const json = (body: Record<string, unknown>, status = 200, extraHeaders?: Record
 export async function POST(req: NextRequest) {
   try {
     const payload = await getCMS()
-    const auth = await payload.auth({ headers: req.headers })
-    const user = auth.user as any
+    const user = await getVerifiedActiveUser(payload, req.headers)
     if (!user) return json({ error: 'Bạn cần đăng nhập để sử dụng tính năng AI OCR.' }, 401)
+    if (
+      !hasModulePermission(user, 'work-schedules', 'import') &&
+      !hasModulePermission(user, 'work-schedules', 'create') &&
+      !hasModulePermission(user, 'work-schedules', 'edit')
+    ) {
+      return json({ error: 'Bạn không có quyền nhập hoặc chỉnh sửa lịch công tác tuần.' }, 403)
+    }
 
     const contentLength = Number(req.headers.get('content-length') || 0)
     if (!Number.isFinite(contentLength) || contentLength <= 0 || bodyIsTooLarge(req, MAX_BODY_BYTES)) {
@@ -200,7 +207,7 @@ QUY TẮC BÓC TÁCH:
 
     if (!geminiRes) {
       console.error('Tất cả models Gemini đều không phản hồi thành công:', lastErrorText)
-      return json({ error: `AI OCR thất bại: ${lastErrorText.slice(0, 200)}` }, 502)
+      return json({ error: 'Dịch vụ AI OCR tạm thời không phản hồi. Vui lòng thử lại sau.' }, 502)
     }
 
     const resJson = await geminiRes.json()
@@ -209,21 +216,38 @@ QUY TẮC BÓC TÁCH:
       return json({ error: 'AI không đọc được nội dung trên bức ảnh này.' }, 502)
     }
 
+    if (textOutput.length > 1_000_000) {
+      return json({ error: 'Kết quả AI vượt giới hạn xử lý an toàn.' }, 502)
+    }
+
     let parsed: any
     try {
       parsed = JSON.parse(textOutput)
     } catch {
       const match = textOutput.match(/\{[\s\S]*\}/)
       if (match) parsed = JSON.parse(match[0])
-      else throw new Error('Dữ liệu AI trả về không phải định dạng JSON.')
+      else return json({ error: 'Kết quả AI không đúng định dạng lịch công tác tuần.' }, 502)
     }
+
+    await payload.create({
+      collection: 'audit-logs' as any,
+      data: {
+        actor: user.id,
+        actorEmail: user.email,
+        action: 'other',
+        resource: 'work-schedules',
+        summary: 'Quét ảnh lịch công tác tuần bằng AI OCR',
+        metadata: { mimeType, fileSize: imageFile.size, days: Array.isArray(parsed?.days) ? parsed.days.length : 0 },
+      },
+      overrideAccess: true,
+    }).catch(() => null)
 
     return json({
       success: true,
       data: parsed,
     })
   } catch (error) {
-    console.error('Lỗi API ai-work-schedule-ocr:', error)
-    return json({ error: error instanceof Error ? error.message : 'Lỗi hệ thống khi xử lý AI OCR.' }, 500)
+    console.error('Lỗi API ai-work-schedule-ocr:', error instanceof Error ? error.message : error)
+    return json({ error: 'Có lỗi xảy ra trong quá trình quét ảnh lịch công tác tuần.' }, 500)
   }
 }

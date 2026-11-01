@@ -37,66 +37,126 @@ const isElevatedRole = (role?: Role) =>
   role === 'super-admin' || role === 'system-admin' || role === 'admin'
 
 /**
- * Payload có thể hydrate req.user từ JWT với tập field tối thiểu. Khi access
- * control cần role/status/permissions mà token cũ hoặc môi trường production
- * chưa mang đủ field, đọc lại chính user đang đăng nhập từ DB. Không cấp quyền
- * theo email/id và không bypass xác thực.
+ * Payload có thể hydrate req.user từ JWT (khi useSessions: false). Để đảm bảo
+ * khóa tài khoản (status: 'locked'/'inactive'), thay đổi vai trò (role), khoa/phòng
+ * (department) hoặc ma trận quyền (permissions) có hiệu lực ngay lập tức ở
+ * request tiếp theo mà không chờ JWT hết hạn, luôn đọc lại bản ghi user từ DB
+ * (cache trên req._resolvedCurrentUser trong phạm vi 1 request).
+ * Trong môi trường unit test không có req.payload.findByID thì fallback về req.user.
  */
-const resolveAuthenticatedUser = async (req: any): Promise<any | null> => {
+export const resolveAuthenticatedUser = async (req: any): Promise<any | null> => {
   const current = req?.user
-  if (!current?.id) return null
-
-  if (current.role && current.status != null) return current
+  if (!current) return null
+  if (req?._resolvedCurrentUser !== undefined) {
+    return req._resolvedCurrentUser
+  }
+  if (!current?.id || typeof req?.payload?.findByID !== 'function') {
+    return current
+  }
 
   try {
-    return await req.payload.findByID({
+    const freshUser = await req.payload.findByID({
       collection: 'users',
       id: current.id,
       depth: 0,
       overrideAccess: true,
       req,
     })
+    const resolved = freshUser || null
+    req._resolvedCurrentUser = resolved
+    req.user = isActiveUser(resolved) ? resolved : null
+    return resolved
   } catch {
     return current
   }
 }
 
-export const anyone: Access = () => true
-export const loggedIn: Access = ({ req }) => isActiveUser(req.user)
+export const getVerifiedActiveUser = async (payload: any, headers: Headers): Promise<any | null> => {
+  const auth = await payload.auth({ headers })
+  const current = auth?.user as any
+  if (!current?.id) return null
+  if (typeof payload?.findByID === 'function') {
+    try {
+      const fresh = await payload.findByID({
+        collection: 'users',
+        id: current.id,
+        depth: 0,
+        overrideAccess: true,
+      })
+      if (!fresh || !isActiveUser(fresh)) return null
+      return fresh
+    } catch {
+      return isActiveUser(current) ? current : null
+    }
+  }
+  return isActiveUser(current) ? current : null
+}
 
-export const ownUserOrAdmins: Access = ({ req }) => {
-  const user = req.user
+export const anyone: Access = () => true
+export const loggedIn: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  return isActiveUser(user)
+}
+export const adminAccess: ({ req }: { req: any }) => Promise<boolean> = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  return isActiveUser(user)
+}
+
+export const ownUserOrAdmins: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
   if (!isActiveUser(user) || !user) return false
   if (isElevatedRole(roleOf(user))) return true
   return { id: { equals: user.id } }
 }
 
-export const publicActive: Access = ({ req }) => {
-  if (isActiveUser(req.user)) return true
+export const publicActive: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (isActiveUser(user)) return true
   return { active: { equals: true } }
 }
 
-export const publicPublished: Access = ({ req }) => {
-  if (isActiveUser(req.user)) return true
+export const publicPublished: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (isActiveUser(user)) return true
   return { _status: { equals: 'published' } } as Where
 }
 
-export const publicActiveFor = (module: string): Access => ({ req }) => {
-  if (isActiveUser(req.user) && hasModulePermission(req.user, module, 'view')) return true
+export const publicActiveFor = (module: string): Access => async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (isActiveUser(user) && hasModulePermission(user, module, 'view')) return true
   return { active: { equals: true } }
 }
 
-export const publicPublishedFor = (module: string): Access => ({ req }) => {
-  if (isActiveUser(req.user) && hasModulePermission(req.user, module, 'view')) return true
+export const publicPublishedFor = (module: string): Access => async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (isActiveUser(user) && hasModulePermission(user, module, 'view')) return true
   return { _status: { equals: 'published' } } as Where
 }
 
-export const admins: Access = ({ req }) => isActiveUser(req.user) && isElevatedRole(roleOf(req.user))
-export const superAdmins: Access = ({ req }) => isActiveUser(req.user) && roleOf(req.user) === 'super-admin'
-export const publishers: Access = ({ req }) => isActiveUser(req.user) && ['super-admin', 'system-admin', 'admin', 'reviewer'].includes(roleOf(req.user) || '')
-export const editors: Access = ({ req }) => isActiveUser(req.user) && ['super-admin', 'system-admin', 'admin', 'editor', 'reviewer', 'department', 'department-manager'].includes(roleOf(req.user) || '')
-export const procurementTeam: Access = ({ req }) => isActiveUser(req.user) && ['super-admin', 'system-admin', 'admin', 'procurement'].includes(roleOf(req.user) || '')
-export const adminField: FieldAccess = ({ req }) => isActiveUser(req.user) && isElevatedRole(roleOf(req.user))
+export const admins: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  return isActiveUser(user) && isElevatedRole(roleOf(user))
+}
+export const superAdmins: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  return isActiveUser(user) && roleOf(user) === 'super-admin'
+}
+export const publishers: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  return isActiveUser(user) && ['super-admin', 'system-admin', 'admin', 'reviewer'].includes(roleOf(user) || '')
+}
+export const editors: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  return isActiveUser(user) && ['super-admin', 'system-admin', 'admin', 'editor', 'reviewer', 'department', 'department-manager'].includes(roleOf(user) || '')
+}
+export const procurementTeam: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  return isActiveUser(user) && ['super-admin', 'system-admin', 'admin', 'procurement'].includes(roleOf(user) || '')
+}
+export const adminField: FieldAccess = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  return isActiveUser(user) && isElevatedRole(roleOf(user))
+}
 
 const moduleRoleDefaults: Record<string, Partial<Record<PermissionAction, Role[]>>> = {
   homepage: { view: ['board', 'editor', 'reviewer'], edit: ['editor', 'reviewer'] },
@@ -160,8 +220,9 @@ export const hasModulePermission = (user: any, module: string, action: Permissio
   return roleHasModulePermission(user, module, action) || hasExplicitPermission
 }
 
-export const mediaReadAccess: Access = ({ req }) => {
-  if (isActiveUser(req.user) && hasModulePermission(req.user, 'media', 'view')) return true
+export const mediaReadAccess: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (isActiveUser(user) && hasModulePermission(user, 'media', 'view')) return true
   return {
     or: [
       { accessLevel: { equals: 'public' } },
@@ -197,7 +258,7 @@ export const appointmentAccess = (action: PermissionAction): Access => async ({ 
 }
 
 export const appointmentDepartmentFieldAccess: FieldAccess = ({ req }) => {
-  const user = req?.user as any
+  const user = ((req as any)?._resolvedCurrentUser !== undefined ? (req as any)._resolvedCurrentUser : req?.user) as any
   if (!isActiveUser(user)) return false
   const role = roleOf(user)
   // Chỉ admin cấp cao hoặc nhân sự điều phối toàn viện mới được thay đổi Khoa tiếp nhận của phiếu hẹn
@@ -228,42 +289,45 @@ export const appointmentCreateAccess: Access = async ({ req, data }: any) => {
 }
 
 
-export const departmentScopedAccess = (module: string, action: PermissionAction, departmentField = 'department'): Access => ({ req }) => {
-  if (!isActiveUser(req.user)) return false
-  if (isElevatedRole(roleOf(req.user))) return true
-  if (!hasModulePermission(req.user, module, action)) return false
-  const department = (req.user as any)?.department
+export const departmentScopedAccess = (module: string, action: PermissionAction, departmentField = 'department'): Access => async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (!isActiveUser(user)) return false
+  if (isElevatedRole(roleOf(user))) return true
+  if (!hasModulePermission(user, module, action)) return false
+  const department = (user as any)?.department
   const departmentID = typeof department === 'object' && department ? department.id : department
   if (!departmentID) return false
   return { [departmentField]: { equals: departmentID } } as Where
 }
 
-export const ownDepartmentRecordAccess = (action: PermissionAction): Access => ({ req }) => {
-  if (!isActiveUser(req.user)) return false
-  if (isElevatedRole(roleOf(req.user))) return true
-  if (!hasModulePermission(req.user, 'departments', action)) return false
-  const role = roleOf(req.user)
+export const ownDepartmentRecordAccess = (action: PermissionAction): Access => async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (!isActiveUser(user)) return false
+  if (isElevatedRole(roleOf(user))) return true
+  if (!hasModulePermission(user, 'departments', action)) return false
+  const role = roleOf(user)
   if (role === 'hr') return true
-  const department = (req.user as any)?.department
+  const department = (user as any)?.department
   const departmentID = typeof department === 'object' && department ? department.id : department
   if (!departmentID) return false
   return { id: { equals: departmentID } } as Where
 }
 
-export const organizationDepartmentScopedAccess = (module: 'specialties' | 'doctors', action: PermissionAction): Access => ({ req }) => {
-  if (!isActiveUser(req.user)) return false
-  if (isElevatedRole(roleOf(req.user))) return true
-  if (!hasModulePermission(req.user, module, action)) return false
-  const role = roleOf(req.user)
+export const organizationDepartmentScopedAccess = (module: 'specialties' | 'doctors', action: PermissionAction): Access => async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
+  if (!isActiveUser(user)) return false
+  if (isElevatedRole(roleOf(user))) return true
+  if (!hasModulePermission(user, module, action)) return false
+  const role = roleOf(user)
   if (role === 'hr') return true
-  const department = (req.user as any)?.department
+  const department = (user as any)?.department
   const departmentID = typeof department === 'object' && department ? department.id : department
   if (!departmentID) return false
   return { department: { equals: departmentID } } as Where
 }
 
-export const publishedOrOwnedDraft: Access = ({ req }) => {
-  const user = req.user
+export const publishedOrOwnedDraft: Access = async ({ req }) => {
+  const user = await resolveAuthenticatedUser(req)
   if (!isActiveUser(user) || !user) return { _status: { equals: 'published' } } as Where
   if (['super-admin', 'system-admin', 'admin', 'reviewer'].includes(roleOf(user) || '')) return true
   return { or: [{ _status: { equals: 'published' } }, { createdBy: { equals: user.id } }] } as Where

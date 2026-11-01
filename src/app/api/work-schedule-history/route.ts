@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
 import { getCMS } from '@/lib/payload'
 
 export async function GET(req: NextRequest) {
   try {
     const payload = await getCMS()
-    const auth = await payload.auth({ headers: req.headers })
-    const user = auth.user as any
+    const user = await getVerifiedActiveUser(payload, req.headers)
 
-    // Chỉ cho phép người dùng đăng nhập xem nhật ký chỉnh sửa
+    // Chỉ cho phép người dùng đăng nhập đang hoạt động và có quyền xem lịch công tác
     if (!user) {
       return NextResponse.json({ error: 'Yêu cầu đăng nhập quản trị.' }, { status: 401 })
+    }
+    if (!hasModulePermission(user, 'work-schedules', 'view')) {
+      return NextResponse.json({ error: 'Bạn không có quyền xem lịch sử chỉnh sửa lịch công tác.' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -42,7 +45,7 @@ export async function GET(req: NextRequest) {
       }
     )
   } catch (error) {
-    console.error('Lỗi lấy lịch sử audit work-schedules:', error)
+    console.error('Lỗi lấy lịch sử audit work-schedules:', error instanceof Error ? error.message : error)
     return NextResponse.json(
       { error: 'Không thể tải lịch sử chỉnh sửa.' },
       { status: 500 }

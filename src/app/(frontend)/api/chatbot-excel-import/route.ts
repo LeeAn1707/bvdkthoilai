@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
 import { getCMS } from '@/lib/payload'
-import { hasModulePermission } from '@/access'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
+import { bodyIsTooLarge, rateLimit } from '@/lib/request-security'
 
 const MAX_ROWS = 2_000
 const MAX_BYTES = 10 * 1024 * 1024
@@ -49,8 +50,7 @@ const lexicalText = (value: string) => ({
 
 const authorize = async (request: Request, target: Target) => {
   const payload = await getCMS()
-  const auth = await payload.auth({ headers: request.headers })
-  const user = auth.user as any
+  const user = await getVerifiedActiveUser(payload, request.headers)
   const module = target === 'faqs' ? 'faqs' : 'chatbot'
   const allowed = user && (hasModulePermission(user, module, 'create') || hasModulePermission(user, module, 'edit') || hasModulePermission(user, module, 'import'))
   return { payload, user, allowed }
@@ -218,8 +218,11 @@ export async function POST(request: Request) {
     const mode = String(form.get('mode') || 'preview')
     const target = String(form.get('target') || '') as Target
     if (!['faqs', 'intents'].includes(target)) return NextResponse.json({ error: 'Phân hệ nhập dữ liệu không hợp lệ.' }, { status: 400 })
-    const { payload, allowed } = await authorize(request, target)
-    if (!allowed) return NextResponse.json({ error: 'Bạn không có quyền nhập dữ liệu cho phân hệ này.' }, { status: 403 })
+    if (bodyIsTooLarge(request, MAX_BYTES + 1024 * 1024)) return NextResponse.json({ error: 'File vượt quá giới hạn 10 MB.' }, { status: 413 })
+    const { payload, user, allowed } = await authorize(request, target)
+    if (!allowed || !user) return NextResponse.json({ error: 'Bạn không có quyền nhập dữ liệu cho phân hệ này.' }, { status: 403 })
+    const throttle = rateLimit(request, `chatbot-excel-import:${user.id}`, 15, 15 * 60_000)
+    if (!throttle.allowed) return NextResponse.json({ error: 'Bạn gửi quá nhiều yêu cầu nhập file. Vui lòng thử lại sau.' }, { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } })
     if (!(upload instanceof File)) return NextResponse.json({ error: 'Chưa chọn file Excel.' }, { status: 400 })
 
     let rows: Array<{ rowNumber: number; values: Record<string, unknown> }>
@@ -277,13 +280,14 @@ export async function POST(request: Request) {
           if (existing.docs[0]) { await payload.update({ collection: 'chatbotIntents', id: existing.docs[0].id, data, overrideAccess: true }); updated++ }
           else { await payload.create({ collection: 'chatbotIntents', data, overrideAccess: true }); created++ }
         }
-      } catch (reason) {
+      } catch {
         skipped++
-        if (errors.length < 100) errors.push(`Dòng ${item.row} (${target === 'faqs' ? item.question : item.name}): ${reason instanceof Error ? reason.message : 'không thể lưu dữ liệu'}`)
+        if (errors.length < 100) errors.push(`Dòng ${item.row} (${target === 'faqs' ? item.question : item.name}): không thể lưu dữ liệu`)
       }
     }
     return NextResponse.json({ mode: 'import', created, updated, skipped, errors })
   } catch (reason) {
-    return NextResponse.json({ error: reason instanceof Error ? reason.message : 'Không thể xử lý file Excel.' }, { status: 500 })
+    console.error('[chatbot-excel-import] Error:', reason instanceof Error ? reason.message : reason)
+    return NextResponse.json({ error: 'Không thể xử lý file Excel. Vui lòng kiểm tra lại định dạng file .xlsx.' }, { status: 500 })
   }
 }

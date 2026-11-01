@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "migrationId": "20261022_081_create_global_appointment_code_sequence",
-  "schemaSha256": "ad9137591df541e6e8a70034623e416164d5dcb4abe1bfd7d60afc4b9c71b238"
+  "migrationId": "20261101_084_add_expert_image_display_modes",
+  "schemaSha256": "871c3a9e181b170ccb1fa1bf7e8f94939e561884052cb8d43f5a144cbb358f21"
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { getCMS } from '@/lib/payload'
-import { hasModulePermission } from '@/access'
+import { getVerifiedActiveUser, hasModulePermission } from '@/access'
+import { bodyIsTooLarge, rateLimit } from '@/lib/request-security'
 
 const COLUMNS = ['STT', 'Mã dịch vụ', 'Tên dịch vụ', 'Nhóm dịch vụ', 'Đơn vị tính', 'Giá BHYT', 'Giá dịch vụ', 'Số quyết định', 'Hiệu lực từ', 'Hiệu lực đến', 'Ghi chú']
 const MAX_ROWS = 10_000
@@ -35,8 +36,8 @@ const dateValue = (value: unknown) => {
 
 const authorize = async (request: Request) => {
   const payload = await getCMS()
-  const auth = await payload.auth({ headers: request.headers })
-  return { payload, user: auth.user as any }
+  const user = await getVerifiedActiveUser(payload, request.headers)
+  return { payload, user }
 }
 
 const readRows = async (upload: File) => {
@@ -105,6 +106,9 @@ export async function POST(request: Request) {
   try {
     const { payload, user } = await authorize(request)
     if (!user || !hasModulePermission(user, 'services', 'import')) return NextResponse.json({ error: 'Bạn không có quyền nhập bảng giá.' }, { status: 403 })
+    if (bodyIsTooLarge(request, MAX_BYTES + 1024 * 1024)) return NextResponse.json({ error: 'File vượt quá giới hạn 20 MB.' }, { status: 413 })
+    const throttle = rateLimit(request, `services-import:${user.id}`, 10, 15 * 60_000)
+    if (!throttle.allowed) return NextResponse.json({ error: 'Bạn gửi quá nhiều yêu cầu nhập bảng giá. Vui lòng thử lại sau.' }, { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } })
     const form = await request.formData()
     const upload = form.get('file')
     const mode = String(form.get('mode') || 'preview')
@@ -155,9 +159,9 @@ export async function POST(request: Request) {
     } catch {}
     return NextResponse.json({ mode: 'import', created, updated, skipped, errors })
   } catch (error: any) {
-    console.error('Lỗi import bảng giá:', error)
+    console.error('Lỗi import bảng giá:', error?.message || error)
     return NextResponse.json({
-      error: error?.message ? `Lỗi xử lý file Excel: ${error.message}` : 'Không thể xử lý file Excel. Hãy tải mẫu và kiểm tra lại dữ liệu.'
+      error: 'Không thể xử lý file Excel. Hãy tải mẫu và kiểm tra lại dữ liệu.'
     }, { status: 500 })
   }
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { getCMS } from '@/lib/payload'
-import { bodyIsTooLarge, rateLimit, verifyTurnstile } from '@/lib/request-security'
+import { bodyIsTooLarge, rateLimit, readJsonBodyWithLimit, verifyTurnstile } from '@/lib/request-security'
 
 export async function POST(req: Request) {
   try {
@@ -11,10 +11,14 @@ export async function POST(req: Request) {
 
     const lim = rateLimit(req, 'survey-submit', 15, 15 * 60_000)
     if (!lim.allowed) {
-      return NextResponse.json({ error: 'Bạn gửi quá nhiều lần. Vui lòng thử lại sau ít phút.' }, { status: 429 })
+      return NextResponse.json({ error: 'Bạn gửi quá nhiều lần. Vui lòng thử lại sau ít phút.' }, { status: 429, headers: { 'Retry-After': String(lim.retryAfter) } })
     }
 
-    const b = await req.json()
+    const parsed = await readJsonBodyWithLimit<Record<string, any>>(req, 100_000)
+    if (parsed.error) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 })
+    }
+    const b = parsed.data || {}
 
     // Honeypot bot check
     if (b.website) {

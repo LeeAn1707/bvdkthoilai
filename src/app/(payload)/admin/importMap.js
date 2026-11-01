@@ -43,8 +43,8 @@ import { default as default_f3fbabdce87bad5a8e97b0f255ae00c1 } from '../../../..
 import { default as default_44a4875dafd9e053eac66ea51590046e } from '../../../../src/components/admin/AdminLogoutButton'
 import { default as default_4e8c646a9bba8b4d058bdd609b4eefdd } from '../../../../src/components/admin/AdminDashboard'
 import { default as default_8aeb1dc1eba8b78016e1532ee718664d } from '../../../../src/components/admin/AdminNavHeader'
-import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
+import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 
 /** @type import('payload').ImportMap */
 export const importMap = {
@@ -93,6 +93,6 @@ export const importMap = {
   "/src/components/admin/AdminLogoutButton#default": default_44a4875dafd9e053eac66ea51590046e,
   "/src/components/admin/AdminDashboard#default": default_4e8c646a9bba8b4d058bdd609b4eefdd,
   "/src/components/admin/AdminNavHeader#default": default_8aeb1dc1eba8b78016e1532ee718664d,
-  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
-  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
+  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
+  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24
 }

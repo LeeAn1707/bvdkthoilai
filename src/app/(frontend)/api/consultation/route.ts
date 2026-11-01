@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { getCMS } from '@/lib/payload'
-import { bodyIsTooLarge, rateLimit } from '@/lib/request-security'
+import { bodyIsTooLarge, rateLimit, readJsonBodyWithLimit, validPhone } from '@/lib/request-security'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,13 +10,16 @@ export async function POST(req: Request) {
     if (bodyIsTooLarge(req, 8_000)) return NextResponse.json({ error: 'Dữ liệu quá lớn' }, { status: 413 })
     const throttle = rateLimit(req, 'consultation-create', 60, 15 * 60_000)
     if (!throttle.allowed) return NextResponse.json({ error: 'Bạn gửi quá nhiều câu hỏi. Vui lòng thử lại sau.' }, { status: 429, headers: { 'Retry-After': String(throttle.retryAfter) } })
-    const body = await req.json()
+    const parsed = await readJsonBodyWithLimit<Record<string, any>>(req, 8_000)
+    if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: parsed.status || 400 })
+    const body = parsed.data || {}
+    if (body.website) return NextResponse.json({ ok: true, token: 'CONSULT-BOT' })
     const rawQuestion = String(body.question || '').trim().slice(0, 3000)
     const existingToken = String(body.token || '').trim().slice(0, 100)
     const fullName = String(body.fullName || '').trim().slice(0, 150)
     const phone = String(body.phone || '').trim().slice(0, 30)
 
-    if (rawQuestion.length < 2 && !phone) return NextResponse.json({ error: 'Nội dung hoặc số điện thoại không hợp lệ' }, { status: 400 })
+    if ((rawQuestion.length < 2 && !phone) || (phone && !validPhone(phone))) return NextResponse.json({ error: 'Nội dung hoặc số điện thoại không hợp lệ' }, { status: 400 })
 
     const payload = await getCMS()
     const now = new Date().toISOString()

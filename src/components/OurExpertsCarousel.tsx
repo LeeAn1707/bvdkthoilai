@@ -11,6 +11,9 @@ export type ExpertItem = {
   badge?: string
   image?: string
   imageFit?: 'contain' | 'cover' | string
+  displayMode?: string
+  imageScale?: number
+  imageOffsetY?: number
   url?: string
   openNewTab?: boolean
   visible?: boolean
@@ -22,6 +25,10 @@ type Props = {
   itemsPerView?: number
   cardBarBgColor?: string
   cardBarTextColor?: string
+  defaultDisplayMode?: string
+  defaultImageScale?: number
+  defaultImageOffsetY?: number
+  cardHeight?: number
 }
 
 export function OurExpertsCarousel({
@@ -30,6 +37,10 @@ export function OurExpertsCarousel({
   itemsPerView = 4,
   cardBarBgColor,
   cardBarTextColor,
+  defaultDisplayMode = 'zoom-out-2-3',
+  defaultImageScale = 86,
+  defaultImageOffsetY = 12,
+  cardHeight,
 }: Props) {
   const safeItems = useMemo(
     () => items.filter((item) => item?.visible !== false && item?.name),
@@ -113,14 +124,130 @@ export function OurExpertsCarousel({
   // Dynamic overrides only if customized differently from default
   const footerCustomStyle = (cardBarBgColor && cardBarBgColor !== '#f0f7fd') || (cardBarTextColor && cardBarTextColor !== '#0754a8')
     ? {
-        backgroundColor: cardBarBgColor || undefined,
-        color: cardBarTextColor || undefined,
-      }
+      backgroundColor: cardBarBgColor || undefined,
+      color: cardBarTextColor || undefined,
+    }
     : undefined
 
   const titleCustomStyle = cardBarTextColor && cardBarTextColor !== '#0754a8'
     ? { color: cardBarTextColor }
     : undefined
+
+  const resolveDisplayConfig = (item: ExpertItem) => {
+    const activeMode =
+      item.displayMode && item.displayMode !== 'inherit'
+        ? item.displayMode
+        : defaultDisplayMode || 'cover-top'
+
+    let presetScale = 100
+    let presetOffsetY = 8
+    let forceContain = false
+
+    switch (activeMode) {
+      case 'zoom-out-2-3':
+      case 'cover-top':
+        presetScale = 100
+        presetOffsetY = 8
+        break
+      case 'zoom-out-wide':
+        presetScale = 82
+        presetOffsetY = 6
+        forceContain = true
+        break
+      case 'zoom-out-medium':
+        presetScale = 90
+        presetOffsetY = 8
+        forceContain = true
+        break
+      case 'cover-body':
+        presetScale = 100
+        presetOffsetY = 25
+        break
+      case 'cover-center':
+        presetScale = 100
+        presetOffsetY = 50
+        break
+      case 'zoom-in-close':
+        presetScale = 112
+        presetOffsetY = 8
+        break
+      case 'fill':
+        presetScale = 100
+        presetOffsetY = 12
+        break
+      default:
+        break
+    }
+
+    const hasCustomItemScale = item.imageScale !== null && item.imageScale !== undefined
+    const hasCustomSectionScale =
+      defaultImageScale !== null &&
+      defaultImageScale !== undefined &&
+      defaultImageScale !== 86 &&
+      defaultImageScale !== 88 &&
+      defaultImageScale !== 75
+    const rawScale = hasCustomItemScale
+      ? Number(item.imageScale)
+      : hasCustomSectionScale
+        ? Number(defaultImageScale)
+        : presetScale
+
+    const clampedScale = Number.isFinite(rawScale) && rawScale > 0
+      ? Math.min(200, Math.max(40, rawScale))
+      : presetScale
+
+    const hasCustomItemOffsetY = item.imageOffsetY !== null && item.imageOffsetY !== undefined
+    const hasCustomSectionOffsetY =
+      defaultImageOffsetY !== null &&
+      defaultImageOffsetY !== undefined &&
+      defaultImageOffsetY !== 12 &&
+      defaultImageOffsetY !== 15 &&
+      defaultImageOffsetY !== 5
+    const rawOffsetY = hasCustomItemOffsetY
+      ? Number(item.imageOffsetY)
+      : hasCustomSectionOffsetY
+        ? Number(defaultImageOffsetY)
+        : presetOffsetY
+
+    const clampedOffsetY = Number.isFinite(rawOffsetY)
+      ? Math.min(100, Math.max(0, rawOffsetY))
+      : presetOffsetY
+
+    if (clampedScale < 100 || forceContain) {
+      return {
+        showBackdrop: true,
+        style: {
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain' as const,
+          objectPosition: `center ${clampedOffsetY}%`,
+          transform: clampedScale < 100 ? `scale(${(clampedScale / 100).toFixed(3)})` : undefined,
+          transformOrigin: `center ${clampedOffsetY}%`,
+          position: 'relative' as const,
+          zIndex: 1,
+        },
+      }
+    }
+
+    return {
+      showBackdrop: false,
+      style: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover' as const,
+        objectPosition: `center ${clampedOffsetY}%`,
+        transform: clampedScale > 100 ? `scale(${(clampedScale / 100).toFixed(3)})` : undefined,
+        transformOrigin: `center ${clampedOffsetY}%`,
+        position: 'relative' as const,
+        zIndex: 1,
+      },
+    }
+  }
+
+  const imageFrameCustomStyle: React.CSSProperties | undefined =
+    cardHeight && Number(cardHeight) >= 200
+      ? { height: `${Math.min(520, Math.max(200, Number(cardHeight)))}px`, maxHeight: 'none', aspectRatio: 'auto' }
+      : undefined
 
   return (
     <div
@@ -135,24 +262,40 @@ export function OurExpertsCarousel({
         {visibleItems.map((item, idx) => {
           const content = (
             <div className={styles.expertCard}>
-              <div className={styles.expertCardImage}>
+              <div className={styles.expertCardImage} style={imageFrameCustomStyle}>
                 {item.image ? (
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className={`${styles.expertCardImg} ${
-                      item.imageFit === 'cover' || item.imageFit === 'cover-top'
-                        ? styles.fitCoverTop
-                        : item.imageFit === 'cover-center'
-                        ? styles.fitCoverCenter
-                        : item.imageFit === 'cover-bottom'
-                        ? styles.fitCoverBottom
-                        : item.imageFit === 'fill'
-                        ? styles.fitFill
-                        : styles.fitContain
-                    }`}
-                    loading="lazy"
-                  />
+                  (() => {
+                    const cfg = resolveDisplayConfig(item)
+                    return (
+                      <>
+                        {cfg.showBackdrop && (
+                          <img
+                            src={item.image}
+                            alt=""
+                            aria-hidden="true"
+                            className={styles.smartBackdropImg}
+                            loading="lazy"
+                          />
+                        )}
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          style={cfg.style}
+                          className={`${styles.expertCardImg} ${item.imageFit === 'cover' || item.imageFit === 'cover-top'
+                              ? styles.fitCoverTop
+                              : item.imageFit === 'cover-center'
+                                ? styles.fitCoverCenter
+                                : item.imageFit === 'cover-bottom'
+                                  ? styles.fitCoverBottom
+                                  : item.imageFit === 'fill'
+                                    ? styles.fitFill
+                                    : styles.fitContain
+                            }`}
+                          loading="lazy"
+                        />
+                      </>
+                    )
+                  })()
                 ) : (
                   <div className={styles.expertCardPlaceholder}>
                     <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="#0878d1" strokeWidth="1.5">

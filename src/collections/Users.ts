@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { adminField, admins, ownUserOrAdmins } from '@/access'
+import { adminAccess, adminField, admins, ownUserOrAdmins } from '@/access'
 import { PERMISSION_ACTION_LABELS } from '@/access/permissionCatalog'
 
 const permissionActions = Object.entries(PERMISSION_ACTION_LABELS).map(([value, label]) => ({
@@ -34,6 +34,7 @@ export const Users: CollectionConfig = {
   labels: { singular: 'Người dùng', plural: 'Người dùng & Phân quyền' },
   auth: {
     useSessions: false,
+    tokenExpiration: 8 * 60 * 60, // 8 giờ (phiên làm việc hành chính)
     maxLoginAttempts: 5,
     lockTime: 15 * 60 * 1000,
     cookies: {
@@ -94,6 +95,7 @@ export const Users: CollectionConfig = {
     description: 'Tài khoản, vai trò, phạm vi khoa/phòng và quyền bổ sung theo module.',
   },
   access: {
+    admin: adminAccess,
     create: admins,
     read: ownUserOrAdmins,
     update: ownUserOrAdmins,

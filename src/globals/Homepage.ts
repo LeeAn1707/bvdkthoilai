@@ -444,7 +444,7 @@ export const Homepage: GlobalConfig = {
           name: 'expertItemsPerView',
           label: 'Số thẻ bác sĩ hiển thị (Carousel hoặc Lưới bên phải)',
           type: 'number',
-          defaultValue: 3,
+          defaultValue: 6,
           validate: (value: unknown, { siblingData }: any) => {
             if (siblingData?.type !== 'our-experts') return true
             if (value === null || value === undefined || value === '') return true
@@ -454,8 +454,96 @@ export const Homepage: GlobalConfig = {
           },
           admin: {
             condition: (_data, siblingData) => siblingData?.type === 'our-experts',
-            description: 'Đối với Phương án A: quy định số ô bác sĩ hiển thị ở lưới bên phải (mặc định 3 ô dạng 1 hàng 3 cột rất gọn và thoáng, hoặc 6 ô dạng 2 hàng). Đối với Carousel: quy định số thẻ trên 1 lượt trượt (từ 1 đến 6).',
+            description: 'Đối với Bố cục phân cấp: quy định số ô bác sĩ chuyển động ở lưới bên phải (mặc định 6 ô dạng 2 hàng × 3 cột, hoặc 3 ô dạng 1 hàng). Đối với Carousel: quy định số thẻ trên 1 lượt trượt (từ 1 đến 6).',
           },
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'expertImageDisplayMode',
+              label: 'Chế độ kiểu hiển thị ảnh chuyên gia chung (Luôn full khung)',
+              type: 'select',
+              defaultValue: 'zoom-out-2-3',
+              options: [
+                { label: '⭐ Chế độ 1: Zoom xa lấy > 2/3 người + Full nền đồng màu thông minh (Khuyên dùng)', value: 'zoom-out-2-3' },
+                { label: '🔍 Chế độ 2: Zoom rất xa lấy trọn thân người (76%) + Full nền đồng màu', value: 'zoom-out-wide' },
+                { label: '🎯 Chế độ 3: Vừa khung tiêu chuẩn lấy 2/3 người (92%) + Full nền', value: 'zoom-out-medium' },
+                { label: '📐 Chế độ 4: Lấp đầy khung canh từ đỉnh đầu xuống ngực (Cover Top 100%)', value: 'cover-top' },
+                { label: '👤 Chế độ 5: Lấp đầy khung canh giữa thân người (Cover Body 25%)', value: 'cover-body' },
+                { label: '⚖️ Chế độ 6: Lấp đầy khung canh chính giữa tâm ảnh (Cover Center 50%)', value: 'cover-center' },
+                { label: '🔬 Chế độ 7: Thu gần / Zoom cận mặt rõ nét (Zoom In 115%)', value: 'zoom-in-close' },
+                { label: '↔️ Chế độ 8: Co giãn lấp đầy khít 4 cạnh khung (Fill 100%)', value: 'fill' },
+              ],
+              admin: {
+                condition: (_data, siblingData) => siblingData?.type === 'our-experts',
+                width: '100%',
+                description: '💡 Chọn nhanh kiểu hiển thị ảnh chuẩn cho toàn bộ 6 ảnh chuyển động. Khi chọn các chế độ "Zoom xa", hệ thống dùng 2 lớp ảnh thông minh: lớp ảnh chính thu xa lấy trọn > 2/3 người ở giữa + lớp nền mở rộng đồng màu làm mờ nhẹ giúp khung thẻ luôn full kín 100% tuyệt đẹp.',
+              },
+            },
+          ],
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'expertImageScale',
+              label: 'Tinh chỉnh độ thu phóng (Zoom xa / Thu gần %)',
+              type: 'number',
+              defaultValue: 86,
+              validate: (value: unknown, { siblingData }: any) => {
+                if (siblingData?.type !== 'our-experts') return true
+                if (value === null || value === undefined || value === '') return true
+                const num = Number(value)
+                if (isNaN(num) || num < 40 || num > 200) return 'Độ thu phóng phải từ 40% đến 200%'
+                return true
+              },
+              admin: {
+                condition: (_data, siblingData) => siblingData?.type === 'our-experts',
+                width: '34%',
+                placeholder: '86',
+                description: '💡 Nhập < 100% (VD: 75%–92%) để ZOOM XA thấy hơn 2/3 người mà vẫn full nền; nhập > 100% (VD: 105%–135%) để THU GẦN lại.',
+              },
+            },
+            {
+              name: 'expertCardHeight',
+              label: 'Chiều cao khung thẻ mỗi ảnh chuyển động (px)',
+              type: 'number',
+              defaultValue: 240,
+              validate: (value: unknown, { siblingData }: any) => {
+                if (siblingData?.type !== 'our-experts') return true
+                if (value === null || value === undefined || value === '') return true
+                const num = Number(value)
+                if (isNaN(num) || num < 200 || num > 520) return 'Chiều cao khung thẻ phải từ 200px đến 520px'
+                return true
+              },
+              admin: {
+                condition: (_data, siblingData) => siblingData?.type === 'our-experts',
+                width: '33%',
+                placeholder: '240',
+                description: 'Giữ nguyên kích thước khung ô chuẩn (240px cho mỗi ô nhỏ và 494px cho khung Lãnh đạo bên trái). Chỉ thay đổi khi thật sự muốn đổi chiều cao ô.',
+              },
+            },
+            {
+              name: 'expertImageOffsetY',
+              label: 'Vị trí canh dọc khung người chung (%)',
+              type: 'number',
+              defaultValue: 12,
+              validate: (value: unknown, { siblingData }: any) => {
+                if (siblingData?.type !== 'our-experts') return true
+                if (value === null || value === undefined || value === '') return true
+                const num = Number(value)
+                if (isNaN(num) || num < 0 || num > 100) return 'Vị trí dọc phải từ 0% đến 100%'
+                return true
+              },
+              admin: {
+                condition: (_data, siblingData) => siblingData?.type === 'our-experts',
+                width: '33%',
+                placeholder: '12',
+                description: 'Canh điểm lấy nét theo chiều dọc từ đỉnh đầu xuống thân người (0% = sát đỉnh đầu, 10%–25% = chuẩn 2/3 người, 50% = giữa ảnh).',
+              },
+            },
+          ],
         },
         {
           type: 'row',
@@ -523,20 +611,50 @@ export const Homepage: GlobalConfig = {
               },
             },
             {
-              name: 'imageFit',
-              label: 'Cách hiển thị ảnh chân dung',
-              type: 'select',
-              defaultValue: 'contain',
-              options: [
-                { label: 'Vừa vặn khung, trọn vẹn không bị cắt (khuyên dùng - contain)', value: 'contain' },
-                { label: 'Lấp đầy khung - Canh đỉnh đầu / mặt rõ nét (cover-top)', value: 'cover-top' },
-                { label: 'Lấp đầy khung - Canh chính giữa tâm ảnh (cover-center)', value: 'cover-center' },
-                { label: 'Lấp đầy khung - Canh phần dưới (cover-bottom)', value: 'cover-bottom' },
-                { label: 'Co giãn vừa kín khung ảnh (fill)', value: 'fill' },
+              type: 'row',
+              fields: [
+                {
+                  name: 'imageFit',
+                  label: 'Cách hiển thị ảnh chân dung (Luôn full khung)',
+                  type: 'select',
+                  defaultValue: 'contain',
+                  options: [
+                    { label: '⭐ Chế độ 1: Zoom xa lấy > 2/3 người + Full nền đồng màu (contain)', value: 'contain' },
+                    { label: '📐 Chế độ 2: Lấp đầy khung - Canh đỉnh đầu / mặt rõ nét (cover-top)', value: 'cover-top' },
+                    { label: '⚖️ Chế độ 3: Lấp đầy khung - Canh chính giữa thân người (cover-center)', value: 'cover-center' },
+                    { label: '🔽 Chế độ 4: Lấp đầy khung - Canh phần dưới (cover-bottom)', value: 'cover-bottom' },
+                    { label: '↔️ Chế độ 5: Co giãn lấp đầy khít 4 cạnh khung (fill)', value: 'fill' },
+                  ],
+                  admin: {
+                    width: '40%',
+                    description: 'Chọn kiểu hiển thị ảnh cho riêng bác sĩ này (kết hợp độ thu phóng % bên cạnh).',
+                  },
+                },
+                {
+                  name: 'imageScale',
+                  label: 'Độ thu phóng riêng (Zoom xa <100% / Thu gần >100%)',
+                  type: 'number',
+                  min: 40,
+                  max: 200,
+                  admin: {
+                    width: '30%',
+                    placeholder: 'Mặc định theo mục chung (VD: 86)',
+                    description: 'Nhập < 100% (VD: 75%–90%) để ZOOM XA thấy hơn 2/3 người mà vẫn full nền; nhập > 100% (VD: 105%–135%) để THU GẦN lại.',
+                  },
+                },
+                {
+                  name: 'imageOffsetY',
+                  label: 'Vị trí canh dọc riêng (%)',
+                  type: 'number',
+                  min: 0,
+                  max: 100,
+                  admin: {
+                    width: '30%',
+                    placeholder: 'Mặc định (VD: 12)',
+                    description: 'Canh cao/thấp cho riêng ảnh này (0% = sát đỉnh đầu, 10%–25% = chuẩn >2/3 người, 50% = giữa).',
+                  },
+                },
               ],
-              admin: {
-                description: 'Tùy chọn cách hiển thị để ảnh chân dung không bị mất đầu hoặc viền xấu: Chọn "Vừa vặn khung" để ảnh luôn hiển thị trọn vẹn 100% không bị cắt bất kỳ góc nào; hoặc chọn "Lấp đầy khung - Canh đỉnh đầu" để ảnh phủ kín thẻ nhưng luôn thấy rõ khuôn mặt.',
-              },
             },
             {
               name: 'enableLink',
@@ -780,12 +898,14 @@ export const Homepage: GlobalConfig = {
           defaultValue: defaultScheduleTabs,
           fields: [
             { name: 'label', label: 'Tên tab', type: 'text', admin: { placeholder: 'Có thể tự nhập tên tab' } },
-            { name: 'tab', label: 'Nguồn dữ liệu có sẵn (không bắt buộc)', type: 'select', options: [
-              { label: 'Lịch trực cấp cứu', value: 'emergency' },
-              { label: 'Theo ngày', value: 'daily' },
-              { label: 'Theo tuần', value: 'weekly' },
-              { label: 'Lịch đính kèm', value: 'attachments' },
-            ] },
+            {
+              name: 'tab', label: 'Nguồn dữ liệu có sẵn (không bắt buộc)', type: 'select', options: [
+                { label: 'Lịch trực cấp cứu', value: 'emergency' },
+                { label: 'Theo ngày', value: 'daily' },
+                { label: 'Theo tuần', value: 'weekly' },
+                { label: 'Lịch đính kèm', value: 'attachments' },
+              ]
+            },
             { name: 'visible', label: 'Hiển thị tab', type: 'checkbox', defaultValue: true },
             {
               name: 'manualItems',
@@ -813,11 +933,13 @@ export const Homepage: GlobalConfig = {
           defaultValue: defaultVaccinationTabs,
           fields: [
             { name: 'label', label: 'Tên tab', type: 'text', admin: { placeholder: 'Có thể tự nhập tên tab' } },
-            { name: 'tab', label: 'Nguồn dữ liệu có sẵn (không bắt buộc)', type: 'select', options: [
-              { label: 'Thông báo lịch tiêm', value: 'announcements' },
-              { label: 'Tiêm ngừa theo đợt', value: 'campaigns' },
-              { label: 'Các loại vắc xin', value: 'vaccines' },
-            ] },
+            {
+              name: 'tab', label: 'Nguồn dữ liệu có sẵn (không bắt buộc)', type: 'select', options: [
+                { label: 'Thông báo lịch tiêm', value: 'announcements' },
+                { label: 'Tiêm ngừa theo đợt', value: 'campaigns' },
+                { label: 'Các loại vắc xin', value: 'vaccines' },
+              ]
+            },
             { name: 'visible', label: 'Hiển thị tab', type: 'checkbox', defaultValue: true },
             {
               name: 'manualItems',

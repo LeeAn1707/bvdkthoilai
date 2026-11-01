@@ -487,10 +487,38 @@ export const enum__specialties_v_version_status = pgEnum(
   "enum__specialties_v_version_status",
   ["draft", "published"],
 );
+export const enum_doctors_avatar_display_mode = pgEnum(
+  "enum_doctors_avatar_display_mode",
+  [
+    "inherit",
+    "zoom-out-2-3",
+    "zoom-out-wide",
+    "zoom-out-medium",
+    "cover-top",
+    "cover-body",
+    "cover-center",
+    "zoom-in-close",
+    "fill",
+  ],
+);
 export const enum_doctors_status = pgEnum("enum_doctors_status", [
   "draft",
   "published",
 ]);
+export const enum__doctors_v_version_avatar_display_mode = pgEnum(
+  "enum__doctors_v_version_avatar_display_mode",
+  [
+    "inherit",
+    "zoom-out-2-3",
+    "zoom-out-wide",
+    "zoom-out-medium",
+    "cover-top",
+    "cover-body",
+    "cover-center",
+    "zoom-in-close",
+    "fill",
+  ],
+);
 export const enum__doctors_v_version_status = pgEnum(
   "enum__doctors_v_version_status",
   ["draft", "published"],
@@ -1515,6 +1543,19 @@ export const enum_homepage_sections_expert_display_layout = pgEnum(
   "enum_homepage_sections_expert_display_layout",
   ["carousel", "featured-grid"],
 );
+export const enum_homepage_sections_expert_image_display_mode = pgEnum(
+  "enum_homepage_sections_expert_image_display_mode",
+  [
+    "zoom-out-2-3",
+    "zoom-out-wide",
+    "zoom-out-medium",
+    "cover-top",
+    "cover-body",
+    "cover-center",
+    "zoom-in-close",
+    "fill",
+  ],
+);
 export const enum_homepage_sections_featured_filter_mode = pgEnum(
   "enum_homepage_sections_featured_filter_mode",
   ["all", "only-featured"],
@@ -1668,6 +1709,17 @@ export const enum__homepage_v_version_sections_expert_display_layout = pgEnum(
   "enum__homepage_v_version_sections_expert_display_layout",
   ["carousel", "featured-grid"],
 );
+export const enum__homepage_v_version_sections_expert_image_display_mode =
+  pgEnum("enum__homepage_v_version_sections_expert_image_display_mode", [
+    "zoom-out-2-3",
+    "zoom-out-wide",
+    "zoom-out-medium",
+    "cover-top",
+    "cover-body",
+    "cover-center",
+    "zoom-in-close",
+    "fill",
+  ]);
 export const enum__homepage_v_version_sections_featured_filter_mode = pgEnum(
   "enum__homepage_v_version_sections_featured_filter_mode",
   ["all", "only-featured"],
@@ -2398,6 +2450,11 @@ export const users = pgTable(
     }),
     salt: varchar("salt"),
     hash: varchar("hash"),
+    resetPasswordRequestedAt: timestamp("reset_password_requested_at", {
+      mode: "string",
+      withTimezone: true,
+      precision: 3,
+    }),
     loginAttempts: numeric("login_attempts", { mode: "number" }).default(0),
     lockUntil: timestamp("lock_until", {
       mode: "string",
@@ -4474,6 +4531,11 @@ export const doctors = pgTable(
     avatar: integer("avatar_id").references(() => media.id, {
       onDelete: "set null",
     }),
+    avatarDisplayMode: enum_doctors_avatar_display_mode(
+      "avatar_display_mode",
+    ).default("inherit"),
+    avatarScale: numeric("avatar_scale", { mode: "number" }),
+    avatarOffsetY: numeric("avatar_offset_y", { mode: "number" }),
     education: jsonb("education"),
     experience: jsonb("experience"),
     expertise: jsonb("expertise"),
@@ -4557,6 +4619,13 @@ export const _doctors_v = pgTable(
     version_specialty: varchar("version_specialty"),
     version_avatar: integer("version_avatar_id").references(() => media.id, {
       onDelete: "set null",
+    }),
+    version_avatarDisplayMode: enum__doctors_v_version_avatar_display_mode(
+      "version_avatar_display_mode",
+    ).default("inherit"),
+    version_avatarScale: numeric("version_avatar_scale", { mode: "number" }),
+    version_avatarOffsetY: numeric("version_avatar_offset_y", {
+      mode: "number",
     }),
     version_education: jsonb("version_education"),
     version_experience: jsonb("version_experience"),
@@ -8424,6 +8493,8 @@ export const our_experts = pgTable(
       onDelete: "set null",
     }),
     imageFit: enum_our_experts_image_fit("image_fit").default("contain"),
+    imageScale: numeric("image_scale", { mode: "number" }),
+    imageOffsetY: numeric("image_offset_y", { mode: "number" }),
     enableLink: boolean("enable_link").default(true),
     url: varchar("url"),
     openNewTab: boolean("open_new_tab").default(false),
@@ -13900,6 +13971,8 @@ export const expert_items = pgTable(
       onDelete: "set null",
     }),
     imageFit: enum_expert_items_image_fit("image_fit").default("contain"),
+    imageScale: numeric("image_scale", { mode: "number" }),
+    imageOffsetY: numeric("image_offset_y", { mode: "number" }),
     enableLink: boolean("enable_link").default(true),
     linkMode: enum_expert_items_link_mode("link_mode").default("internal"),
     linkedPage: integer("linked_page_id").references(() => pages.id, {
@@ -14447,7 +14520,19 @@ export const homepage_sections = pgTable(
     }).default(5),
     expertItemsPerView: numeric("expert_items_per_view", {
       mode: "number",
-    }).default(3),
+    }).default(6),
+    expertImageDisplayMode: enum_homepage_sections_expert_image_display_mode(
+      "expert_image_display_mode",
+    ).default("zoom-out-2-3"),
+    expertImageScale: numeric("expert_image_scale", { mode: "number" }).default(
+      86,
+    ),
+    expertCardHeight: numeric("expert_card_height", { mode: "number" }).default(
+      240,
+    ),
+    expertImageOffsetY: numeric("expert_image_offset_y", {
+      mode: "number",
+    }).default(12),
     expertCardBgColor: varchar("expert_card_bg_color"),
     expertCardTextColor: varchar("expert_card_text_color"),
     carouselSeconds: numeric("carousel_seconds", { mode: "number" }).default(
@@ -14788,6 +14873,8 @@ export const _expert_items_v = pgTable(
       onDelete: "set null",
     }),
     imageFit: enum__expert_items_v_image_fit("image_fit").default("contain"),
+    imageScale: numeric("image_scale", { mode: "number" }),
+    imageOffsetY: numeric("image_offset_y", { mode: "number" }),
     enableLink: boolean("enable_link").default(true),
     linkMode: enum__expert_items_v_link_mode("link_mode").default("internal"),
     linkedPage: integer("linked_page_id").references(() => pages.id, {
@@ -15359,7 +15446,20 @@ export const _homepage_v_version_sections = pgTable(
     }).default(5),
     expertItemsPerView: numeric("expert_items_per_view", {
       mode: "number",
-    }).default(3),
+    }).default(6),
+    expertImageDisplayMode:
+      enum__homepage_v_version_sections_expert_image_display_mode(
+        "expert_image_display_mode",
+      ).default("zoom-out-2-3"),
+    expertImageScale: numeric("expert_image_scale", { mode: "number" }).default(
+      86,
+    ),
+    expertCardHeight: numeric("expert_card_height", { mode: "number" }).default(
+      240,
+    ),
+    expertImageOffsetY: numeric("expert_image_offset_y", {
+      mode: "number",
+    }).default(12),
     expertCardBgColor: varchar("expert_card_bg_color"),
     expertCardTextColor: varchar("expert_card_text_color"),
     carouselSeconds: numeric("carousel_seconds", { mode: "number" }).default(
@@ -25237,7 +25337,9 @@ type DatabaseSchema = {
   enum__specialties_v_version_cover_fit_detail: typeof enum__specialties_v_version_cover_fit_detail;
   enum__specialties_v_version_cover_position: typeof enum__specialties_v_version_cover_position;
   enum__specialties_v_version_status: typeof enum__specialties_v_version_status;
+  enum_doctors_avatar_display_mode: typeof enum_doctors_avatar_display_mode;
   enum_doctors_status: typeof enum_doctors_status;
+  enum__doctors_v_version_avatar_display_mode: typeof enum__doctors_v_version_avatar_display_mode;
   enum__doctors_v_version_status: typeof enum__doctors_v_version_status;
   enum_schedules_daily_assignments_department_icon: typeof enum_schedules_daily_assignments_department_icon;
   enum_schedules_nurse_assignments_department_icon: typeof enum_schedules_nurse_assignments_department_icon;
@@ -25405,6 +25507,7 @@ type DatabaseSchema = {
   enum_hp_partner_banners_bg_gradient: typeof enum_hp_partner_banners_bg_gradient;
   enum_homepage_sections_type: typeof enum_homepage_sections_type;
   enum_homepage_sections_expert_display_layout: typeof enum_homepage_sections_expert_display_layout;
+  enum_homepage_sections_expert_image_display_mode: typeof enum_homepage_sections_expert_image_display_mode;
   enum_homepage_sections_featured_filter_mode: typeof enum_homepage_sections_featured_filter_mode;
   enum_homepage_sections_featured_card_fit: typeof enum_homepage_sections_featured_card_fit;
   enum_homepage_sections_banner_columns: typeof enum_homepage_sections_banner_columns;
@@ -25433,6 +25536,7 @@ type DatabaseSchema = {
   enum__hp_partner_banners_v_bg_gradient: typeof enum__hp_partner_banners_v_bg_gradient;
   enum__homepage_v_version_sections_type: typeof enum__homepage_v_version_sections_type;
   enum__homepage_v_version_sections_expert_display_layout: typeof enum__homepage_v_version_sections_expert_display_layout;
+  enum__homepage_v_version_sections_expert_image_display_mode: typeof enum__homepage_v_version_sections_expert_image_display_mode;
   enum__homepage_v_version_sections_featured_filter_mode: typeof enum__homepage_v_version_sections_featured_filter_mode;
   enum__homepage_v_version_sections_featured_card_fit: typeof enum__homepage_v_version_sections_featured_card_fit;
   enum__homepage_v_version_sections_banner_columns: typeof enum__homepage_v_version_sections_banner_columns;
