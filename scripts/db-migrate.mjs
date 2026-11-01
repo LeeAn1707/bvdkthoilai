@@ -266,6 +266,7 @@ const KNOWN_SAFE_CHECKSUM_UPDATE_IDS = new Set([
   '20261101_082_add_users_reset_password_requested_at',
   '20261101_083_add_expert_image_scale_controls',
   '20261101_084_add_expert_image_display_modes',
+  '20261101_085_add_media_objectkey_column',
 ])
 
 async function validateAndReconcileHistory(client, migrations, appliedMigrations) {

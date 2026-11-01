@@ -372,6 +372,8 @@ export default buildConfig({
       await payload.db.drizzle.execute(
         sql`
           ALTER TABLE public."users" ADD COLUMN IF NOT EXISTS "reset_password_requested_at" TIMESTAMP(3) WITH TIME ZONE;
+          ALTER TABLE public."media" ADD COLUMN IF NOT EXISTS "_objectkey" VARCHAR;
+          ALTER TABLE public."media" ADD COLUMN IF NOT EXISTS "prefix" VARCHAR;
 
           DO $$ BEGIN
             CREATE TYPE public."enum_doctors_avatar_display_mode" AS ENUM (
