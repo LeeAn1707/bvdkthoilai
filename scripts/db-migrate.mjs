@@ -258,6 +258,14 @@ const KNOWN_SAFE_CHECKSUM_UPDATE_IDS = new Set([
   '20260923_072_create_work_schedules',
   '20260924_073_add_work_schedule_preset_to_navigation_enums',
   '20260925_076_sync_work_schedules_sequences',
+  '20260925_077_add_external_fetch_toggles_to_homepage',
+  '20260925_078_seal_external_fetch_toggles_schema',
+  '20261014_079_add_org_chart_image_styles',
+  '20261022_080_enforce_appointments_code_unique_and_counter',
+  '20261022_081_create_global_appointment_code_sequence',
+  '20261101_082_add_users_reset_password_requested_at',
+  '20261101_083_add_expert_image_scale_controls',
+  '20261101_084_add_expert_image_display_modes',
 ])
 
 async function validateAndReconcileHistory(client, migrations, appliedMigrations) {
