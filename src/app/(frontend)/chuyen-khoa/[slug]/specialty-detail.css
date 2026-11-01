@@ -451,8 +451,7 @@
 .specialtyCoverBox {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: 440px;
+  aspect-ratio: 3 / 2;
   background: linear-gradient(135deg, #072b4c 0%, #0754a8 100%);
   border-radius: 16px;
   overflow: hidden;
