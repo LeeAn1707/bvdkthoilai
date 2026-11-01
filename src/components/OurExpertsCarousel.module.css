@@ -304,12 +304,17 @@
   .expertCarouselTrack[data-count="3"],
   .expertCarouselTrack[data-count="4"] {
     grid-template-columns: 1fr;
-    max-width: 360px;
+    max-width: 100%;
     margin: 0 auto;
   }
   /* Trên điện thoại chỉ hiển thị 1 khối chuyên gia duy nhất tại 1 thời điểm */
   .expertCardLink:nth-child(n+2) {
     display: none !important;
+  }
+  .expertCardImage {
+    aspect-ratio: 3 / 4;
+    min-height: 410px;
+    max-height: 490px;
   }
   .expertCardName {
     font-size: 14px;
