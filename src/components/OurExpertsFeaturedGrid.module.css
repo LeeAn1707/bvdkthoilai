@@ -133,8 +133,18 @@
   padding: 14px 16px 16px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   background: #ffffff;
   border-top: 1px solid #eef4f8;
+}
+
+.leaderInfo > div:first-child {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .leaderRoleBadge {
