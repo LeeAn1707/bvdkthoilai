@@ -212,7 +212,7 @@ export default async function DepartmentDetail({ params }: Props) {
   if (specialtyIds.length > 0) {
     const protoRes = await payload
       .find({
-        collection: 'treatment-protocols',
+        collection: 'clinical-protocols',
         where: {
           and: [
             { specialty: { in: specialtyIds } },
