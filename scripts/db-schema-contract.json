@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "migrationId": "20261102_086_restore_cascade_foreign_keys_and_sync_sequences",
+  "migrationId": "20261102_087_sync_all_remaining_foreign_keys_and_enums",
   "schemaSha256": "871c3a9e181b170ccb1fa1bf7e8f94939e561884052cb8d43f5a144cbb358f21"
 }
