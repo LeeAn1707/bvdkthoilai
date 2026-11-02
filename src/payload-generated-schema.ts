@@ -428,6 +428,30 @@ export const enum_departments_unit_type = pgEnum("enum_departments_unit_type", [
   "office",
   "other",
 ]);
+export const enum_departments_icon = pgEnum("enum_departments_icon", [
+  "default",
+  "emergency",
+  "imaging",
+  "lab",
+  "pediatrics",
+  "surgery",
+  "internal",
+  "pharmacy",
+  "dental",
+  "rehab",
+]);
+export const enum_departments_cover_fit_home = pgEnum(
+  "enum_departments_cover_fit_home",
+  ["cover-top", "contain", "cover-center", "cover-bottom", "cover", "fill"],
+);
+export const enum_departments_cover_fit_detail = pgEnum(
+  "enum_departments_cover_fit_detail",
+  ["contain", "cover-top", "cover-center", "cover-bottom", "cover", "fill"],
+);
+export const enum_departments_cover_position = pgEnum(
+  "enum_departments_cover_position",
+  ["top", "center", "bottom"],
+);
 export const enum_specialties_icon = pgEnum("enum_specialties_icon", [
   "default",
   "emergency",
@@ -4150,26 +4174,96 @@ export const departments_gallery = pgTable(
   ],
 );
 
+export const departments_sidebar_banners = pgTable(
+  "departments_sidebar_banners",
+  {
+    _order: integer("_order").notNull(),
+    _parentID: integer("_parent_id").notNull(),
+    id: varchar("id").primaryKey(),
+    image: integer("image_id").references(() => media.id, {
+      onDelete: "set null",
+    }),
+    title: varchar("title"),
+    btnText: varchar("btn_text"),
+    link: varchar("link"),
+    openNewTab: boolean("open_new_tab").default(true),
+    desc: varchar("desc"),
+  },
+  (columns) => [
+    index("departments_sidebar_banners_order_idx").on(columns._order),
+    index("departments_sidebar_banners_parent_id_idx").on(columns._parentID),
+    index("departments_sidebar_banners_image_idx").on(columns.image),
+    foreignKey({
+      columns: [columns["_parentID"]],
+      foreignColumns: [departments.id],
+      name: "departments_sidebar_banners_parent_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
 export const departments = pgTable(
   "departments",
   {
     id: serial("id").primaryKey(),
     name: varchar("name").notNull(),
-    kind: varchar("kind").notNull().default("clinical"),
     unitType: enum_departments_unit_type("unit_type").default("clinical"),
+    kind: varchar("kind").notNull().default("clinical"),
     slug: varchar("slug").notNull(),
+    linkedSpecialty: integer("linked_specialty_id").references(
+      (): AnyPgColumn => specialties.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    syncFromSpecialty: boolean("sync_from_specialty").default(true),
+    icon: enum_departments_icon("icon").default("default"),
+    iconCustomUpload: integer("icon_custom_upload_id").references(
+      (): AnyPgColumn => media.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    tagline: varchar("tagline"),
     summary: varchar("summary"),
     content: jsonb("content"),
-    functions: jsonb("functions"),
-    activities: jsonb("activities"),
-    achievements: jsonb("achievements"),
-    leader: varchar("leader"),
-    phone: varchar("phone"),
-    email: varchar("email"),
-    location: varchar("location"),
     cover: integer("cover_id").references((): AnyPgColumn => media.id, {
       onDelete: "set null",
     }),
+    showSubCover: boolean("show_sub_cover").default(true),
+    subCover: integer("sub_cover_id").references((): AnyPgColumn => media.id, {
+      onDelete: "set null",
+    }),
+    coverFitHome:
+      enum_departments_cover_fit_home("cover_fit_home").default("cover-top"),
+    coverFitDetail:
+      enum_departments_cover_fit_detail("cover_fit_detail").default("contain"),
+    coverPosition:
+      enum_departments_cover_position("cover_position").default("top"),
+    services: jsonb("services"),
+    leader: varchar("leader"),
+    location: varchar("location"),
+    phone: varchar("phone"),
+    email: varchar("email"),
+    functions: jsonb("functions"),
+    activities: jsonb("activities"),
+    achievements: jsonb("achievements"),
+    showDepartmentCard: boolean("show_department_card").default(true),
+    showBookingCard: boolean("show_booking_card").default(true),
+    customBookingTitle: varchar("custom_booking_title"),
+    customBookingButtonLabel: varchar("custom_booking_button_label"),
+    customBookingButtonUrl: varchar("custom_booking_button_url"),
+    customHotline: varchar("custom_hotline"),
+    customBookingDesc: varchar("custom_booking_desc"),
+    showNoticeBox: boolean("show_notice_box").default(true),
+    customNoticeText: varchar("custom_notice_text"),
+    sidebarBannersJson: varchar("sidebar_banners_json"),
+    showCoverImage: boolean("show_cover_image").default(true),
+    showSummaryLead: boolean("show_summary_lead").default(true),
+    showContentSection: boolean("show_content_section").default(true),
+    showServicesSection: boolean("show_services_section").default(true),
+    showDoctorsSection: boolean("show_doctors_section").default(true),
+    showProtocolsSection: boolean("show_protocols_section").default(true),
+    showRelatedSection: boolean("show_related_section").default(true),
     order: numeric("order", { mode: "number" }).default(0),
     active: boolean("active").default(true),
     showSpecialtiesSection: boolean("show_specialties_section").default(true),
@@ -4200,7 +4294,10 @@ export const departments = pgTable(
   },
   (columns) => [
     uniqueIndex("departments_slug_idx").on(columns.slug),
+    index("departments_linked_specialty_idx").on(columns.linkedSpecialty),
+    index("departments_icon_custom_upload_idx").on(columns.iconCustomUpload),
     index("departments_cover_idx").on(columns.cover),
+    index("departments_sub_cover_idx").on(columns.subCover),
     index("departments_seo_image_idx").on(columns.seoImage),
     index("departments_updated_at_idx").on(columns.updatedAt),
     index("departments_created_at_idx").on(columns.createdAt),
@@ -4239,14 +4336,17 @@ export const specialties = pgTable(
   {
     id: serial("id").primaryKey(),
     useDepartmentName: boolean("use_department_name").default(false),
-    department: integer("department_id").references(() => departments.id, {
-      onDelete: "set null",
-    }),
+    department: integer("department_id").references(
+      (): AnyPgColumn => departments.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     name: varchar("name"),
     slug: varchar("slug"),
     icon: enum_specialties_icon("icon").default("default"),
     iconCustomUpload: integer("icon_custom_upload_id").references(
-      () => media.id,
+      (): AnyPgColumn => media.id,
       {
         onDelete: "set null",
       },
@@ -4254,11 +4354,11 @@ export const specialties = pgTable(
     tagline: varchar("tagline"),
     summary: varchar("summary"),
     content: jsonb("content"),
-    cover: integer("cover_id").references(() => media.id, {
+    cover: integer("cover_id").references((): AnyPgColumn => media.id, {
       onDelete: "set null",
     }),
     showSubCover: boolean("show_sub_cover").default(true),
-    subCover: integer("sub_cover_id").references(() => media.id, {
+    subCover: integer("sub_cover_id").references((): AnyPgColumn => media.id, {
       onDelete: "set null",
     }),
     coverFitHome:
@@ -4289,7 +4389,7 @@ export const specialties = pgTable(
     active: boolean("active").default(true),
     seoTitle: varchar("seo_title"),
     seoDescription: varchar("seo_description"),
-    seoImage: integer("seo_image_id").references(() => media.id, {
+    seoImage: integer("seo_image_id").references((): AnyPgColumn => media.id, {
       onDelete: "set null",
     }),
     canonicalUrl: varchar("canonical_url"),
@@ -20387,19 +20487,52 @@ export const relations_departments_gallery = relations(
     }),
   }),
 );
+export const relations_departments_sidebar_banners = relations(
+  departments_sidebar_banners,
+  ({ one }) => ({
+    _parentID: one(departments, {
+      fields: [departments_sidebar_banners._parentID],
+      references: [departments.id],
+      relationName: "sidebarBanners",
+    }),
+    image: one(media, {
+      fields: [departments_sidebar_banners.image],
+      references: [media.id],
+      relationName: "image",
+    }),
+  }),
+);
 export const relations_departments = relations(
   departments,
   ({ one, many }) => ({
-    deputyLeaders: many(departments_deputy_leaders, {
-      relationName: "deputyLeaders",
+    linkedSpecialty: one(specialties, {
+      fields: [departments.linkedSpecialty],
+      references: [specialties.id],
+      relationName: "linkedSpecialty",
+    }),
+    iconCustomUpload: one(media, {
+      fields: [departments.iconCustomUpload],
+      references: [media.id],
+      relationName: "iconCustomUpload",
     }),
     cover: one(media, {
       fields: [departments.cover],
       references: [media.id],
       relationName: "cover",
     }),
+    subCover: one(media, {
+      fields: [departments.subCover],
+      references: [media.id],
+      relationName: "subCover",
+    }),
+    deputyLeaders: many(departments_deputy_leaders, {
+      relationName: "deputyLeaders",
+    }),
     gallery: many(departments_gallery, {
       relationName: "gallery",
+    }),
+    sidebarBanners: many(departments_sidebar_banners, {
+      relationName: "sidebarBanners",
     }),
     seoImage: one(media, {
       fields: [departments.seoImage],
@@ -25327,6 +25460,10 @@ type DatabaseSchema = {
   enum__clinical_protocols_v_version_summary_color: typeof enum__clinical_protocols_v_version_summary_color;
   enum__clinical_protocols_v_version_summary_size: typeof enum__clinical_protocols_v_version_summary_size;
   enum_departments_unit_type: typeof enum_departments_unit_type;
+  enum_departments_icon: typeof enum_departments_icon;
+  enum_departments_cover_fit_home: typeof enum_departments_cover_fit_home;
+  enum_departments_cover_fit_detail: typeof enum_departments_cover_fit_detail;
+  enum_departments_cover_position: typeof enum_departments_cover_position;
   enum_specialties_icon: typeof enum_specialties_icon;
   enum_specialties_cover_fit_home: typeof enum_specialties_cover_fit_home;
   enum_specialties_cover_fit_detail: typeof enum_specialties_cover_fit_detail;
@@ -25714,6 +25851,7 @@ type DatabaseSchema = {
   _clinical_protocols_v_rels: typeof _clinical_protocols_v_rels;
   departments_deputy_leaders: typeof departments_deputy_leaders;
   departments_gallery: typeof departments_gallery;
+  departments_sidebar_banners: typeof departments_sidebar_banners;
   departments: typeof departments;
   specialties_sidebar_banners: typeof specialties_sidebar_banners;
   specialties: typeof specialties;
@@ -26066,6 +26204,7 @@ type DatabaseSchema = {
   relations__clinical_protocols_v: typeof relations__clinical_protocols_v;
   relations_departments_deputy_leaders: typeof relations_departments_deputy_leaders;
   relations_departments_gallery: typeof relations_departments_gallery;
+  relations_departments_sidebar_banners: typeof relations_departments_sidebar_banners;
   relations_departments: typeof relations_departments;
   relations_specialties_sidebar_banners: typeof relations_specialties_sidebar_banners;
   relations_specialties: typeof relations_specialties;

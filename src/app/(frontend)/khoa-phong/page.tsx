@@ -84,13 +84,45 @@ export default async function DepartmentsPage({
   let allDepts: any[] = []
   try {
     const payload = await getCMS()
-    const result = await payload.find({
-      collection: 'departments',
-      limit: 200,
-      sort: ['order', 'name'],
-      depth: 0,
-    })
-    allDepts = (result.docs as any[]).filter((item) => item.active !== false)
+    const [result, specRes] = await Promise.all([
+      payload.find({
+        collection: 'departments',
+        limit: 200,
+        sort: ['order', 'name'],
+        depth: 0,
+      }),
+      payload
+        .find({
+          collection: 'specialties',
+          where: { active: { equals: true } },
+          limit: 200,
+          sort: ['order', '-updatedAt'],
+          depth: 0,
+        })
+        .catch(() => ({ docs: [] })),
+    ])
+
+    const specs = (specRes.docs as any[]) || []
+    const specByDeptId = new Map<string | number, any>()
+    for (const s of specs) {
+      const dId = typeof s.department === 'object' ? s.department?.id : s.department
+      if (dId && !specByDeptId.has(dId)) {
+        specByDeptId.set(dId, s)
+      }
+    }
+
+    allDepts = (result.docs as any[])
+      .filter((item) => item.active !== false)
+      .map((item) => {
+        const linkedSpec = specByDeptId.get(item.id)
+        if (!linkedSpec || item.syncFromSpecialty === false) return item
+        return {
+          ...item,
+          summary: item.summary || linkedSpec.summary || '',
+          tagline: item.tagline || linkedSpec.tagline || '',
+          cover: item.cover || linkedSpec.cover || null,
+        }
+      })
   } catch {}
 
   // Phân loại toàn bộ
@@ -219,7 +251,7 @@ export default async function DepartmentsPage({
                         <span className="kpCardBadge">{cfg.badge}</span>
                         <h3 className="kpCardName">{item.name}</h3>
                         <p className="kpCardDesc">
-                          {item.location || item.summary || 'Xem thông tin chi tiết đơn vị'}
+                          {item.tagline || item.location || item.summary || 'Xem thông tin chi tiết đơn vị'}
                         </p>
                       </div>
 

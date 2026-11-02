@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "migrationId": "20261102_087_sync_all_remaining_foreign_keys_and_enums",
-  "schemaSha256": "871c3a9e181b170ccb1fa1bf7e8f94939e561884052cb8d43f5a144cbb358f21"
+  "migrationId": "20261102_088_enhance_departments_like_specialties",
+  "schemaSha256": "6a34e62fbe97fe5ca3354da6a2a50fb03988b2810dabbf091c12e5340f6a2200"
 }

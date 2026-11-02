@@ -361,7 +361,7 @@ export interface User {
   collection: 'users';
 }
 /**
- * Hồ sơ đơn vị dùng chung cho sơ đồ tổ chức, chuyên khoa, bác sĩ và trang giới thiệu khoa/phòng.
+ * Hồ sơ Khoa / Phòng trực thuộc. Tự động đồng bộ & kế thừa bài viết, ảnh bìa, dịch vụ, banner từ mục Chuyên khoa tương ứng nếu đã tạo bên Chuyên khoa.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "departments".
@@ -370,17 +370,50 @@ export interface Department {
   id: number;
   name: string;
   /**
+   * Phân nhóm hiển thị trên trang Khoa / Phòng và trang chủ.
+   */
+  unitType?: ('clinical' | 'paraclinical' | 'office' | 'other') | null;
+  /**
    * Giữ nguyên field của các phiên bản trước để không làm mất giá trị đang sử dụng.
    */
   kind: string;
   /**
-   * Field chuẩn từ v3.7.0. Dữ liệu cũ vẫn được đọc từ Nhóm đơn vị cũ khi chưa thiết lập.
-   */
-  unitType?: ('clinical' | 'paraclinical' | 'office' | 'other') | null;
-  /**
    * Tự động tạo từ Tên khi để trống. Có thể chỉnh thủ công. Nếu slug bị trùng, hệ thống sẽ báo ngay để sửa trước khi lưu.
    */
   slug: string;
+  /**
+   * Nếu khoa/phòng này đã có bài viết bên mục Chuyên khoa, hệ thống sẽ tự động lấy Nội dung, Ảnh bìa, Dịch vụ, Banner... từ Chuyên khoa đó qua đây mà không cần nhập lại.
+   */
+  linkedSpecialty?: (number | null) | Specialty;
+  /**
+   * Bật để tự động kế thừa bài viết & ảnh từ Chuyên khoa liên kết.
+   */
+  syncFromSpecialty?: boolean | null;
+  /**
+   * Lựa chọn biểu tượng có sẵn theo chuyên môn.
+   */
+  icon?:
+    | (
+        | 'default'
+        | 'emergency'
+        | 'imaging'
+        | 'lab'
+        | 'pediatrics'
+        | 'surgery'
+        | 'internal'
+        | 'pharmacy'
+        | 'dental'
+        | 'rehab'
+      )
+    | null;
+  /**
+   * Tải ảnh icon riêng (SVG/PNG nền trong suốt). Ưu tiên cao hơn danh sách chọn.
+   */
+  iconCustomUpload?: (number | null) | Media;
+  /**
+   * Dòng mô tả ngắn gọn 2-5 từ xuất hiện ngay dưới tên khoa/phòng.
+   */
+  tagline?: string | null;
   summary?: string | null;
   content?: {
     root: {
@@ -397,6 +430,56 @@ export interface Department {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * 💡 Ảnh lớn 16:9 hoặc 3:2 (khoảng 1200×675px). Nếu đã tải ảnh bên Chuyên khoa thì không cần tải lại.
+   */
+  cover?: (number | null) | Media;
+  /**
+   * TẮT nếu không muốn ảnh nhỏ góc dưới che mất chi tiết của ảnh lớn chính.
+   */
+  showSubCover?: boolean | null;
+  /**
+   * 💡 Ảnh nhỏ nổi 3D lồng ghép nghệ thuật góc dưới phải.
+   */
+  subCover?: (number | null) | Media;
+  /**
+   * Tùy chọn hiển thị cho thẻ Khoa / Phòng.
+   */
+  coverFitHome?: ('cover-top' | 'contain' | 'cover-center' | 'cover-bottom' | 'cover' | 'fill') | null;
+  /**
+   * Tùy chọn hiển thị cho Khung ảnh lớn trên trang chi tiết khoa/phòng.
+   */
+  coverFitDetail?: ('contain' | 'cover-top' | 'cover-center' | 'cover-bottom' | 'cover' | 'fill') | null;
+  /**
+   * Chỉnh góc lấy nét khi ảnh bị xén mất phần đầu hoặc khuôn mặt.
+   */
+  coverPosition?: ('top' | 'center' | 'bottom') | null;
+  services?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  leader?: string | null;
+  location?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  deputyLeaders?:
+    | {
+        name: string;
+        title?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   functions?: {
     root: {
       type: string;
@@ -442,21 +525,6 @@ export interface Department {
     };
     [k: string]: unknown;
   } | null;
-  leader?: string | null;
-  deputyLeaders?:
-    | {
-        name: string;
-        title?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  phone?: string | null;
-  email?: string | null;
-  location?: string | null;
-  /**
-   * Tải ảnh mới hoặc chọn lại từ Thư viện Tệp & Hình ảnh.
-   */
-  cover?: (number | null) | Media;
   gallery?:
     | {
         image: number | Media;
@@ -464,18 +532,55 @@ export interface Department {
         id?: string | null;
       }[]
     | null;
+  showDepartmentCard?: boolean | null;
+  showBookingCard?: boolean | null;
+  customBookingTitle?: string | null;
+  customBookingButtonLabel?: string | null;
+  customBookingButtonUrl?: string | null;
+  customHotline?: string | null;
+  customBookingDesc?: string | null;
+  showNoticeBox?: boolean | null;
+  customNoticeText?: string | null;
+  /**
+   * Bấm "Thêm Banner" để tải lên hoặc chọn ảnh từ thư viện. Nếu để trống sẽ tự lấy Banner của Chuyên khoa liên kết.
+   */
+  sidebarBanners?:
+    | {
+        /**
+         * Tải ảnh mới hoặc chọn ảnh từ thư viện media của bệnh viện.
+         */
+        image?: (number | null) | Media;
+        title?: string | null;
+        btnText?: string | null;
+        link?: string | null;
+        openNewTab?: boolean | null;
+        desc?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * 💡 (Dành cho nâng cao) Nếu đã dùng danh sách chọn ảnh ở trên thì có thể để trống ô này.
+   */
+  sidebarBannersJson?: string | null;
+  showCoverImage?: boolean | null;
+  showSummaryLead?: boolean | null;
+  showContentSection?: boolean | null;
+  showServicesSection?: boolean | null;
+  showDoctorsSection?: boolean | null;
+  showProtocolsSection?: boolean | null;
+  showRelatedSection?: boolean | null;
   order?: number | null;
   active?: boolean | null;
   /**
-   * Bật để hiển thị danh sách các Chuyên khoa trực thuộc khoa/phòng này trên trang chi tiết, hoặc tắt nếu không muốn hiển thị.
+   * Bật để hiển thị danh sách các Chuyên khoa trực thuộc khoa/phòng này trên trang chi tiết.
    */
   showSpecialtiesSection?: boolean | null;
   /**
-   * Bật để hiển thị khối danh sách các y bác sĩ, điều dưỡng, kỹ sư/cán bộ công tác tại khoa/phòng. Tắt nếu không muốn hiển thị.
+   * Bật để hiển thị khối danh sách các y bác sĩ, điều dưỡng, kỹ sư/cán bộ công tác tại khoa/phòng.
    */
   showMembersSection?: boolean | null;
   /**
-   * Tùy chỉnh tiêu đề hiển thị cho khối nhân sự (VD: Đội ngũ Bác sĩ, Đội ngũ Cán bộ - Kỹ sư - Điều dưỡng, v.v.).
+   * Tùy chỉnh tiêu đề hiển thị cho khối nhân sự.
    */
   membersSectionTitle?: string | null;
   seoTitle?: string | null;
@@ -492,6 +597,165 @@ export interface Department {
   excludeFromSitemap?: boolean | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * Chuyên khoa là lĩnh vực chuyên môn, KHÔNG dùng để sao chép tên Khoa/Phòng. Mỗi chuyên khoa có thể liên kết với một Khoa/Phòng phụ trách.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "specialties".
+ */
+export interface Specialty {
+  id: number;
+  /**
+   * Trường tương thích dữ liệu cũ. Không sử dụng cho bản ghi mới.
+   */
+  useDepartmentName?: boolean | null;
+  /**
+   * Chọn đơn vị phụ trách chuyên khoa. Nếu để trống "Tên chuyên khoa" bên dưới, hệ thống sẽ tự động lấy tên Khoa/Phòng này làm tên hiển thị.
+   */
+  department: number | Department;
+  /**
+   * Nếu muốn đặt tên chuyên môn riêng biệt (VD: Tim mạch, Nội soi, Phục hồi chức năng...) thì nhập tại đây. Nếu để trống, hệ thống sẽ tự động lấy tên của Khoa/Phòng phụ trách làm mặc định hiển thị.
+   */
+  name?: string | null;
+  /**
+   * Tự động tạo từ Tên khi để trống. Có thể chỉnh thủ công. Nếu slug bị trùng, hệ thống sẽ báo ngay để sửa trước khi lưu.
+   */
+  slug: string;
+  /**
+   * Lựa chọn biểu tượng có sẵn theo chuyên môn.
+   */
+  icon?:
+    | (
+        | 'default'
+        | 'emergency'
+        | 'imaging'
+        | 'lab'
+        | 'pediatrics'
+        | 'surgery'
+        | 'internal'
+        | 'pharmacy'
+        | 'dental'
+        | 'rehab'
+      )
+    | null;
+  /**
+   * Tải ảnh icon riêng (SVG/PNG nền trong suốt). Ưu tiên cao hơn danh sách chọn.
+   */
+  iconCustomUpload?: (number | null) | Media;
+  /**
+   * Dòng mô tả ngắn gọn 2-5 từ xuất hiện ngay dưới tên chuyên khoa ở danh bạ trang chủ.
+   */
+  tagline?: string | null;
+  summary?: string | null;
+  content?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * 💡 Ảnh lớn 16:9 hoặc 16:10 (khoảng 1200×675px hoặc 800×450px). Khi hover/focus vào chuyên khoa, ảnh lớn bên phải sẽ đổi sang ảnh này.
+   */
+  cover?: (number | null) | Media;
+  /**
+   * TẮT nếu không muốn ảnh nhỏ góc dưới che mất chi tiết của ảnh lớn chính.
+   */
+  showSubCover?: boolean | null;
+  /**
+   * 💡 Ảnh nhỏ nổi 3D lồng ghép nghệ thuật góc dưới phải (ảnh bác sĩ đang thao tác, thiết bị phụ trợ hoặc phòng bệnh). Để trống sẽ dùng ảnh chuyên ngành mặc định.
+   */
+  subCover?: (number | null) | Media;
+  /**
+   * Tùy chọn hiển thị riêng biệt cho Thẻ Chuyên khoa trên trang chủ.
+   */
+  coverFitHome?: ('cover-top' | 'contain' | 'cover-center' | 'cover-bottom' | 'cover' | 'fill') | null;
+  /**
+   * Tùy chọn hiển thị riêng biệt cho Khung ảnh lớn trên trang chi tiết chuyên khoa.
+   */
+  coverFitDetail?: ('contain' | 'cover-top' | 'cover-center' | 'cover-bottom' | 'cover' | 'fill') | null;
+  /**
+   * Chỉnh góc lấy nét khi ảnh bị xén mất phần đầu hoặc khuôn mặt.
+   */
+  coverPosition?: ('top' | 'center' | 'bottom') | null;
+  services?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  showDepartmentCard?: boolean | null;
+  showBookingCard?: boolean | null;
+  customBookingTitle?: string | null;
+  customBookingButtonLabel?: string | null;
+  customBookingButtonUrl?: string | null;
+  customHotline?: string | null;
+  customBookingDesc?: string | null;
+  showNoticeBox?: boolean | null;
+  customNoticeText?: string | null;
+  /**
+   * Bấm "Thêm Banner" để tải lên hoặc chọn ảnh từ thư viện, nhập tiêu đề và liên kết tùy ý mà không cần dùng mã JSON.
+   */
+  sidebarBanners?:
+    | {
+        /**
+         * Tải ảnh mới hoặc chọn ảnh từ thư viện media của bệnh viện.
+         */
+        image?: (number | null) | Media;
+        title?: string | null;
+        btnText?: string | null;
+        link?: string | null;
+        openNewTab?: boolean | null;
+        desc?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * 💡 (Dành cho nâng cao) Nếu đã dùng danh sách chọn ảnh ở trên thì có thể để trống ô này.
+   */
+  sidebarBannersJson?: string | null;
+  showCoverImage?: boolean | null;
+  showSummaryLead?: boolean | null;
+  showContentSection?: boolean | null;
+  showServicesSection?: boolean | null;
+  showDoctorsSection?: boolean | null;
+  showProtocolsSection?: boolean | null;
+  showRelatedSection?: boolean | null;
+  order?: number | null;
+  active?: boolean | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  /**
+   * Có thể tải ảnh mới hoặc chọn lại ảnh đã có trong Thư viện Tệp & Hình ảnh.
+   */
+  seoImage?: (number | null) | Media;
+  /**
+   * Để trống để hệ thống dùng URL hiện tại. Chỉ nhập khi cần khai báo URL chuẩn khác.
+   */
+  canonicalUrl?: string | null;
+  noIndex?: boolean | null;
+  excludeFromSitemap?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * Kho media dùng chung. Online Production lưu R2; local/offline mặc định lưu thư mục media. Ảnh và tệp đính kèm chỉ lưu một file gốc.
@@ -1298,165 +1562,6 @@ export interface ClinicalProtocol {
   updatedAt: string;
   createdAt: string;
   deletedAt?: string | null;
-}
-/**
- * Chuyên khoa là lĩnh vực chuyên môn, KHÔNG dùng để sao chép tên Khoa/Phòng. Mỗi chuyên khoa có thể liên kết với một Khoa/Phòng phụ trách.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "specialties".
- */
-export interface Specialty {
-  id: number;
-  /**
-   * Trường tương thích dữ liệu cũ. Không sử dụng cho bản ghi mới.
-   */
-  useDepartmentName?: boolean | null;
-  /**
-   * Chọn đơn vị phụ trách chuyên khoa. Nếu để trống "Tên chuyên khoa" bên dưới, hệ thống sẽ tự động lấy tên Khoa/Phòng này làm tên hiển thị.
-   */
-  department: number | Department;
-  /**
-   * Nếu muốn đặt tên chuyên môn riêng biệt (VD: Tim mạch, Nội soi, Phục hồi chức năng...) thì nhập tại đây. Nếu để trống, hệ thống sẽ tự động lấy tên của Khoa/Phòng phụ trách làm mặc định hiển thị.
-   */
-  name?: string | null;
-  /**
-   * Tự động tạo từ Tên khi để trống. Có thể chỉnh thủ công. Nếu slug bị trùng, hệ thống sẽ báo ngay để sửa trước khi lưu.
-   */
-  slug: string;
-  /**
-   * Lựa chọn biểu tượng có sẵn theo chuyên môn.
-   */
-  icon?:
-    | (
-        | 'default'
-        | 'emergency'
-        | 'imaging'
-        | 'lab'
-        | 'pediatrics'
-        | 'surgery'
-        | 'internal'
-        | 'pharmacy'
-        | 'dental'
-        | 'rehab'
-      )
-    | null;
-  /**
-   * Tải ảnh icon riêng (SVG/PNG nền trong suốt). Ưu tiên cao hơn danh sách chọn.
-   */
-  iconCustomUpload?: (number | null) | Media;
-  /**
-   * Dòng mô tả ngắn gọn 2-5 từ xuất hiện ngay dưới tên chuyên khoa ở danh bạ trang chủ.
-   */
-  tagline?: string | null;
-  summary?: string | null;
-  content?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * 💡 Ảnh lớn 16:9 hoặc 16:10 (khoảng 1200×675px hoặc 800×450px). Khi hover/focus vào chuyên khoa, ảnh lớn bên phải sẽ đổi sang ảnh này.
-   */
-  cover?: (number | null) | Media;
-  /**
-   * TẮT nếu không muốn ảnh nhỏ góc dưới che mất chi tiết của ảnh lớn chính.
-   */
-  showSubCover?: boolean | null;
-  /**
-   * 💡 Ảnh nhỏ nổi 3D lồng ghép nghệ thuật góc dưới phải (ảnh bác sĩ đang thao tác, thiết bị phụ trợ hoặc phòng bệnh). Để trống sẽ dùng ảnh chuyên ngành mặc định.
-   */
-  subCover?: (number | null) | Media;
-  /**
-   * Tùy chọn hiển thị riêng biệt cho Thẻ Chuyên khoa trên trang chủ.
-   */
-  coverFitHome?: ('cover-top' | 'contain' | 'cover-center' | 'cover-bottom' | 'cover' | 'fill') | null;
-  /**
-   * Tùy chọn hiển thị riêng biệt cho Khung ảnh lớn trên trang chi tiết chuyên khoa.
-   */
-  coverFitDetail?: ('contain' | 'cover-top' | 'cover-center' | 'cover-bottom' | 'cover' | 'fill') | null;
-  /**
-   * Chỉnh góc lấy nét khi ảnh bị xén mất phần đầu hoặc khuôn mặt.
-   */
-  coverPosition?: ('top' | 'center' | 'bottom') | null;
-  services?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  showDepartmentCard?: boolean | null;
-  showBookingCard?: boolean | null;
-  customBookingTitle?: string | null;
-  customBookingButtonLabel?: string | null;
-  customBookingButtonUrl?: string | null;
-  customHotline?: string | null;
-  customBookingDesc?: string | null;
-  showNoticeBox?: boolean | null;
-  customNoticeText?: string | null;
-  /**
-   * Bấm "Thêm Banner" để tải lên hoặc chọn ảnh từ thư viện, nhập tiêu đề và liên kết tùy ý mà không cần dùng mã JSON.
-   */
-  sidebarBanners?:
-    | {
-        /**
-         * Tải ảnh mới hoặc chọn ảnh từ thư viện media của bệnh viện.
-         */
-        image?: (number | null) | Media;
-        title?: string | null;
-        btnText?: string | null;
-        link?: string | null;
-        openNewTab?: boolean | null;
-        desc?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * 💡 (Dành cho nâng cao) Nếu đã dùng danh sách chọn ảnh ở trên thì có thể để trống ô này.
-   */
-  sidebarBannersJson?: string | null;
-  showCoverImage?: boolean | null;
-  showSummaryLead?: boolean | null;
-  showContentSection?: boolean | null;
-  showServicesSection?: boolean | null;
-  showDoctorsSection?: boolean | null;
-  showProtocolsSection?: boolean | null;
-  showRelatedSection?: boolean | null;
-  order?: number | null;
-  active?: boolean | null;
-  seoTitle?: string | null;
-  seoDescription?: string | null;
-  /**
-   * Có thể tải ảnh mới hoặc chọn lại ảnh đã có trong Thư viện Tệp & Hình ảnh.
-   */
-  seoImage?: (number | null) | Media;
-  /**
-   * Để trống để hệ thống dùng URL hiện tại. Chỉ nhập khi cần khai báo URL chuẩn khác.
-   */
-  canonicalUrl?: string | null;
-  noIndex?: boolean | null;
-  excludeFromSitemap?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
 }
 /**
  * Hệ thống quản lý thống nhất toàn bộ Thầy thuốc, Bác sĩ và Chuyên gia hiển thị trên Trang chủ cũng như toàn bộ website.
@@ -4101,15 +4206,27 @@ export interface ClinicalProtocolsSelect<T extends boolean = true> {
  */
 export interface DepartmentsSelect<T extends boolean = true> {
   name?: T;
-  kind?: T;
   unitType?: T;
+  kind?: T;
   slug?: T;
+  linkedSpecialty?: T;
+  syncFromSpecialty?: T;
+  icon?: T;
+  iconCustomUpload?: T;
+  tagline?: T;
   summary?: T;
   content?: T;
-  functions?: T;
-  activities?: T;
-  achievements?: T;
+  cover?: T;
+  showSubCover?: T;
+  subCover?: T;
+  coverFitHome?: T;
+  coverFitDetail?: T;
+  coverPosition?: T;
+  services?: T;
   leader?: T;
+  location?: T;
+  phone?: T;
+  email?: T;
   deputyLeaders?:
     | T
     | {
@@ -4117,10 +4234,9 @@ export interface DepartmentsSelect<T extends boolean = true> {
         title?: T;
         id?: T;
       };
-  phone?: T;
-  email?: T;
-  location?: T;
-  cover?: T;
+  functions?: T;
+  activities?: T;
+  achievements?: T;
   gallery?:
     | T
     | {
@@ -4128,6 +4244,34 @@ export interface DepartmentsSelect<T extends boolean = true> {
         caption?: T;
         id?: T;
       };
+  showDepartmentCard?: T;
+  showBookingCard?: T;
+  customBookingTitle?: T;
+  customBookingButtonLabel?: T;
+  customBookingButtonUrl?: T;
+  customHotline?: T;
+  customBookingDesc?: T;
+  showNoticeBox?: T;
+  customNoticeText?: T;
+  sidebarBanners?:
+    | T
+    | {
+        image?: T;
+        title?: T;
+        btnText?: T;
+        link?: T;
+        openNewTab?: T;
+        desc?: T;
+        id?: T;
+      };
+  sidebarBannersJson?: T;
+  showCoverImage?: T;
+  showSummaryLead?: T;
+  showContentSection?: T;
+  showServicesSection?: T;
+  showDoctorsSection?: T;
+  showProtocolsSection?: T;
+  showRelatedSection?: T;
   order?: T;
   active?: T;
   showSpecialtiesSection?: T;

@@ -54,6 +54,112 @@ export const Specialties: CollectionConfig = {
 
       return record
     }],
+    afterChange: [
+      async ({ doc, req }) => {
+        if ((req as any)?.context?.skipDepartmentSync) return doc
+        const deptId = typeof doc?.department === 'object' ? doc?.department?.id : doc?.department
+        if (!deptId) return doc
+
+        try {
+          const dept: any = await req.payload.findByID({
+            collection: 'departments',
+            id: deptId,
+            depth: 0,
+          })
+          if (!dept || dept.syncFromSpecialty === false) return doc
+
+          const isEmptyRT = (val: any): boolean => {
+            if (!val) return true
+            const children = val?.root?.children
+            if (!Array.isArray(children) || children.length === 0) return true
+            if (
+              children.length === 1 &&
+              children[0]?.type === 'paragraph' &&
+              (!Array.isArray(children[0]?.children) || children[0].children.length === 0)
+            ) {
+              return true
+            }
+            return false
+          }
+
+          const patch: Record<string, any> = {}
+          const currentLinkedId =
+            typeof dept.linkedSpecialty === 'object' ? dept.linkedSpecialty?.id : dept.linkedSpecialty
+          const isPrimaryLinked = !currentLinkedId || Number(currentLinkedId) === Number(doc.id)
+
+          if (!currentLinkedId) {
+            patch.linkedSpecialty = doc.id
+          }
+          if ((isPrimaryLinked || !dept.summary) && doc.summary && dept.summary !== doc.summary) {
+            patch.summary = doc.summary
+          }
+          if ((isPrimaryLinked || isEmptyRT(dept.content)) && !isEmptyRT(doc.content)) {
+            patch.content = doc.content
+          }
+          if ((isPrimaryLinked || isEmptyRT(dept.services)) && !isEmptyRT(doc.services)) {
+            patch.services = doc.services
+          }
+          const docCoverId = typeof doc.cover === 'object' ? doc.cover?.id : doc.cover
+          const deptCoverId = typeof dept.cover === 'object' ? dept.cover?.id : dept.cover
+          if ((isPrimaryLinked || !deptCoverId) && docCoverId && deptCoverId !== docCoverId) {
+            patch.cover = docCoverId
+          }
+          const docSubCoverId = typeof doc.subCover === 'object' ? doc.subCover?.id : doc.subCover
+          const deptSubCoverId = typeof dept.subCover === 'object' ? dept.subCover?.id : dept.subCover
+          if ((isPrimaryLinked || !deptSubCoverId) && docSubCoverId && deptSubCoverId !== docSubCoverId) {
+            patch.subCover = docSubCoverId
+          }
+          if ((isPrimaryLinked || !dept.tagline) && doc.tagline && dept.tagline !== doc.tagline) {
+            patch.tagline = doc.tagline
+          }
+          if (isPrimaryLinked && doc.icon && dept.icon !== doc.icon) {
+            patch.icon = doc.icon
+          }
+          const docIconUploadId =
+            typeof doc.iconCustomUpload === 'object' ? doc.iconCustomUpload?.id : doc.iconCustomUpload
+          const deptIconUploadId =
+            typeof dept.iconCustomUpload === 'object' ? dept.iconCustomUpload?.id : dept.iconCustomUpload
+          if ((isPrimaryLinked || !deptIconUploadId) && docIconUploadId && deptIconUploadId !== docIconUploadId) {
+            patch.iconCustomUpload = docIconUploadId
+          }
+          if (isPrimaryLinked && doc.coverFitHome && dept.coverFitHome !== doc.coverFitHome) {
+            patch.coverFitHome = doc.coverFitHome
+          }
+          if (isPrimaryLinked && doc.coverFitDetail && dept.coverFitDetail !== doc.coverFitDetail) {
+            patch.coverFitDetail = doc.coverFitDetail
+          }
+          if (isPrimaryLinked && doc.coverPosition && dept.coverPosition !== doc.coverPosition) {
+            patch.coverPosition = doc.coverPosition
+          }
+          if (
+            (isPrimaryLinked || !Array.isArray(dept.sidebarBanners) || dept.sidebarBanners.length === 0) &&
+            Array.isArray(doc.sidebarBanners) &&
+            doc.sidebarBanners.length > 0
+          ) {
+            patch.sidebarBanners = doc.sidebarBanners.map((b: any) => ({
+              image: typeof b.image === 'object' ? b.image?.id : b.image,
+              title: b.title || '',
+              btnText: b.btnText || '',
+              link: b.link || '',
+              openNewTab: b.openNewTab !== false,
+              desc: b.desc || '',
+            }))
+          }
+
+          if (Object.keys(patch).length > 0) {
+            await req.payload.update({
+              collection: 'departments',
+              id: deptId,
+              data: patch,
+              context: { skipDepartmentSync: true },
+            })
+          }
+        } catch {
+          // Không chặn lưu chuyên khoa nếu đồng bộ tự động gặp lỗi
+        }
+        return doc
+      },
+    ],
   },
   fields: [
     {
