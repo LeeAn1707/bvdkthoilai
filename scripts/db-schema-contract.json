@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "migrationId": "20261101_085_add_media_objectkey_column",
+  "migrationId": "20261102_086_restore_cascade_foreign_keys_and_sync_sequences",
   "schemaSha256": "871c3a9e181b170ccb1fa1bf7e8f94939e561884052cb8d43f5a144cbb358f21"
 }

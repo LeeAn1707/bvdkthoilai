@@ -17,6 +17,19 @@ export const getCMS = async () => {
           ALTER TABLE public."media" ADD COLUMN IF NOT EXISTS "_objectkey" VARCHAR;
           ALTER TABLE public."media" ADD COLUMN IF NOT EXISTS "prefix" VARCHAR;
 
+          DELETE FROM public."navigation_items_children" c
+            WHERE NOT EXISTS (SELECT 1 FROM public."navigation_items" p WHERE p."id" = c."_parent_id");
+          DO $$ BEGIN
+            ALTER TABLE public."navigation_items_children"
+              ADD CONSTRAINT "navigation_items_children_parent_id_fk"
+              FOREIGN KEY ("_parent_id") REFERENCES public."navigation_items"("id") ON DELETE CASCADE;
+          EXCEPTION WHEN duplicate_object THEN null; END $$;
+          DO $$ BEGIN
+            ALTER TABLE public."navigation_items"
+              ADD CONSTRAINT "navigation_items_parent_id_fk"
+              FOREIGN KEY ("_parent_id") REFERENCES public."navigation"("id") ON DELETE CASCADE;
+          EXCEPTION WHEN duplicate_object THEN null; END $$;
+
           DO $$ BEGIN
             CREATE TYPE public."enum_doctors_avatar_display_mode" AS ENUM (
               'inherit', 'zoom-out-2-3', 'zoom-out-wide', 'zoom-out-medium',

@@ -267,6 +267,7 @@ const KNOWN_SAFE_CHECKSUM_UPDATE_IDS = new Set([
   '20261101_083_add_expert_image_scale_controls',
   '20261101_084_add_expert_image_display_modes',
   '20261101_085_add_media_objectkey_column',
+  '20261102_086_restore_cascade_foreign_keys_and_sync_sequences',
 ])
 
 async function validateAndReconcileHistory(client, migrations, appliedMigrations) {
