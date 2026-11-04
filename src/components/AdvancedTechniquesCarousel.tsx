@@ -7,6 +7,8 @@ export type TechniqueItem = {
   id?: string
   title: string
   badge?: string
+  summary?: string
+  departmentName?: string
   image?: string
   imageFit?: 'contain' | 'cover' | string
   url?: string
@@ -53,7 +55,7 @@ export function AdvancedTechniquesCarousel({
   if (!total) {
     return (
       <div className="professionalEmpty">
-        Chưa có kỹ thuật chuyên sâu nào được kích hoạt. Hãy thêm kỹ thuật trong phần Cấu hình Trang chủ.
+        Chưa có kỹ thuật chuyên sâu nào được kích hoạt. Hãy thêm kỹ thuật trong phần Cấu hình Trang chủ hoặc mục Kỹ thuật chuyên sâu.
       </div>
     )
   }
@@ -93,6 +95,15 @@ export function AdvancedTechniquesCarousel({
     ? { color: cardBarTextColor }
     : undefined
 
+  const renderImageFitClass = (fit?: string) => {
+    if (fit === 'contain') return styles.fitContain
+    if (fit === 'cover' || fit === 'cover-top') return styles.fitCoverTop
+    if (fit === 'cover-center') return styles.fitCoverCenter
+    if (fit === 'cover-bottom') return styles.fitCoverBottom
+    if (fit === 'fill') return styles.fitFill
+    return styles.fitCoverTop
+  }
+
   return (
     <div
       className={styles.techCarouselWrapper}
@@ -106,22 +117,12 @@ export function AdvancedTechniquesCarousel({
         {visibleItems.map((item, idx) => {
           const content = (
             <div className={styles.techCard}>
-              <div className={styles.techCardImage}>
+              <div className={styles.techCardMediaWrap}>
                 {item.image ? (
                   <img
                     src={item.image}
                     alt={item.title}
-                    className={`${styles.techCardImg} ${
-                      item.imageFit === 'cover' || item.imageFit === 'cover-top'
-                        ? styles.fitCoverTop
-                        : item.imageFit === 'cover-center'
-                        ? styles.fitCoverCenter
-                        : item.imageFit === 'cover-bottom'
-                        ? styles.fitCoverBottom
-                        : item.imageFit === 'fill'
-                        ? styles.fitFill
-                        : styles.fitContain
-                    }`}
+                    className={`${styles.techCardImg} ${renderImageFitClass(item.imageFit)}`}
                     loading="lazy"
                   />
                 ) : (
@@ -131,16 +132,41 @@ export function AdvancedTechniquesCarousel({
                     </svg>
                   </div>
                 )}
+
+                <div className={styles.techCardOverlay} />
+
                 {item.badge && (
                   <span className={styles.techCardBadge}>
-                    {item.badge}
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                    <span>{item.badge}</span>
                   </span>
                 )}
               </div>
-              <div className={styles.techCardFooter} style={footerCustomStyle}>
+
+              <div className={styles.techCardBody} style={footerCustomStyle}>
+                {item.departmentName && (
+                  <span className={styles.techCardKicker}>{item.departmentName}</span>
+                )}
+
                 <h3 className={styles.techCardTitle} style={titleCustomStyle}>
                   {item.title}
                 </h3>
+
+                <p className={styles.techCardSummary}>
+                  {item.summary || 'Ứng dụng trang thiết bị y tế hiện đại, nâng cao độ chính xác và chất lượng chăm sóc điều trị.'}
+                </p>
+
+                <div className={styles.techCardAction}>
+                  <span className={styles.techActionText}>Xem chi tiết kỹ thuật</span>
+                  <span className={styles.techActionIcon}>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                      <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                  </span>
+                </div>
               </div>
             </div>
           )
@@ -181,6 +207,19 @@ export function AdvancedTechniquesCarousel({
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
+
+          <div className={styles.techCarouselDots} aria-hidden="true">
+            {Array.from({ length: total }).map((_, dotIdx) => (
+              <button
+                key={`dot-${dotIdx}`}
+                type="button"
+                className={`${styles.techDot} ${dotIdx === currentIndex ? styles.techDotActive : ''}`}
+                onClick={() => setCurrentIndex(dotIdx)}
+                aria-label={`Chuyển tới kỹ thuật số ${dotIdx + 1}`}
+                title={`Kỹ thuật ${dotIdx + 1}/${total}`}
+              />
+            ))}
+          </div>
 
           <button
             type="button"
