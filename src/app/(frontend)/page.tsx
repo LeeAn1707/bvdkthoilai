@@ -1166,6 +1166,13 @@ export default async function HomePage() {
 
 
           if (type === 'advanced-techniques') {
+            const formatDeptBadge = (name?: string) => {
+              if (!name) return undefined
+              return name
+                .replace(/Khoa Xét nghiệm - Chẩn đoán hình ảnh/gi, 'Khoa Xét nghiệm - CĐHA')
+                .replace(/Khoa Hồi sức tích cực - Chống độc/gi, 'Khoa HSTC - CĐ')
+            }
+
             const collectionSlides = advancedTechniques.map((tech: any) => {
               const isLinkEnabled = tech.enableLink !== false
               const autoUrl = isLinkEnabled ? (tech.customUrl || `/ky-thuat-chuyen-sau/${tech.slug}`) : undefined
@@ -1173,7 +1180,7 @@ export default async function HomePage() {
               return {
                 id: tech.id,
                 title: tech.title,
-                badge: tech.badge || deptName || 'Kỹ thuật cao',
+                badge: tech.badge || formatDeptBadge(deptName) || 'Kỹ thuật cao',
                 summary: tech.summary || undefined,
                 departmentName: deptName,
                 image: mediaUrl(tech.cover) || '',
@@ -1193,7 +1200,7 @@ export default async function HomePage() {
                 : undefined
               const autoTitle = tech.title || linkedDoc?.title || 'Kỹ thuật chuyên sâu'
               const deptName = typeof linkedDoc?.department === 'object' && linkedDoc.department?.name ? linkedDoc.department.name : undefined
-              const autoBadge = tech.badge || linkedDoc?.badge || deptName || 'Kỹ thuật cao'
+              const autoBadge = tech.badge || linkedDoc?.badge || formatDeptBadge(deptName) || 'Kỹ thuật cao'
               const autoSummary = linkedDoc?.summary || tech.summary || undefined
               const autoImage = mediaUrl(tech.image) || (linkedDoc?.cover ? mediaUrl(linkedDoc.cover) : '')
               const autoFit = tech.imageFit || linkedDoc?.imageFit || 'cover'

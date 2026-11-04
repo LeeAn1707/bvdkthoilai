@@ -146,10 +146,6 @@ export function AdvancedTechniquesCarousel({
               </div>
 
               <div className={styles.techCardBody} style={footerCustomStyle}>
-                {item.departmentName && (
-                  <span className={styles.techCardKicker}>{item.departmentName}</span>
-                )}
-
                 <h3 className={styles.techCardTitle} style={titleCustomStyle}>
                   {item.title}
                 </h3>

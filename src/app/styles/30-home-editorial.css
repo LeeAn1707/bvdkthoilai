@@ -693,11 +693,11 @@
 
 /* Đồng bộ Kỹ thuật chuyên sâu màu xanh thương hiệu bệnh viện */
 .homePortalPage .homeAdvancedTechniquesSection {
-  background: var(--section-background, linear-gradient(180deg, #f3f8fc 0%, #ffffff 100%));
+  background: var(--section-background, linear-gradient(180deg, #f4f9fd 0%, #ffffff 100%));
   border-top: 1px solid #e1ecf5;
   border-bottom: 1px solid #e1ecf5;
-  padding-top: 44px;
-  padding-bottom: 52px;
+  padding-top: 32px;
+  padding-bottom: 34px;
 }
 
 /* ==========================================================================
