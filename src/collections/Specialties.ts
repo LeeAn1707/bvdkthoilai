@@ -37,6 +37,7 @@ export const Specialties: CollectionConfig = {
               collection: 'departments',
               id: deptId,
               depth: 0,
+              req,
             })
             if (dept?.name) {
               record.name = dept.name
@@ -65,6 +66,7 @@ export const Specialties: CollectionConfig = {
             collection: 'departments',
             id: deptId,
             depth: 0,
+            req,
           })
           if (!dept || dept.syncFromSpecialty === false) return doc
 
@@ -151,6 +153,7 @@ export const Specialties: CollectionConfig = {
               collection: 'departments',
               id: deptId,
               data: patch,
+              req,
               context: { skipDepartmentSync: true },
             })
           }
