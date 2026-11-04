@@ -183,7 +183,7 @@ export default async function HomePage() {
       payload.find({ collection: 'vaccinePrices', where: { active: { equals: true } }, limit: 1000, sort: '-effectiveFrom', depth: 1 }).catch(() => ({ docs: [], totalDocs: 0 })),
       payload.find({ collection: 'content-sections', where: { and: [{ active: { equals: true } }, { _status: { equals: 'published' } }] }, limit: 100, sort: 'title', depth: 1 }).catch(() => ({ docs: [], totalDocs: 0 })),
       payload.find({ collection: 'custom-posts', where: { _status: { equals: 'published' } }, limit: 300, sort: '-publishedAt', depth: 2 }).catch(() => ({ docs: [], totalDocs: 0 })),
-      payload.find({ collection: 'advanced-techniques', where: { active: { equals: true } }, limit: 50, sort: ['order', 'title'], depth: 1 }).catch(() => ({ docs: [], totalDocs: 0 })),
+      payload.find({ collection: 'advanced-techniques', where: { active: { equals: true } }, limit: 50, sort: ['order', 'title'], depth: 2 }).catch(() => ({ docs: [], totalDocs: 0 })),
       payload.find({ collection: 'our-experts', where: { active: { equals: true } }, limit: 50, sort: ['order', 'name'], depth: 2 }).catch(() => ({ docs: [] })),
       payload.find({ collection: 'scientific-activities', where: { _status: { equals: 'published' } }, limit: 100, sort: ['-featured', '-publishedAt'], depth: 1 }).catch(() => ({ docs: [] })),
       payload.find({ collection: 'scientific-activity-groups', where: { active: { equals: true } }, limit: 100, sort: ['order', 'name'], depth: 0 }).catch(() => ({ docs: [] })),
@@ -1169,12 +1169,15 @@ export default async function HomePage() {
             const collectionSlides = advancedTechniques.map((tech: any) => {
               const isLinkEnabled = tech.enableLink !== false
               const autoUrl = isLinkEnabled ? (tech.customUrl || `/ky-thuat-chuyen-sau/${tech.slug}`) : undefined
+              const deptName = typeof tech.department === 'object' && tech.department?.name ? tech.department.name : undefined
               return {
                 id: tech.id,
                 title: tech.title,
-                badge: tech.badge || undefined,
+                badge: tech.badge || deptName || 'Kỹ thuật cao',
+                summary: tech.summary || undefined,
+                departmentName: deptName,
                 image: mediaUrl(tech.cover) || '',
-                imageFit: tech.imageFit || 'contain',
+                imageFit: tech.imageFit || 'cover',
                 url: autoUrl,
                 openNewTab: false,
                 visible: tech.active !== false,
@@ -1189,13 +1192,17 @@ export default async function HomePage() {
                 ? (linkedDoc?.slug ? `/ky-thuat-chuyen-sau/${linkedDoc.slug}` : (tech.url || undefined))
                 : undefined
               const autoTitle = tech.title || linkedDoc?.title || 'Kỹ thuật chuyên sâu'
-              const autoBadge = tech.badge || linkedDoc?.badge || undefined
+              const deptName = typeof linkedDoc?.department === 'object' && linkedDoc.department?.name ? linkedDoc.department.name : undefined
+              const autoBadge = tech.badge || linkedDoc?.badge || deptName || 'Kỹ thuật cao'
+              const autoSummary = linkedDoc?.summary || tech.summary || undefined
               const autoImage = mediaUrl(tech.image) || (linkedDoc?.cover ? mediaUrl(linkedDoc.cover) : '')
-              const autoFit = tech.imageFit || linkedDoc?.imageFit || 'contain'
+              const autoFit = tech.imageFit || linkedDoc?.imageFit || 'cover'
               return {
                 id: tech.id || `tech-${techIdx}`,
                 title: autoTitle,
                 badge: autoBadge,
+                summary: autoSummary,
+                departmentName: deptName,
                 image: autoImage,
                 imageFit: autoFit,
                 url: autoUrl,
