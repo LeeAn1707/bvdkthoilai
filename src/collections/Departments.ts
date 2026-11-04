@@ -39,6 +39,7 @@ export const Departments: CollectionConfig = {
     beforeValidate: [
       async ({ data, originalDoc, req }) => {
         const record: any = data || {}
+        if ((req as any)?.context?.skipDepartmentSync) return record
         const syncEnabled = record.syncFromSpecialty ?? originalDoc?.syncFromSpecialty ?? true
         if (!syncEnabled) return record
 
@@ -58,6 +59,7 @@ export const Departments: CollectionConfig = {
               collection: 'specialties',
               id: linkedSpecId,
               depth: 0,
+              req,
             })
           } else if (deptId) {
             const found = await req.payload.find({
@@ -66,6 +68,7 @@ export const Departments: CollectionConfig = {
               sort: ['order', '-updatedAt'],
               limit: 1,
               depth: 0,
+              req,
             })
             specDoc = found.docs?.[0] || null
           } else if (record.slug || originalDoc?.slug) {
@@ -75,6 +78,7 @@ export const Departments: CollectionConfig = {
               where: { slug: { equals: slugToMatch } },
               limit: 1,
               depth: 0,
+              req,
             })
             specDoc = found.docs?.[0] || null
           }
