@@ -204,19 +204,6 @@ export function AdvancedTechniquesCarousel({
             </svg>
           </button>
 
-          <div className={styles.techCarouselDots} aria-hidden="true">
-            {Array.from({ length: total }).map((_, dotIdx) => (
-              <button
-                key={`dot-${dotIdx}`}
-                type="button"
-                className={`${styles.techDot} ${dotIdx === currentIndex ? styles.techDotActive : ''}`}
-                onClick={() => setCurrentIndex(dotIdx)}
-                aria-label={`Chuyển tới kỹ thuật số ${dotIdx + 1}`}
-                title={`Kỹ thuật ${dotIdx + 1}/${total}`}
-              />
-            ))}
-          </div>
-
           <button
             type="button"
             className={styles.techNavBtn}

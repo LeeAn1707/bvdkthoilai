@@ -255,12 +255,12 @@
   box-shadow: 0 3px 8px rgba(8, 120, 209, 0.28);
 }
 
-/* BỘ ĐIỀU HƯỚNG CAROUSEL & CHẤM CHỈ BÁO */
+/* BỘ ĐIỀU HƯỚNG CAROUSEL */
 .techCarouselControls {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   margin-top: 18px;
 }
 
@@ -303,34 +303,6 @@
   transform: scale(0.95);
 }
 
-.techCarouselDots {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 4px;
-}
-
-.techDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: #dce8f1;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.techDot:hover {
-  background-color: #9ac7ec;
-}
-
-.techDotActive {
-  width: 20px;
-  border-radius: 999px;
-  background-color: #0878d1;
-  box-shadow: 0 2px 6px rgba(8, 120, 209, 0.35);
-}
 
 /* RESPONSIVE */
 @media (max-width: 1080px) {
