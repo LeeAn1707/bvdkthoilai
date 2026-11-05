@@ -4243,8 +4243,8 @@ body {
   background: var(--section-background, linear-gradient(180deg, #f4f9fd 0%, #ffffff 100%));
   border-top: 1px solid #e2ecf5;
   border-bottom: 1px solid #e2ecf5;
-  padding-top: var(--section-padding-top, 44px);
-  padding-bottom: var(--section-padding-bottom, 52px);
+  padding-top: var(--section-padding-top, 32px);
+  padding-bottom: var(--section-padding-bottom, 34px);
 }
 .homeOurExpertsSection {
   background: var(--section-background, transparent);

@@ -7,7 +7,7 @@
 .techCarouselTrack {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 22px;
+  gap: 16px;
 }
 
 .techCarouselTrack[data-count="1"] {
@@ -36,7 +36,7 @@
   height: 100%;
   text-decoration: none;
   color: inherit;
-  border-radius: 20px;
+  border-radius: 18px;
   outline: none;
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -46,12 +46,12 @@
 }
 
 .techCardLink:hover:not(.noCursor) {
-  transform: translateY(-6px);
+  transform: translateY(-5px);
 }
 
 .techCardLink:hover:not(.noCursor) .techCard {
   border-color: #0878d1;
-  box-shadow: 0 20px 42px rgba(8, 120, 209, 0.16), 0 4px 12px rgba(7, 43, 76, 0.06);
+  box-shadow: 0 16px 36px rgba(8, 120, 209, 0.15), 0 3px 10px rgba(7, 43, 76, 0.05);
 }
 
 .techCard {
@@ -60,10 +60,10 @@
   height: 100%;
   width: 100%;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 18px;
   background-color: #ffffff;
   border: 1.5px solid #dce8f1;
-  box-shadow: 0 8px 26px rgba(7, 43, 76, 0.05), 0 2px 6px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 6px 20px rgba(7, 43, 76, 0.04), 0 1px 4px rgba(0, 0, 0, 0.02);
   transition: border-color 0.28s ease, box-shadow 0.28s ease;
   box-sizing: border-box;
 }
@@ -90,7 +90,7 @@
 }
 
 .techCardLink:hover:not(.noCursor) .techCardImg {
-  transform: scale(1.06);
+  transform: scale(1.05);
 }
 
 /* Các tùy chọn hiển thị linh hoạt */
@@ -125,21 +125,21 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(7, 43, 76, 0) 65%, rgba(7, 43, 76, 0.32) 100%);
+  background: linear-gradient(180deg, rgba(7, 43, 76, 0) 65%, rgba(7, 43, 76, 0.28) 100%);
   transition: opacity 0.3s ease;
 }
 
 .techCardLink:hover:not(.noCursor) .techCardOverlay {
-  opacity: 0.85;
+  opacity: 0.8;
 }
 
 /* HUY HIỆU (BADGE) GẮN TRÊN ẢNH */
 .techCardBadge {
   position: absolute;
-  top: 12px;
-  left: 12px;
+  top: 10px;
+  left: 10px;
   z-index: 2;
-  padding: 5px 12px;
+  padding: 4px 10px;
   background-color: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -147,13 +147,13 @@
   color: #0878d1;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   border-radius: 999px;
-  box-shadow: 0 3px 10px rgba(7, 43, 76, 0.12);
+  box-shadow: 0 2px 8px rgba(7, 43, 76, 0.1);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  max-width: calc(100% - 24px);
+  gap: 4px;
+  max-width: calc(100% - 20px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -179,7 +179,7 @@
 
 /* THÂN THẺ & NỘI DUNG */
 .techCardBody {
-  padding: 16px 18px 18px;
+  padding: 14px 16px 14px;
   background-color: #ffffff;
   display: flex;
   flex-direction: column;
@@ -187,25 +187,11 @@
   box-sizing: border-box;
 }
 
-.techCardKicker {
-  font-size: 10.5px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #0878d1;
-  letter-spacing: 0.6px;
-  margin-bottom: 5px;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 .techCardTitle {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1.38;
+  margin: 0 0 6px;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.35;
   color: #072b4c;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -213,7 +199,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   transition: color 0.2s ease;
-  min-height: 41px;
+  min-height: 39px;
 }
 
 .techCardLink:hover:not(.noCursor) .techCardTitle {
@@ -221,21 +207,21 @@
 }
 
 .techCardSummary {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   font-size: 12.5px;
   color: #5a738e;
-  line-height: 1.48;
+  line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  flex: 1 1 auto;
+  min-height: 36px;
 }
 
 /* DÒNG HÀNH ĐỘNG CHI TIẾT (CTA) */
 .techCardAction {
-  padding-top: 11px;
+  padding-top: 10px;
   border-top: 1px solid #edf3f8;
   display: flex;
   align-items: center;
@@ -251,8 +237,8 @@
 }
 
 .techActionIcon {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background-color: #f0f7fd;
   color: #0878d1;
@@ -266,7 +252,7 @@
   background-color: #0878d1;
   color: #ffffff;
   transform: translateX(3px);
-  box-shadow: 0 3px 10px rgba(8, 120, 209, 0.28);
+  box-shadow: 0 3px 8px rgba(8, 120, 209, 0.28);
 }
 
 /* BỘ ĐIỀU HƯỚNG CAROUSEL & CHẤM CHỈ BÁO */
@@ -274,13 +260,13 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
-  margin-top: 26px;
+  gap: 14px;
+  margin-top: 18px;
 }
 
 .techNavBtn {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 1.5px solid #0878d1;
   background-color: #ffffff;
@@ -289,7 +275,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(8, 120, 209, 0.12);
+  box-shadow: 0 2px 8px rgba(8, 120, 209, 0.12);
   transition: all 0.22s ease;
   user-select: none;
   padding: 0;
@@ -305,8 +291,8 @@
   background-color: #0878d1;
   border-color: #0878d1;
   color: #ffffff;
-  transform: scale(1.08);
-  box-shadow: 0 6px 16px rgba(8, 120, 209, 0.28);
+  transform: scale(1.06);
+  box-shadow: 0 4px 14px rgba(8, 120, 209, 0.25);
 }
 
 .techNavBtn:hover svg {
@@ -314,7 +300,7 @@
 }
 
 .techNavBtn:active {
-  transform: scale(0.94);
+  transform: scale(0.95);
 }
 
 .techCarouselDots {
@@ -340,7 +326,7 @@
 }
 
 .techDotActive {
-  width: 22px;
+  width: 20px;
   border-radius: 999px;
   background-color: #0878d1;
   box-shadow: 0 2px 6px rgba(8, 120, 209, 0.35);
@@ -351,7 +337,7 @@
   .techCarouselTrack,
   .techCarouselTrack[data-count="4"] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
+    gap: 14px;
   }
 }
 
@@ -360,7 +346,7 @@
   .techCarouselTrack[data-count="3"],
   .techCarouselTrack[data-count="4"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 12px;
   }
 }
 
@@ -378,10 +364,11 @@
     display: none !important;
   }
   .techCardTitle {
-    font-size: 14.5px;
+    font-size: 14px;
     min-height: auto;
   }
   .techCardSummary {
     font-size: 12px;
+    min-height: auto;
   }
 }
