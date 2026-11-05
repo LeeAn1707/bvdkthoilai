@@ -521,7 +521,6 @@ export default async function SpecialtyDetail({ params }: Props) {
                         const avatarUrl = mediaUrl(d.avatar)
                         const degreePrefix = d.degree ? `${d.degree}. ` : ''
                         const fullDoctorName = `${degreePrefix}${d.name}`
-                        const doctorRole = d.title || (typeof d.department === 'object' ? d.department?.name : '') || 'Bác sĩ chuyên khoa'
 
                         return (
                           <Link
@@ -548,7 +547,9 @@ export default async function SpecialtyDetail({ params }: Props) {
                               )}
                             </div>
 
-                            <span className="specialtyDocBadgeRole">{doctorRole}</span>
+                            {d.title?.trim() && (
+                              <span className="specialtyDocBadgeRole">{d.title.trim()}</span>
+                            )}
                             <h3 className="specialtyDocName">{fullDoctorName}</h3>
                             {d.professionalTitle && (
                               <span className="specialtyDocDegree">{d.professionalTitle}</span>
