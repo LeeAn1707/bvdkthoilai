@@ -63,8 +63,13 @@ export default async function SpecialtyDetail({ params }: Props) {
       collection: 'doctors',
       where: {
         and: [
-          { specialtyRef: { equals: specialty.id } },
           { active: { equals: true } },
+          {
+            or: [
+              { specialtyRef: { equals: specialty.id } },
+              ...(deptId ? [{ department: { equals: deptId } }] : []),
+            ],
+          },
         ],
       },
       limit: 50,
@@ -114,7 +119,17 @@ export default async function SpecialtyDetail({ params }: Props) {
     return 20
   }
 
-  const rawDoctors = (docResult.docs as any[]).filter((d) => d.showInSpecialty !== false)
+  const rawDoctors = (docResult.docs as any[]).filter((d) => {
+    if (d.showInSpecialty === false) return false
+    // Nếu bác sĩ được gán đích danh vào chuyên khoa con khác thì không hiển thị ở chuyên khoa này
+    if (d.specialtyRef) {
+      const docSpecId = typeof d.specialtyRef === 'object' ? d.specialtyRef.id : d.specialtyRef
+      if (docSpecId && Number(docSpecId) !== Number(specialty.id)) {
+        return false
+      }
+    }
+    return true
+  })
   const doctors = [...rawDoctors].sort((a, b) => {
     const rankA = getDoctorRank(a)
     const rankB = getDoctorRank(b)
